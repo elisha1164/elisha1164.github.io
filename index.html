@@ -291,10 +291,17 @@
                     // 清空原本寫死的選項
                     modelSelector.innerHTML = '';
                     
-                    // 過濾出包含 gemini 且支援 generateContent 的文字生成模型
+                    // 1. 強制加回 gemini-flash-latest 別名 (API 清單中通常不會直接列出此別名)
+                    const latestOpt = document.createElement('option');
+                    latestOpt.value = 'gemini-flash-latest';
+                    latestOpt.textContent = 'Gemini Flash Latest (最新快速/預設)';
+                    modelSelector.appendChild(latestOpt);
+                    
+                    // 2. 過濾出包含 gemini 且支援 generateContent 的文字生成模型
                     const geminiModels = data.models.filter(m => 
                         m.name.includes('gemini') && 
-                        m.supportedGenerationMethods.includes('generateContent')
+                        m.supportedGenerationMethods.includes('generateContent') &&
+                        m.name.replace('models/', '') !== 'gemini-flash-latest' // 避免萬一 API 未來回傳了導致重複
                     );
 
                     geminiModels.forEach(model => {
@@ -306,14 +313,13 @@
                         modelSelector.appendChild(option);
                     });
 
-                    // 嘗試還原使用者之前的選擇，如果官方清單裡還有這個模型的話
+                    // 嘗試還原使用者之前的選擇，如果官方清單裡或別名裡有這個模型的話
                     const optionsArray = Array.from(modelSelector.options);
                     if (optionsArray.some(opt => opt.value === targetModel)) {
                         modelSelector.value = targetModel;
                     } else {
-                        // 如果原本選的找不到了，嘗試預設為 gemini-flash-latest
-                        const defaultOpt = optionsArray.find(opt => opt.value === 'gemini-flash-latest') || optionsArray.find(opt => opt.value.includes('flash'));
-                        if (defaultOpt) modelSelector.value = defaultOpt.value;
+                        // 如果原本選的找不到了，安全地預設為 gemini-flash-latest
+                        modelSelector.value = 'gemini-flash-latest';
                     }
                 }
             } catch (err) {
