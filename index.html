@@ -297,11 +297,15 @@
                     latestOpt.textContent = 'Gemini Flash Latest (最新快速/預設)';
                     modelSelector.appendChild(latestOpt);
                     
-                    // 2. 過濾出包含 gemini 且支援 generateContent 的文字生成模型
+                    // 定義要排除的非純文字/特殊模型關鍵字
+                    const excludeKeywords = ['image', 'vision', 'audio', 'embedding', 'tts', 'aqa'];
+
+                    // 2. 過濾出包含 gemini 且支援 generateContent 的文字生成模型，並排除特定非純文字模型
                     const geminiModels = data.models.filter(m => 
                         m.name.includes('gemini') && 
                         m.supportedGenerationMethods.includes('generateContent') &&
-                        m.name.replace('models/', '') !== 'gemini-flash-latest' // 避免萬一 API 未來回傳了導致重複
+                        m.name.replace('models/', '') !== 'gemini-flash-latest' && // 避免萬一 API 未來回傳了導致重複
+                        !excludeKeywords.some(keyword => m.name.toLowerCase().includes(keyword))
                     );
 
                     geminiModels.forEach(model => {
