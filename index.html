@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>全年讀經與 AI 翻譯朗讀助手</title>
+    <!-- 引入 Tailwind CSS (用於快速排版) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 PapaParse (用於解析 CSV) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <style>
+        body { font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; }
+        /* 隱藏捲軸但保留捲動功能，讓介面更乾淨 */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-stone-100 text-stone-800 min-h-screen pb-10">
+
+    <div class="max-w-5xl mx-auto p-4 sm:p-6 lg:p-8">
+        <!-- 標題區 -->
+        <header class="text-center mb-8">
+            <h1 class="text-3xl sm:text-4xl font-bold text-stone-700 mb-2">📖 全年讀經 AI 助手</h1>
+            <p class="text-stone-500" id="statusText">正在初始化系統...</p>
+        </header>
+
+        <!-- 設定區 (API Key, 模型與進度) -->
+        <section class="bg-white rounded-2xl shadow-sm p-6 mb-8 border border-stone-200">
+            <div class="flex flex-col md:flex-row gap-4 items-end">
+                <div class="flex-grow w-full md:w-2/5">
+                    <label class="block text-sm font-medium text-stone-600 mb-1">🔑 設定 Gemini API Key</label>
+                    <input type="password" id="apiKeyInput" placeholder="請貼上您的 Google Gemini API Key" 
+                        class="w-full px-4 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition">
+                </div>
+                <div class="w-full md:w-1/4">
+                    <label class="block text-sm font-medium text-stone-600 mb-1">🧠 選擇 AI 模型</label>
+                    <select id="modelSelector" class="w-full px-4 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition bg-white">
+                        <option value="gemini-2.5-flash">Gemini 2.5 Flash (快速/預設)</option>
+                        <option value="gemini-2.5-pro">Gemini 2.5 Pro (進階翻譯)</option>
+                        <option value="gemini-3.0-pro">Gemini 3.0 Pro (最新高階)</option>
+                    </select>
+                </div>
+                <div class="w-full md:w-1/4">
+                    <label class="block text-sm font-medium text-stone-600 mb-1">📅 Day 1 開始日期</label>
+                    <input type="date" id="startDateInput" class="w-full px-4 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition bg-white">
+                </div>
+                <button id="saveKeyBtn" class="w-full md:w-auto bg-stone-800 text-white px-6 py-2 rounded-lg hover:bg-stone-700 transition font-medium whitespace-nowrap">
+                    儲存設定
+                </button>
+            </div>
+            <p id="keyStatus" class="text-xs text-amber-600 mt-2 hidden">設定已安全儲存！</p>
+        </section>
+
+        <!-- 閱讀主體區 -->
+        <section id="readingSection" class="opacity-50 pointer-events-none transition-opacity duration-300">
+            <!-- 天數切換器 -->
+            <div class="flex items-center justify-between bg-stone-800 text-stone-100 rounded-2xl p-4 shadow-lg mb-6">
+                <button id="prevDayBtn" class="p-2 hover:bg-stone-700 rounded-full transition disabled:opacity-50">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                </button>
+                <div class="flex items-center space-x-3">
+                    <span class="font-medium text-lg">Day</span>
+                    <input type="number" id="daySelector" min="1" max="358" value="1" 
+                        class="w-20 text-center bg-stone-700 border-none rounded-lg py-1 px-2 focus:ring-2 focus:ring-amber-500 text-xl font-bold outline-none">
+                    <span class="text-stone-400">/ 358</span>
+                </div>
+                <button id="nextDayBtn" class="p-2 hover:bg-stone-700 rounded-full transition disabled:opacity-50">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                </button>
+            </div>
+
+            <!-- 內容顯示卡片 -->
+            <div class="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden flex flex-col">
+                
+                <!-- 每日標題 -->
+                <div class="bg-amber-50 border-b border-amber-100 p-6 text-center">
+                    <h3 id="displayTitle" class="text-2xl sm:text-3xl font-bold text-stone-800 tracking-tight">載入中...</h3>
+                </div>
+
+                <div class="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6 flex-grow">
+                    <!-- 左側：原始英文內文 -->
+                    <div class="flex flex-col h-full">
+                        <div class="flex justify-between items-center mb-3">
+                            <h4 class="font-semibold text-stone-700 flex items-center">
+                                📝 原始英文內容
+                            </h4>
+                        </div>
+                        <div id="originalText" class="w-full flex-grow h-[400px] overflow-y-auto no-scrollbar p-5 bg-stone-50 border border-stone-200 rounded-xl text-stone-600 leading-relaxed text-lg whitespace-pre-wrap font-serif"></div>
+                    </div>
+
+                    <!-- 右側：AI 翻譯與朗讀結果 -->
+                    <div class="flex flex-col h-full">
+                        <div class="flex flex-wrap gap-2 justify-between items-center mb-3">
+                            <h4 class="font-semibold text-stone-700 flex items-center">
+                                ✨ AI 翻譯結果
+                            </h4>
+                            <div class="flex gap-2">
+                                <button id="translateBtn" class="bg-amber-100 text-amber-800 hover:bg-amber-200 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center shadow-sm">
+                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                                    AI 翻譯
+                                </button>
+                                <button id="playBtn" class="bg-stone-800 text-white hover:bg-stone-700 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center shadow-sm">
+                                    <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
+                                    朗讀
+                                </button>
+                                <button id="stopBtn" class="bg-red-100 text-red-700 hover:bg-red-200 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center shadow-sm hidden">
+                                    <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clip-rule="evenodd"></path></svg>
+                                    停止
+                                </button>
+                            </div>
+                        </div>
+                        <div id="translatedText" class="w-full flex-grow h-[400px] overflow-y-auto no-scrollbar p-5 bg-amber-50/30 border border-amber-200 rounded-xl text-stone-800 leading-relaxed text-lg whitespace-pre-wrap relative">
+                            <span class="text-stone-400 italic absolute top-5 left-5">點擊上方「AI 翻譯」按鈕產生中文內容...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 版權聲明區 -->
+        <footer class="mt-12 pt-8 border-t border-stone-200 text-center text-sm text-stone-500 leading-relaxed">
+            <p class="mb-2">
+                內容版權屬於 <a href="https://bibleproject.com/reading-plans/" target="_blank" rel="noopener noreferrer" class="text-amber-600 hover:text-amber-700 font-medium underline underline-offset-2">BibleProject</a>。因官方目前尚未提供中文翻譯，故暫時製作此介面供讀者使用。
+            </p>
+            <p class="text-xs text-stone-400">
+                Content copyright belongs to <a href="https://bibleproject.com/reading-plans/" target="_blank" rel="noopener noreferrer" class="text-amber-600 hover:text-amber-700 font-medium underline underline-offset-2">BibleProject</a>. This interface was temporarily created because an official Chinese translation is not yet available.
+            </p>
+        </footer>
+
+    </div>
+
+    <script>
+        // --- 變數與狀態 ---
+        let bibleData = {}; // 儲存合併後的資料 { day: { book, chapters, psalms, content } }
+        let currentDay = 1;
+        const synth = window.speechSynthesis;
+
+        // --- DOM 元素 ---
+        const statusText = document.getElementById('statusText');
+        const apiKeyInput = document.getElementById('apiKeyInput');
+        const modelSelector = document.getElementById('modelSelector');
+        const startDateInput = document.getElementById('startDateInput');
+        const saveKeyBtn = document.getElementById('saveKeyBtn');
+        const keyStatus = document.getElementById('keyStatus');
+        const readingSection = document.getElementById('readingSection');
+        
+        const daySelector = document.getElementById('daySelector');
+        const prevDayBtn = document.getElementById('prevDayBtn');
+        const nextDayBtn = document.getElementById('nextDayBtn');
+        
+        const displayTitle = document.getElementById('displayTitle');
+        const originalText = document.getElementById('originalText');
+        const translatedText = document.getElementById('translatedText');
+        
+        const translateBtn = document.getElementById('translateBtn');
+        const playBtn = document.getElementById('playBtn');
+        const stopBtn = document.getElementById('stopBtn');
+
+        // --- 初始化 ---
+        async function init() {
+            // 解析網址參數中的 API Key (?api=YOUR_KEY)
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlApiKey = urlParams.get('api');
+            
+            if (urlApiKey) {
+                localStorage.setItem('gemini_api_key', urlApiKey);
+                // 為了安全起見，讀取後將 API Key 從網址列中移除，避免分享或截圖時外洩
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+
+            // 讀取儲存的 API Key 與模型設定
+            const savedKey = localStorage.getItem('gemini_api_key');
+            const savedModel = localStorage.getItem('gemini_model');
+            const savedStartDate = localStorage.getItem('gemini_start_date');
+            
+            if (savedKey) {
+                apiKeyInput.value = savedKey;
+                keyStatus.classList.remove('hidden');
+            }
+            if (savedModel) {
+                modelSelector.value = savedModel;
+            }
+            if (savedStartDate) {
+                startDateInput.value = savedStartDate;
+            }
+
+            // 綁定事件
+            saveKeyBtn.addEventListener('click', () => {
+                const key = apiKeyInput.value.trim();
+                const model = modelSelector.value;
+                const startDate = startDateInput.value;
+                
+                if (key) localStorage.setItem('gemini_api_key', key);
+                if (model) localStorage.setItem('gemini_model', model);
+                if (startDate) {
+                    localStorage.setItem('gemini_start_date', startDate);
+                    // 重新計算並切換天數
+                    const targetDay = calculateCurrentDay(startDate);
+                    if (targetDay && bibleData && Object.keys(bibleData).length > 0) {
+                        changeDay(targetDay);
+                    }
+                }
+                
+                keyStatus.classList.remove('hidden');
+                keyStatus.textContent = "設定已安全儲存！";
+            });
+
+            daySelector.addEventListener('change', (e) => {
+                let day = parseInt(e.target.value);
+                if (day < 1) day = 1;
+                if (day > 358) day = 358;
+                changeDay(day);
+            });
+
+            prevDayBtn.addEventListener('click', () => changeDay(currentDay - 1));
+            nextDayBtn.addEventListener('click', () => changeDay(currentDay + 1));
+            
+            translateBtn.addEventListener('click', handleTranslation);
+            playBtn.addEventListener('click', handlePlay);
+            stopBtn.addEventListener('click', handleStop);
+
+            // 自動載入 CSV
+            await loadCSVs();
+        }
+
+        // --- 計算推算天數 ---
+        function calculateCurrentDay(startDateStr) {
+            if (!startDateStr) return null;
+            const startDate = new Date(startDateStr);
+            startDate.setHours(0, 0, 0, 0); // 歸零時間，只比對日期
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            const diffTime = today - startDate;
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            
+            let targetDay = diffDays + 1;
+            
+            // 確保在 1 到 358 天的範圍內
+            if (targetDay < 1) targetDay = 1;
+            if (targetDay > 358) targetDay = 358;
+            
+            return targetDay;
+        }
+
+        // --- 載入與解析 CSV ---
+        async function loadCSVs() {
+            statusText.textContent = "正在從伺服器下載 CSV 資料...";
+            
+            try {
+                // 將檔案改為讀取 bible_reading_plan.csv
+                const [metaRes, contentRes] = await Promise.all([
+                    fetch('./bible_metadata.csv'),
+                    fetch('./bible_reading_plan.csv') 
+                ]);
+
+                if (!metaRes.ok || !contentRes.ok) throw new Error("檔案讀取失敗");
+
+                const metaCsvStr = await metaRes.text();
+                const contentCsvStr = await contentRes.text();
+
+                // 解析 Metadata
+                const metaParsed = Papa.parse(metaCsvStr, { header: true, skipEmptyLines: true }).data;
+                // 解析 Content
+                const contentParsed = Papa.parse(contentCsvStr, { header: true, skipEmptyLines: true }).data;
+
+                // --- 核心邏輯：合併資料與填補空白書卷 ---
+                let currentBook = "";
+                bibleData = {};
+
+                // 處理 Metadata (填補空白書卷)
+                metaParsed.forEach(row => {
+                    const day = parseInt(row.Day);
+                    if (isNaN(day)) return;
+
+                    if (row.Book && row.Book.trim() !== "") {
+                        currentBook = row.Book.trim();
+                    }
+
+                    bibleData[day] = {
+                        book: currentBook,
+                        chapters: row.Chapters,
+                        psalms: row.Psalms,
+                        content: "" // 預設空內容
+                    };
+                });
+
+                // 處理 Content (合併內文)
+                contentParsed.forEach(row => {
+                    const day = parseInt(row.Day || row.day);
+                    if (isNaN(day)) return;
+                    
+                    if (bibleData[day]) {
+                        // 抓取原始爬蟲資料的 Content 欄位
+                        const text = row.Content || Object.values(row)[2] || Object.values(row)[1] || "";
+                        bibleData[day].content = text;
+                    }
+                });
+
+                statusText.textContent = "✅ 資料載入成功！";
+                
+                // 解除畫面鎖定
+                readingSection.classList.remove('opacity-50', 'pointer-events-none');
+                
+                // 顯示推算的天數或預設第一天
+                const savedStartDate = localStorage.getItem('gemini_start_date');
+                const initialDay = calculateCurrentDay(savedStartDate) || 1;
+                changeDay(initialDay);
+
+            } catch (error) {
+                console.error("CSV 載入錯誤:", error);
+                statusText.innerHTML = `❌ 載入失敗。<br><span class="text-sm text-red-500">請確認 \`bible_metadata.csv\` 與 \`bible_reading_plan.csv\` 已上傳至同一個資料夾。</span>`;
+            }
+        }
+
+        // --- 切換天數 ---
+        function changeDay(day) {
+            if (day < 1 || day > 358) return;
+            
+            // 停止朗讀
+            handleStop();
+            
+            currentDay = day;
+            daySelector.value = day;
+            
+            const data = bibleData[day];
+            if (!data) {
+                displayTitle.textContent = `找不到 Day ${day} 的資料`;
+                return;
+            }
+
+            // 組合標題
+            const dayStr = day.toString().padStart(3, '0');
+            const visualChapters = data.chapters.replace("-", "到");
+            const title = `全年讀經第${dayStr}天 ${data.book}第${visualChapters}章、詩篇第${data.psalms}篇`;
+            
+            // 更新畫面
+            displayTitle.textContent = title;
+            originalText.textContent = data.content || "此天無內文資料。";
+            
+            // 清空翻譯區
+            translatedText.innerHTML = '<span class="text-stone-400 italic absolute top-5 left-5">點擊上方「AI 翻譯」按鈕產生中文內容...</span>';
+
+            // 更新按鈕狀態
+            prevDayBtn.disabled = (day === 1);
+            nextDayBtn.disabled = (day === 358);
+        }
+
+        // --- 呼叫 Gemini AI 翻譯 ---
+        async function handleTranslation() {
+            const apiKey = localStorage.getItem('gemini_api_key');
+            if (!apiKey) {
+                alert("請先在上方輸入並儲存您的 Gemini API Key！");
+                apiKeyInput.focus();
+                return;
+            }
+
+            const rawText = originalText.textContent;
+            if (!rawText || rawText === "此天無內文資料。") return;
+
+            // 改變按鈕狀態
+            translateBtn.disabled = true;
+            translateBtn.innerHTML = `<svg class="animate-spin w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> 翻譯中...`;
+            translatedText.innerHTML = '<div class="flex h-full items-center justify-center text-amber-600 animate-pulse font-medium">AI 正在努力翻譯中，請稍候...</div>';
+
+            try {
+                // 取得使用者選擇的模型
+                const selectedModel = modelSelector.value;
+                
+                // 呼叫 Gemini REST API
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${apiKey}`;
+                
+                // 🔥 將使用者提供的完整 Prompt 整合進來 🔥
+                const prompt = `角色與目標：
+* 作為一名資深改革宗浸信會（Reformed Baptist）譯者，你的任務是協助台灣信徒翻譯一套全年讀經計畫的每日默想短文。
+* 確保翻譯用語與《聖經和合本2010》（RCUV）保持一致。
+* 翻譯內容必須達到國中生（約13-15歲）能輕易理解的程度，同時嚴格保持神學上的精確性。
+* 考量到譯文將被錄製為音檔，翻譯應偏向口語化，確保受眾能透過『聽覺』輕鬆理解內容。避免無法直接朗讀的符號，如：'3-7節'應作'3到7節'。譯文請以純文字呈現，不應該有任何Markdown。
+* 不要加入原文沒有的段落標題，避免破壞行文流暢。
+* 每天的默想文最後都有幾個反思問題，請加上標號如1、2、3、…。
+
+行為與準則：
+1) 翻譯風格與用詞：
+ a) 使用台灣常用的國語詞彙，避免過於生硬或書面化的宗教術語。
+ b) 引用經文或提及神學名詞時，優先參考《和合本2010》的譯名與語法。
+ c) 句子長度適中，避免過長的從句，以利配音員換氣與聽眾吸收。
+ d) 嚴格遵守神學上的正確性，並體現改革宗浸信會的信仰傳統。
+
+2) 讀者與聽眾導向：
+ a) 想像你是在為一名正在通勤或安靜默想的台灣國中生講解聖經。
+ b) 對於深奧的神學概念（如『因信稱義』、『預定論』等），使用簡單的類比，但不失去改革宗神學的嚴謹本質。
+ c) 確保語氣親切、溫柔且具有啟發性。
+
+3) 輸出流程：
+ a) 接收原始短文後，進行核心神學要點的解析，確保不偏離原意。
+ b) 產出適合口語表達、流暢的繁體中文譯文。
+ c) 針對特定的翻譯選擇或神學詞彙，提供簡短的專業解釋，說明其如何符合《和合本2010》或神學精確性。
+
+整體語調：
+* 專業且具備深厚的神學底蘊。
+* 親切、易於接近，像是一位睿智的導師在耳邊輕聲分享。
+* 專注於台灣在地信徒的理解與語言習慣。
+
+請根據以上指引，翻譯以下英文內容：
+
+${rawText}`;
+
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }],
+                        generationConfig: { temperature: 0.3 }
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error.message);
+                }
+
+                const aiResult = data.candidates[0].content.parts[0].text;
+                
+                // 顯示結果
+                translatedText.textContent = aiResult.trim();
+
+            } catch (error) {
+                console.error("API 錯誤:", error);
+                translatedText.innerHTML = `<span class="text-red-500">❌ 發生錯誤：<br>${error.message} <br><br>請確認您的 API Key 是否正確且有效。</span>`;
+            } finally {
+                // 恢復按鈕狀態
+                translateBtn.disabled = false;
+                translateBtn.innerHTML = `<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg> AI 翻譯`;
+            }
+        }
+
+        // --- Web Speech API 語音朗讀 ---
+        function handlePlay() {
+            let contentToRead = translatedText.textContent;
+            
+            // 防呆機制，若使用者還沒翻譯就按朗讀，阻止它唸英文
+            if (contentToRead.includes("點擊上方") || contentToRead.includes("AI 正在努力翻譯中")) {
+                alert("請先點擊「AI 翻譯」按鈕，等產生中文內容後再進行朗讀喔！");
+                return;
+            }
+
+            // 加上標題一起唸
+            const fullTextToRead = `${displayTitle.textContent}。\n\n${contentToRead}`;
+
+            // 如果正在播放，就先停止
+            if (synth.speaking) {
+                synth.cancel();
+            }
+
+            const utterance = new SpeechSynthesisUtterance(fullTextToRead);
+            
+            // 尋找台灣女聲
+            const voices = synth.getVoices();
+            const twVoice = voices.find(voice => voice.lang.includes('zh-TW') || voice.lang === 'zh-HK' || voice.name.includes('Taiwan'));
+            if (twVoice) {
+                utterance.voice = twVoice;
+            }
+            
+            // 微調語速
+            utterance.rate = 0.95; 
+
+            utterance.onstart = () => {
+                playBtn.classList.add('hidden');
+                stopBtn.classList.remove('hidden');
+            };
+
+            utterance.onend = () => {
+                handleStop();
+            };
+
+            utterance.onerror = (e) => {
+                console.error("語音播放錯誤:", e);
+                handleStop();
+            };
+
+            synth.speak(utterance);
+        }
+
+        function handleStop() {
+            if (synth.speaking) {
+                synth.cancel();
+            }
+            stopBtn.classList.add('hidden');
+            playBtn.classList.remove('hidden');
+        }
+
+        // 確保語音套件載入完成
+        speechSynthesis.onvoiceschanged = () => {};
+
+        // 啟動程式
+        window.addEventListener('DOMContentLoaded', init);
+
+    </script>
+</body>
+</html>
