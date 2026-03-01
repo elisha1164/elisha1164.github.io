@@ -24,31 +24,60 @@
             <p class="text-stone-500" id="statusText">正在初始化系統...</p>
         </header>
 
-        <!-- 設定區 (API Key, 模型與進度) -->
+        <!-- 設定區 (API Key, 模型, 進度與語音) -->
         <section class="bg-white rounded-2xl shadow-sm p-6 mb-8 border border-stone-200">
-            <div class="flex flex-col md:flex-row gap-4 items-end">
-                <div class="flex-grow w-full md:w-2/5">
-                    <label class="block text-sm font-medium text-stone-600 mb-1">🔑 設定 Gemini API Key</label>
-                    <input type="password" id="apiKeyInput" placeholder="請貼上您的 Google Gemini API Key" 
-                        class="w-full px-4 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition">
+            <!-- 使用 Grid 讓排版在不同螢幕上都能整齊排列 -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 items-end">
+                <!-- 1. API Key -->
+                <div class="w-full">
+                    <label class="block text-sm font-medium text-stone-600 mb-1">🔑 Gemini API Key</label>
+                    <input type="password" id="apiKeyInput" placeholder="在此貼上 API Key" 
+                        class="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none transition text-sm">
                 </div>
-                <div class="w-full md:w-1/4">
+                <!-- 2. AI 模型 -->
+                <div class="w-full">
                     <label class="block text-sm font-medium text-stone-600 mb-1">🧠 選擇 AI 模型</label>
-                    <select id="modelSelector" class="w-full px-4 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition bg-white">
+                    <select id="modelSelector" class="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none transition bg-white text-sm text-stone-700">
                         <option value="gemini-2.5-flash">Gemini 2.5 Flash (快速/預設)</option>
                         <option value="gemini-2.5-pro">Gemini 2.5 Pro (進階翻譯)</option>
                         <option value="gemini-3.0-pro">Gemini 3.0 Pro (最新高階)</option>
                     </select>
                 </div>
-                <div class="w-full md:w-1/4">
+                <!-- 3. 開始日期 -->
+                <div class="w-full">
                     <label class="block text-sm font-medium text-stone-600 mb-1">📅 Day 1 開始日期</label>
-                    <input type="date" id="startDateInput" class="w-full px-4 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition bg-white">
+                    <input type="date" id="startDateInput" class="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none transition bg-white text-sm text-stone-700">
                 </div>
-                <button id="saveKeyBtn" class="w-full md:w-auto bg-stone-800 text-white px-6 py-2 rounded-lg hover:bg-stone-700 transition font-medium whitespace-nowrap">
-                    儲存設定
-                </button>
+                <!-- 4. 語音與語速 -->
+                <div class="w-full">
+                    <label class="block text-sm font-medium text-stone-600 mb-1 flex justify-between">
+                        <span>🗣️ 語音與語速</span>
+                        <span class="text-xs text-amber-600 hidden lg:inline" title="強烈建議使用 Edge 瀏覽器開啟以獲得頂級語音！">💡</span>
+                    </label>
+                    <div class="flex gap-2">
+                        <select id="voiceSelector" class="w-2/3 px-2 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none transition bg-white text-sm text-stone-700 truncate">
+                            <option value="">載入語音中...</option>
+                        </select>
+                        <select id="rateSelector" class="w-1/3 px-2 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none transition bg-white text-sm text-stone-700">
+                            <option value="0.8">慢速</option>
+                            <option value="1.0">正常</option>
+                            <option value="1.2" selected>稍快</option>
+                            <option value="1.5">快速</option>
+                        </select>
+                    </div>
+                </div>
             </div>
-            <p id="keyStatus" class="text-xs text-amber-600 mt-2 hidden">設定已安全儲存！</p>
+            
+            <!-- 儲存按鈕列 -->
+            <div class="mt-6 flex items-center justify-between border-t border-stone-100 pt-4">
+                <p class="text-xs text-stone-400">強烈建議使用 <b>Microsoft Edge</b> 瀏覽器開啟此網頁，以獲得最佳的 AI 語音品質。</p>
+                <div class="flex items-center gap-3">
+                    <p id="keyStatus" class="text-sm font-medium text-amber-600 hidden">設定已安全儲存！</p>
+                    <button id="saveKeyBtn" class="bg-stone-800 text-white px-6 py-2 rounded-lg hover:bg-stone-700 transition font-medium whitespace-nowrap text-sm shadow-sm">
+                        儲存全部設定
+                    </button>
+                </div>
+            </div>
         </section>
 
         <!-- 閱讀主體區 -->
@@ -134,12 +163,15 @@
         let bibleData = {}; // 儲存合併後的資料 { day: { book, chapters, psalms, content } }
         let currentDay = 1;
         const synth = window.speechSynthesis;
+        let voices = []; // 儲存系統可用的語音清單
 
         // --- DOM 元素 ---
         const statusText = document.getElementById('statusText');
         const apiKeyInput = document.getElementById('apiKeyInput');
         const modelSelector = document.getElementById('modelSelector');
         const startDateInput = document.getElementById('startDateInput');
+        const voiceSelector = document.getElementById('voiceSelector');
+        const rateSelector = document.getElementById('rateSelector');
         const saveKeyBtn = document.getElementById('saveKeyBtn');
         const keyStatus = document.getElementById('keyStatus');
         const readingSection = document.getElementById('readingSection');
@@ -164,37 +196,38 @@
             
             if (urlApiKey) {
                 localStorage.setItem('gemini_api_key', urlApiKey);
-                // 為了安全起見，讀取後將 API Key 從網址列中移除，避免分享或截圖時外洩
                 window.history.replaceState({}, document.title, window.location.pathname);
             }
 
-            // 讀取儲存的 API Key 與模型設定
+            // 讀取儲存的設定
             const savedKey = localStorage.getItem('gemini_api_key');
             const savedModel = localStorage.getItem('gemini_model');
             const savedStartDate = localStorage.getItem('gemini_start_date');
+            const savedRate = localStorage.getItem('tts_rate');
             
-            if (savedKey) {
-                apiKeyInput.value = savedKey;
-                keyStatus.classList.remove('hidden');
-            }
-            if (savedModel) {
-                modelSelector.value = savedModel;
-            }
-            if (savedStartDate) {
-                startDateInput.value = savedStartDate;
-            }
+            if (savedKey) apiKeyInput.value = savedKey;
+            if (savedModel) modelSelector.value = savedModel;
+            if (savedStartDate) startDateInput.value = savedStartDate;
+            if (savedRate) rateSelector.value = savedRate;
 
             // 綁定事件
             saveKeyBtn.addEventListener('click', () => {
                 const key = apiKeyInput.value.trim();
                 const model = modelSelector.value;
                 const startDate = startDateInput.value;
+                const rate = rateSelector.value;
                 
                 if (key) localStorage.setItem('gemini_api_key', key);
                 if (model) localStorage.setItem('gemini_model', model);
+                if (rate) localStorage.setItem('tts_rate', rate);
+                
+                // 儲存選擇的語音名稱
+                if (voiceSelector.value !== "" && voices[voiceSelector.value]) {
+                    localStorage.setItem('tts_voice_name', voices[voiceSelector.value].name);
+                }
+
                 if (startDate) {
                     localStorage.setItem('gemini_start_date', startDate);
-                    // 重新計算並切換天數
                     const targetDay = calculateCurrentDay(startDate);
                     if (targetDay && bibleData && Object.keys(bibleData).length > 0) {
                         changeDay(targetDay);
@@ -202,7 +235,7 @@
                 }
                 
                 keyStatus.classList.remove('hidden');
-                keyStatus.textContent = "設定已安全儲存！";
+                setTimeout(() => keyStatus.classList.add('hidden'), 3000); // 3秒後隱藏提示
             });
 
             daySelector.addEventListener('change', (e) => {
@@ -219,8 +252,46 @@
             playBtn.addEventListener('click', handlePlay);
             stopBtn.addEventListener('click', handleStop);
 
+            // 載入可用語音清單
+            populateVoiceList();
+            if (speechSynthesis.onvoiceschanged !== undefined) {
+                speechSynthesis.onvoiceschanged = populateVoiceList;
+            }
+
             // 自動載入 CSV
             await loadCSVs();
+        }
+
+        // --- 處理語音清單 ---
+        function populateVoiceList() {
+            // 過濾出與中文相關的語音
+            voices = synth.getVoices().filter(v => v.lang.includes('zh') || v.lang.includes('cmn') || v.name.includes('Taiwan') || v.name.includes('Chinese'));
+            
+            voiceSelector.innerHTML = '';
+            
+            if (voices.length === 0) {
+                voiceSelector.innerHTML = '<option value="">(系統無中文語音)</option>';
+                return;
+            }
+
+            const savedVoiceName = localStorage.getItem('tts_voice_name');
+            
+            voices.forEach((voice, i) => {
+                const option = document.createElement('option');
+                // 美化語音名稱，去掉多餘的前綴
+                let displayName = voice.name.replace('Microsoft ', '').replace('Google ', '');
+                option.textContent = displayName;
+                option.value = i;
+                
+                // 自動選擇邏輯：先看有沒有存過，沒有的話優先挑 Edge 內建的高音質 HsiaoChen 或 Google 國語
+                if (savedVoiceName && voice.name === savedVoiceName) {
+                    option.selected = true;
+                } else if (!savedVoiceName && (voice.name.includes('HsiaoChen') || voice.name.includes('國語'))) {
+                    option.selected = true;
+                }
+                
+                voiceSelector.appendChild(option);
+            });
         }
 
         // --- 計算推算天數 ---
@@ -427,7 +498,7 @@ ${rawText}`;
 
             } catch (error) {
                 console.error("API 錯誤:", error);
-                translatedText.innerHTML = `<span class="text-red-500">❌ 發生錯誤：<br>${error.message} <br><br>請確認您的 API Key 是否正確且有效。</span>`;
+                translatedText.innerHTML = `<span class="text-red-500">❌ 發生錯誤：<br>${error.message} <br><br>請確認您的 API Key 是否正確且有效，或嘗試切換至 Gemini 2.5 Flash 模型。</span>`;
             } finally {
                 // 恢復按鈕狀態
                 translateBtn.disabled = false;
@@ -455,15 +526,14 @@ ${rawText}`;
 
             const utterance = new SpeechSynthesisUtterance(fullTextToRead);
             
-            // 尋找台灣女聲
-            const voices = synth.getVoices();
-            const twVoice = voices.find(voice => voice.lang.includes('zh-TW') || voice.lang === 'zh-HK' || voice.name.includes('Taiwan'));
-            if (twVoice) {
-                utterance.voice = twVoice;
+            // 讀取使用者從下拉選單選擇的語音
+            const selectedVoiceIndex = voiceSelector.value;
+            if (selectedVoiceIndex !== "" && voices[selectedVoiceIndex]) {
+                utterance.voice = voices[selectedVoiceIndex];
             }
             
-            // 微調語速
-            utterance.rate = 0.95; 
+            // 讀取使用者選擇的語速
+            utterance.rate = parseFloat(rateSelector.value); 
 
             utterance.onstart = () => {
                 playBtn.classList.add('hidden');
