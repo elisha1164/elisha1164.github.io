@@ -137,9 +137,24 @@
                         </div>
                     </div>
 
-                    <!-- 內容顯示區 (兩個 div 輪流顯示，不並排) -->
+                    <!-- 內容顯示區 -->
                     <div id="originalText" class="w-full flex-grow h-[400px] overflow-y-auto no-scrollbar p-5 bg-stone-50 border border-stone-200 rounded-xl text-stone-600 leading-relaxed text-lg whitespace-pre-wrap font-serif"></div>
                     <div id="translatedText" class="w-full flex-grow h-[400px] overflow-y-auto no-scrollbar p-5 bg-amber-50/30 border border-amber-200 rounded-xl text-stone-800 leading-relaxed text-lg whitespace-pre-wrap hidden"></div>
+                </div>
+            </div>
+
+            <!-- 🔥 內容顯示卡片 (輔助影片) 🔥 -->
+            <div id="videoSection" class="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden flex flex-col mb-6 hidden">
+                <div class="bg-stone-50 border-b border-stone-200 p-5 flex justify-between items-center">
+                    <h4 class="font-bold text-stone-700 flex items-center text-lg tracking-wide">
+                        🎬 輔助影片
+                    </h4>
+                    <span id="videoTitle" class="text-sm text-stone-500 font-medium truncate max-w-[200px] sm:max-w-xs"></span>
+                </div>
+                <div class="p-6">
+                    <div class="relative w-full overflow-hidden rounded-xl shadow-sm border border-stone-100" style="padding-top: 56.25%;">
+                        <iframe id="youtubePlayer" class="absolute top-0 left-0 w-full h-full" src="" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+                    </div>
                 </div>
             </div>
 
@@ -161,10 +176,10 @@
         <!-- 版權聲明區 -->
         <footer class="mt-12 pt-8 border-t border-stone-200 text-center text-sm text-stone-500 leading-relaxed">
             <p class="mb-2">
-                內容版權屬於 <a href="https://bibleproject.com/reading-plans/" target="_blank" rel="noopener noreferrer" class="text-amber-600 hover:text-amber-700 font-medium underline underline-offset-2">BibleProject</a>。因官方目前尚未提供中文翻譯，故暫時製作此介面供讀者使用。
+                原始英文靈修內容版權屬於 <a href="https://bibleproject.com/reading-plans/" target="_blank" rel="noopener noreferrer" class="text-amber-600 hover:text-amber-700 font-medium underline underline-offset-2">BibleProject</a>。因官方目前尚未提供中文翻譯，故暫時製作此介面供讀者使用。
             </p>
             <p class="text-xs text-stone-400">
-                Content copyright belongs to <a href="https://bibleproject.com/reading-plans/" target="_blank" rel="noopener noreferrer" class="text-amber-600 hover:text-amber-700 font-medium underline underline-offset-2">BibleProject</a>. This interface was temporarily created because an official Chinese translation is not yet available.
+                Original English devotional content copyright belongs to <a href="https://bibleproject.com/reading-plans/" target="_blank" rel="noopener noreferrer" class="text-amber-600 hover:text-amber-700 font-medium underline underline-offset-2">BibleProject</a>. This interface was temporarily created because an official Chinese translation is not yet available.
             </p>
         </footer>
 
@@ -188,12 +203,13 @@
         // --- 變數與狀態 ---
         let bibleData = {}; 
         let rcuvData = [];  
+        let videoData = {}; // 儲存影片資料
         
         let currentDay = 1;
         const synth = window.speechSynthesis;
         let voices = []; 
         let readProgress = JSON.parse(localStorage.getItem('gemini_read_progress') || '{}');
-        let currentViewMode = 'original'; // 追蹤目前顯示的是 'original' 還是 'translated'
+        let currentViewMode = 'original'; 
 
         // --- DOM 元素 ---
         const statusText = document.getElementById('statusText');
@@ -216,6 +232,11 @@
         const contentTitle = document.getElementById('contentTitle');
         const originalText = document.getElementById('originalText');
         const translatedText = document.getElementById('translatedText');
+        
+        const videoSection = document.getElementById('videoSection');
+        const videoTitle = document.getElementById('videoTitle');
+        const youtubePlayer = document.getElementById('youtubePlayer');
+
         const scriptureText = document.getElementById('scriptureText');
         
         const translateBtn = document.getElementById('translateBtn');
@@ -318,7 +339,6 @@
             localStorage.setItem('gemini_translations_cache', JSON.stringify(translations));
         }
 
-        // --- 控制畫面顯示模式 (單一視圖切換) ---
         function setViewMode(mode) {
             currentViewMode = mode;
             const hasTranslation = !!getSavedTranslation(currentDay) || (translatedText.textContent.length > 0 && !translatedText.textContent.includes('AI 正在努力翻譯中'));
@@ -328,7 +348,6 @@
                 translatedText.classList.add('hidden');
                 contentTitle.innerHTML = '📝 原始英文靈修內容';
                 
-                // 如果有翻譯可以切換，就顯示切換按鈕
                 if (hasTranslation) {
                     toggleOriginalBtn.classList.remove('hidden');
                     toggleOriginalText.textContent = "顯示譯文";
@@ -336,11 +355,9 @@
                     toggleOriginalBtn.classList.add('hidden');
                 }
                 
-                // 隱藏朗讀功能 (只針對中文朗讀)
                 playBtn.classList.add('hidden');
                 stopBtn.classList.add('hidden');
                 
-                // 翻譯按鈕文字動態變化
                 translateBtn.classList.remove('hidden');
                 translateBtnText.textContent = hasTranslation ? "重新翻譯" : "AI 翻譯";
                 
@@ -421,7 +438,6 @@
             playBtn.addEventListener('click', handlePlay);
             stopBtn.addEventListener('click', handleStop);
 
-            // 切換原文/譯文按鈕事件
             toggleOriginalBtn.addEventListener('click', () => {
                 setViewMode(currentViewMode === 'original' ? 'translated' : 'original');
             });
@@ -527,18 +543,15 @@
         async function loadCSVs() {
             statusText.textContent = "正在從伺服器下載 CSV 資料...";
             
-            // --- 智慧編碼讀取器 (自動判斷 UTF-8 或 Big5) ---
             async function fetchCsvContent(url) {
                 try {
                     const res = await fetch(url);
                     if (!res.ok) return null;
                     const buffer = await res.arrayBuffer();
                     try {
-                        // 嘗試以 UTF-8 解碼，若有亂碼(非UTF-8)會觸發 fatal error
                         const decoder = new TextDecoder('utf-8', { fatal: true });
                         return decoder.decode(buffer).replace(/^\uFEFF/, '');
                     } catch (e) {
-                        // 觸發錯誤代表檔案是 Big5 編碼 (Excel 預設的 ANSI/CSV 編碼)
                         const decoder = new TextDecoder('big5');
                         return decoder.decode(buffer).replace(/^\uFEFF/, '');
                     }
@@ -548,20 +561,20 @@
             }
 
             try {
-                // 使用智慧讀取器載入所有 CSV 檔案
+                // 載入所有的 CSV
                 const metaCsvStr = await fetchCsvContent('./bible_metadata.csv');
                 const contentCsvStr = await fetchCsvContent('./bible_reading_plan.csv');
                 const rcuvCsvStr = await fetchCsvContent('./rcuv.csv');
+                const videoCsvStr = await fetchCsvContent('./bible_reading_plan_videos.csv');
 
                 if (!metaCsvStr || !contentCsvStr) throw new Error("主要檔案讀取失敗");
 
                 const metaParsed = Papa.parse(metaCsvStr, { header: true, skipEmptyLines: true }).data;
                 const contentParsed = Papa.parse(contentCsvStr, { header: true, skipEmptyLines: true }).data;
                 
-                // 解析並全域儲存 RCUV 聖經資料
+                // 1. 解析並全域儲存 RCUV 聖經資料
                 if (rcuvCsvStr) {
                     const rawRcuvData = Papa.parse(rcuvCsvStr, { header: true, skipEmptyLines: true }).data;
-                    
                     if (rawRcuvData.length > 0) {
                         rcuvData = rawRcuvData.map(row => {
                             const vals = Object.values(row);
@@ -575,10 +588,31 @@
                     }
                 }
 
+                // 2. 解析並全域儲存 YouTube 影片資料
+                videoData = {};
+                if (videoCsvStr) {
+                    const rawVideoData = Papa.parse(videoCsvStr, { header: true, skipEmptyLines: true }).data;
+                    if (rawVideoData.length > 0) {
+                        rawVideoData.forEach(row => {
+                            const vals = Object.values(row);
+                            const dayStr = getCol(row, 'Day') || getCol(row, 'day') || vals[0];
+                            const day = parseInt(dayStr);
+                            if (isNaN(day)) return;
+
+                            videoData[day] = {
+                                enTitle: getCol(row, 'En_Title') || vals[1] || '',
+                                enLink: getCol(row, 'En_YouTubeLink') || vals[2] || '',
+                                chTitle: getCol(row, 'Ch_Title') || vals[3] || '',
+                                chLink: getCol(row, 'Ch_YouTubeLink') || vals[4] || ''
+                            };
+                        });
+                    }
+                }
+
                 let currentBook = "";
                 bibleData = {};
 
-                // 組合靈修內容 Metadata
+                // 3. 組合靈修內容 Metadata
                 metaParsed.forEach(row => {
                     const vals = Object.values(row);
                     const dayStr = getCol(row, 'day') || getCol(row, 'Day') || vals[0];
@@ -596,7 +630,7 @@
                     };
                 });
 
-                // 合併靈修內文
+                // 4. 合併靈修內文
                 contentParsed.forEach(row => {
                     const vals = Object.values(row);
                     const dayStr = getCol(row, 'day') || getCol(row, 'Day') || vals[0];
@@ -647,7 +681,6 @@
                 date.setHours(0, 0, 0, 0);
                 date.setDate(date.getDate() + (day - 1));
                 
-                // 格式化為: 2024年10月5日 (週六)
                 const options = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' };
                 absoluteDateDisplay.textContent = date.toLocaleDateString('zh-TW', options);
                 absoluteDateDisplay.classList.remove('hidden');
@@ -656,8 +689,33 @@
             }
             
             originalText.textContent = data.content || "此天無靈修資料。";
+
+            // --- 🔥 更新輔助影片區塊 🔥 ---
+            const vData = videoData[day];
+            const vChLink = vData ? cleanString(vData.chLink) : "";
+            const vEnLink = vData ? cleanString(vData.enLink) : "";
+
+            if (vChLink || vEnLink) {
+                let embedUrl = "";
+                let vTitle = "";
+                if (vChLink) {
+                    embedUrl = `https://www.youtube.com/embed/${vChLink}`;
+                    vTitle = vData.chTitle || "輔助影片 (中文)";
+                } else {
+                    // 若無中文影片，降級為英文並強制開啟中文字幕
+                    embedUrl = `https://www.youtube.com/embed/${vEnLink}?cc_load_policy=1&hl=zh-TW&cc_lang_pref=zh-TW`;
+                    vTitle = vData.enTitle || "輔助影片 (英文附中文字幕)";
+                }
+                youtubePlayer.src = embedUrl;
+                videoTitle.textContent = vTitle;
+                videoSection.classList.remove('hidden');
+            } else {
+                // 當天無影片則清空來源並隱藏
+                youtubePlayer.src = "";
+                videoSection.classList.add('hidden');
+            }
             
-            // --- 🔥 優化版排版：動態過濾並生成分組 RCUV 經文 (主經文在前，詩篇在後) 🔥 ---
+            // --- 更新經文顯示 ---
             let scriptureHtml = '';
             if (rcuvData.length > 0) {
                 const targetBookClean = cleanString(data.book);
@@ -667,7 +725,6 @@
                 let mainVerses = [];
                 let psalmVerses = [];
 
-                // 1. 篩選主經文
                 if (targetBookClean !== '') {
                     mainVerses = rcuvData.filter(row => {
                         const bClean = cleanString(row.book);
@@ -688,7 +745,6 @@
                     });
                 }
 
-                // 2. 篩選詩篇
                 if (targetPsalms.length > 0) {
                     psalmVerses = rcuvData.filter(row => {
                         const bClean = cleanString(row.book);
@@ -709,7 +765,6 @@
                     });
                 }
 
-                // 3. 合併結果：確保主經文在前，詩篇在後
                 const dayVerses = targetBookClean === '詩篇' ? mainVerses : [...mainVerses, ...psalmVerses];
 
                 if (dayVerses.length > 0) {
@@ -719,7 +774,6 @@
 
                     dayVerses.forEach(row => {
                         const textContent = row.text || "";
-                        // 精準匹配 "?註：...?"，避免破壞正常問號
                         const formattedText = textContent.replace(/\?註：(.*?)\?/g, (match, p1) => {
                             const safeFootnote = p1.replace(/['"&<>]/g, function(c) {
                                 return {'\'': '&#39;', '"': '&quot;', '&': '&amp;', '<': '&lt;', '>': '&gt;'}[c];
@@ -731,7 +785,6 @@
                         const c = row.chapter.trim();
                         const v = row.verse.trim();
 
-                        // 判斷是否需要生成新的章節標題
                         if (b !== currentGroupBook || c !== currentGroupChapter) {
                             const chapterLabel = (b === '詩篇') ? '篇' : '章';
                             const mtClass = isFirstHeader ? 'mb-4' : 'mt-10 mb-4';
@@ -743,14 +796,12 @@
                             currentGroupChapter = c;
                         }
 
-                        // 生成每節經文 (節數與經文內容分開，整齊排版)
                         scriptureHtml += `<div class="mb-3 flex items-start leading-relaxed">
                                             <strong class="text-stone-400 font-bold mr-3 text-base w-6 text-right shrink-0 select-none pt-[2px]">${v}</strong>
                                             <span class="text-stone-800 text-lg">${formattedText}</span>
                                           </div>`;
                     });
                 } else {
-                    // 內建無敵偵錯面板
                     const sampleBook = rcuvData.filter(r => cleanString(r.book) === targetBookClean).slice(0, 3);
                     const allSample = rcuvData.slice(0, 3);
                     
@@ -783,10 +834,10 @@
             const savedTranslation = getSavedTranslation(day);
             if (savedTranslation) {
                 translatedText.textContent = savedTranslation;
-                setViewMode('translated'); // 如果有翻譯，預設顯示中文
+                setViewMode('translated'); 
             } else {
                 translatedText.textContent = '';
-                setViewMode('original'); // 如果沒翻譯，預設顯示英文
+                setViewMode('original'); 
             }
 
             prevDayBtn.disabled = (day === 1);
@@ -805,15 +856,13 @@
             const rawText = originalText.textContent;
             if (!rawText || rawText === "此天無靈修資料。") return;
 
-            // 準備 UI 狀態
             translateBtn.disabled = true;
             translateIcon.innerHTML = `<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>`;
             translateIcon.classList.add('animate-spin');
             translateBtnText.textContent = "翻譯中...";
             
-            // 切換至翻譯畫面並顯示動畫
             setViewMode('translated');
-            toggleOriginalBtn.classList.add('hidden'); // 翻譯期間隱藏切換按鈕
+            toggleOriginalBtn.classList.add('hidden'); 
             playBtn.classList.add('hidden');
             translatedText.innerHTML = '<div class="flex h-full items-center justify-center text-amber-600 animate-pulse font-medium">AI 正在努力翻譯中，請稍候...</div>';
 
@@ -870,14 +919,13 @@ ${rawText}`;
                 const aiResult = data.candidates[0].content.parts[0].text.trim();
                 translatedText.textContent = aiResult;
                 
-                // 翻譯成功：儲存並重新整理檢視模式
                 saveTranslation(currentDay, aiResult);
                 setViewMode('translated');
 
             } catch (error) {
                 console.error("API 錯誤:", error);
                 translatedText.innerHTML = `<span class="text-red-500">❌ 發生錯誤：<br>${error.message} <br><br>請確認 API Key 是否有效。</span>`;
-                toggleOriginalBtn.classList.remove('hidden'); // 發生錯誤時允許切換回去
+                toggleOriginalBtn.classList.remove('hidden'); 
             } finally {
                 translateBtn.disabled = false;
                 translateIcon.classList.remove('animate-spin');
