@@ -613,46 +613,60 @@
             
             originalText.textContent = data.content || "此天無靈修資料。";
             
-            // --- 🔥 優化版排版：動態過濾並生成分組 RCUV 經文 🔥 ---
+            // --- 🔥 優化版排版：動態過濾並生成分組 RCUV 經文 (主經文在前，詩篇在後) 🔥 ---
             let scriptureHtml = '';
             if (rcuvData.length > 0) {
                 const targetBookClean = cleanString(data.book);
                 const targetChapters = parseChaptersWithVerses(data.chapters);
                 const targetPsalms = parseChaptersWithVerses(data.psalms);
 
-                const dayVerses = rcuvData.filter(row => {
-                    const bClean = cleanString(row.book);
-                    const cClean = cleanString(row.chapter);
-                    const vNum = parseInt(row.verse);
+                let mainVerses = [];
+                let psalmVerses = [];
 
-                    if (isNaN(vNum)) return false;
+                // 1. 篩選主經文
+                if (targetBookClean !== '') {
+                    mainVerses = rcuvData.filter(row => {
+                        const bClean = cleanString(row.book);
+                        if (bClean !== targetBookClean) return false;
+                        
+                        const cClean = cleanString(row.chapter);
+                        const vNum = parseInt(row.verse);
+                        if (isNaN(vNum)) return false;
 
-                    // 比對主經文
-                    if (bClean === targetBookClean && targetBookClean !== '') {
                         const matchCh = targetChapters.find(tc => tc.ch === cClean);
                         if (matchCh) {
                             if (matchCh.vStart !== null && matchCh.vEnd !== null) {
-                                if (vNum >= matchCh.vStart && vNum <= matchCh.vEnd) return true;
-                            } else {
-                                return true;
+                                return vNum >= matchCh.vStart && vNum <= matchCh.vEnd;
                             }
+                            return true;
                         }
-                    }
+                        return false;
+                    });
+                }
 
-                    // 比對詩篇
-                    if (bClean === '詩篇') {
+                // 2. 篩選詩篇
+                if (targetPsalms.length > 0) {
+                    psalmVerses = rcuvData.filter(row => {
+                        const bClean = cleanString(row.book);
+                        if (bClean !== '詩篇') return false;
+
+                        const cClean = cleanString(row.chapter);
+                        const vNum = parseInt(row.verse);
+                        if (isNaN(vNum)) return false;
+
                         const matchPs = targetPsalms.find(tp => tp.ch === cClean);
                         if (matchPs) {
                             if (matchPs.vStart !== null && matchPs.vEnd !== null) {
-                                if (vNum >= matchPs.vStart && vNum <= matchPs.vEnd) return true;
-                            } else {
-                                return true;
+                                return vNum >= matchPs.vStart && vNum <= matchPs.vEnd;
                             }
+                            return true;
                         }
-                    }
+                        return false;
+                    });
+                }
 
-                    return false;
-                });
+                // 3. 合併結果：確保主經文在前，詩篇在後
+                const dayVerses = targetBookClean === '詩篇' ? mainVerses : [...mainVerses, ...psalmVerses];
 
                 if (dayVerses.length > 0) {
                     let currentGroupBook = '';
