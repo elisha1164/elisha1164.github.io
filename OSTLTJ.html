@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>指向耶穌的大故事：一年讀完整本聖經</title>
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 PapaParse (用於解析 CSV) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <style>
+        body { font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-stone-100 text-stone-800 min-h-screen pb-10">
+
+    <div class="max-w-5xl mx-auto p-4 sm:p-6 lg:p-8">
+        <!-- 標題區 (加入右上角設定齒輪) -->
+        <header class="relative flex justify-center items-start mb-8">
+            <div class="text-center mt-2">
+                <h1 class="text-3xl sm:text-4xl font-bold text-stone-700 mb-2">📖 指向耶穌的大故事：一年讀完整本聖經</h1>
+                <p class="text-stone-500" id="statusText">正在初始化系統...</p>
+            </div>
+            
+            <!-- 進階設定按鈕 (匯出/匯入) -->
+            <div class="absolute right-0 top-0">
+                <button id="settingsBtn" class="p-2 text-stone-400 hover:text-stone-600 transition rounded-full hover:bg-stone-200 focus:outline-none" title="進階設定 (匯出/匯入進度)">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                </button>
+                <!-- 下拉選單 -->
+                <div id="settingsMenu" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-stone-200 z-50 py-2">
+                    <button id="exportBtn" class="w-full text-left px-4 py-2 text-sm text-stone-700 hover:bg-stone-50 transition flex items-center">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        匯出進度與設定
+                    </button>
+                    <button id="importBtn" class="w-full text-left px-4 py-2 text-sm text-stone-700 hover:bg-stone-50 transition flex items-center">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                        匯入進度與設定
+                    </button>
+                    <input type="file" id="importFileInput" accept=".json" class="hidden">
+                </div>
+            </div>
+        </header>
+
+        <!-- 設定區 (進度與語音) -->
+        <section class="bg-white rounded-2xl shadow-sm p-6 mb-8 border border-stone-200">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
+                <div class="w-full">
+                    <label class="block text-sm font-medium text-stone-600 mb-2">📅 Day 1 開始日期</label>
+                    <input type="date" id="startDateInput" class="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none transition bg-white text-sm text-stone-700">
+                </div>
+                <div class="w-full">
+                    <label class="block text-sm font-medium text-stone-600 mb-2">🗣️ 系統語音與語速</label>
+                    <div class="flex gap-2">
+                        <select id="voiceSelector" class="w-2/3 px-2 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none transition bg-white text-sm text-stone-700 truncate">
+                            <option value="">載入語音中...</option>
+                        </select>
+                        <select id="rateSelector" class="w-1/3 px-2 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none transition bg-white text-sm text-stone-700">
+                            <option value="0.8">慢速</option>
+                            <option value="1.0" selected>正常</option>
+                            <option value="1.2">稍快</option>
+                            <option value="1.5">快速</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-5 flex items-center justify-end border-t border-stone-100 pt-5">
+                <div class="flex items-center gap-3">
+                    <p id="keyStatus" class="text-sm font-medium text-amber-600 hidden">設定已安全儲存！</p>
+                    <button id="saveKeyBtn" class="bg-stone-800 text-white px-6 py-2 rounded-lg hover:bg-stone-700 transition font-medium whitespace-nowrap text-sm shadow-sm">
+                        儲存設定
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 閱讀主體區 -->
+        <section id="readingSection" class="opacity-50 pointer-events-none transition-opacity duration-300">
+            <!-- 天數切換器 -->
+            <div class="flex items-center justify-between bg-stone-800 text-stone-100 rounded-2xl p-4 shadow-lg mb-6">
+                <button id="prevDayBtn" class="p-2 hover:bg-stone-700 rounded-full transition disabled:opacity-50">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                </button>
+                <div class="flex flex-col items-center">
+                    <div class="flex items-center space-x-3">
+                        <span class="font-medium text-lg">Day</span>
+                        <input type="number" id="daySelector" min="1" max="358" value="1" 
+                            class="w-20 text-center bg-stone-700 border-none rounded-lg py-1 px-2 focus:ring-2 focus:ring-amber-500 text-xl font-bold outline-none">
+                        <span class="text-stone-400">/ 358</span>
+                    </div>
+                    <!-- 絕對日期顯示 -->
+                    <div id="absoluteDateDisplay" class="text-sm text-stone-400 mt-1 hidden"></div>
+                </div>
+                <button id="nextDayBtn" class="p-2 hover:bg-stone-700 rounded-full transition disabled:opacity-50">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                </button>
+            </div>
+
+            <!-- 內容顯示卡片 (靈修內容) -->
+            <div class="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden flex flex-col mb-6">
+                
+                <!-- 每日標題 + 核取方塊 -->
+                <div class="bg-amber-50 border-b border-amber-100 p-6 flex flex-col items-center justify-center relative">
+                    <h3 id="displayTitle" class="text-2xl sm:text-3xl font-bold text-stone-800 tracking-tight text-center">載入中...</h3>
+                    <label class="mt-4 flex items-center cursor-pointer text-stone-600 hover:text-amber-700 transition bg-white px-4 py-1.5 rounded-full shadow-sm border border-amber-200 select-none">
+                        <input type="checkbox" id="readProgressCheckbox" class="w-5 h-5 rounded border-stone-300 text-amber-600 focus:ring-amber-500 cursor-pointer mr-2">
+                        <span class="font-medium text-sm">標記為已讀</span>
+                    </label>
+                </div>
+
+                <!-- 單一視圖切換區塊 -->
+                <div id="readingGrid" class="p-6 flex flex-col flex-grow transition-all duration-300">
+                    <!-- 頂部工具列 -->
+                    <div class="flex flex-wrap gap-3 justify-between items-center mb-4 border-b border-stone-100 pb-4">
+                        <h4 id="contentTitle" class="font-semibold text-stone-700 flex items-center text-lg">
+                            📝 靈修內容
+                        </h4>
+                        <div class="flex gap-2">
+                            <button id="toggleOriginalBtn" class="bg-stone-200 text-stone-700 hover:bg-stone-300 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center shadow-sm">
+                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path></svg>
+                                <span id="toggleOriginalText">顯示英文原文</span>
+                            </button>
+                            <button id="playBtn" class="bg-stone-800 text-white hover:bg-stone-700 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center shadow-sm">
+                                <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
+                                朗讀
+                            </button>
+                            <button id="stopBtn" class="bg-red-100 text-red-700 hover:bg-red-200 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center shadow-sm hidden">
+                                <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clip-rule="evenodd"></path></svg>
+                                停止
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 內容顯示區 -->
+                    <div id="translatedText" class="w-full flex-grow h-[400px] overflow-y-auto no-scrollbar p-5 bg-amber-50/30 border border-amber-200 rounded-xl text-stone-800 leading-relaxed text-lg whitespace-pre-wrap"></div>
+                    <div id="originalText" class="w-full flex-grow h-[400px] overflow-y-auto no-scrollbar p-5 bg-stone-50 border border-stone-200 rounded-xl text-stone-600 leading-relaxed text-lg whitespace-pre-wrap font-serif hidden"></div>
+                </div>
+            </div>
+
+            <!-- 內容顯示卡片 (輔助影片) -->
+            <div id="videoSection" class="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden flex flex-col mb-6 hidden">
+                <div class="bg-stone-50 border-b border-stone-200 p-5 flex justify-between items-center">
+                    <h4 class="font-bold text-stone-700 flex items-center text-lg tracking-wide">
+                        🎬 輔助影片
+                    </h4>
+                    <span id="videoTitle" class="text-sm text-stone-500 font-medium truncate max-w-[200px] sm:max-w-xs"></span>
+                </div>
+                <div class="p-6">
+                    <div class="relative w-full overflow-hidden rounded-xl shadow-sm border border-stone-100" style="padding-top: 56.25%;">
+                        <iframe id="youtubePlayer" class="absolute top-0 left-0 w-full h-full" src="" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 內容顯示卡片 (經文內容) -->
+            <div class="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden flex flex-col">
+                <div class="bg-stone-50 border-b border-stone-200 p-5 flex justify-between items-center">
+                    <h4 class="font-bold text-stone-700 flex items-center text-lg tracking-wide">
+                        📖 今日經文 (和合本 2010 RCUV)
+                    </h4>
+                </div>
+                <!-- 經文列表將在此處生成 -->
+                <div id="scriptureText" class="p-6 text-stone-800 leading-loose font-serif min-h-[150px] max-h-[600px] overflow-y-auto no-scrollbar">
+                    載入中...
+                </div>
+            </div>
+
+        </section>
+
+        <!-- 版權聲明區 -->
+        <footer class="mt-12 pt-8 border-t border-stone-200 text-center text-sm text-stone-500 leading-relaxed">
+            <p class="mb-2">
+                原始英文靈修內容版權屬於 <a href="https://bibleproject.com/reading-plans/" target="_blank" rel="noopener noreferrer" class="text-amber-600 hover:text-amber-700 font-medium underline underline-offset-2">BibleProject</a>。因官方目前尚未提供中文翻譯，故暫時製作此介面供讀者使用。
+            </p>
+            <p class="text-xs text-stone-400">
+                Original English devotional content copyright belongs to <a href="https://bibleproject.com/reading-plans/" target="_blank" rel="noopener noreferrer" class="text-amber-600 hover:text-amber-700 font-medium underline underline-offset-2">BibleProject</a>. This interface was temporarily created because an official Chinese translation is not yet available.
+            </p>
+        </footer>
+
+    </div>
+
+    <!-- 註釋彈出框 (Modal) -->
+    <div id="footnoteModal" class="fixed inset-0 bg-stone-900/40 hidden flex items-center justify-center z-50 transition-opacity backdrop-blur-sm" onclick="if(event.target === this) closeFootnoteModal()">
+        <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full mx-4 relative transform transition-transform scale-100">
+            <button onclick="closeFootnoteModal()" class="absolute top-4 right-4 text-stone-400 hover:text-stone-600 transition bg-stone-100 hover:bg-stone-200 rounded-full p-1">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+            <div class="flex items-center mb-4">
+                <span class="text-2xl mr-2">📝</span>
+                <h4 class="font-bold text-stone-800 text-lg">經文註釋</h4>
+            </div>
+            <p id="footnoteContent" class="text-stone-600 leading-relaxed bg-stone-50 p-4 rounded-xl border border-stone-100"></p>
+        </div>
+    </div>
+
+    <script>
+        // --- 變數與狀態 ---
+        let bibleData = {}; 
+        let rcuvData = [];  
+        let videoData = {}; 
+        
+        let currentDay = 1;
+        const synth = window.speechSynthesis;
+        let voices = []; 
+        let readProgress = JSON.parse(localStorage.getItem('gemini_read_progress') || '{}');
+        let currentViewMode = 'chinese'; 
+
+        // --- DOM 元素 ---
+        const statusText = document.getElementById('statusText');
+        const startDateInput = document.getElementById('startDateInput');
+        const voiceSelector = document.getElementById('voiceSelector');
+        const rateSelector = document.getElementById('rateSelector');
+        const saveKeyBtn = document.getElementById('saveKeyBtn');
+        const keyStatus = document.getElementById('keyStatus');
+        const readingSection = document.getElementById('readingSection');
+        
+        const daySelector = document.getElementById('daySelector');
+        const prevDayBtn = document.getElementById('prevDayBtn');
+        const nextDayBtn = document.getElementById('nextDayBtn');
+        const absoluteDateDisplay = document.getElementById('absoluteDateDisplay');
+        const readProgressCheckbox = document.getElementById('readProgressCheckbox');
+        
+        const displayTitle = document.getElementById('displayTitle');
+        const contentTitle = document.getElementById('contentTitle');
+        const originalText = document.getElementById('originalText');
+        const translatedText = document.getElementById('translatedText');
+        
+        const videoSection = document.getElementById('videoSection');
+        const videoTitle = document.getElementById('videoTitle');
+        const youtubePlayer = document.getElementById('youtubePlayer');
+
+        const scriptureText = document.getElementById('scriptureText');
+        
+        const playBtn = document.getElementById('playBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        
+        const toggleOriginalBtn = document.getElementById('toggleOriginalBtn');
+        const toggleOriginalText = document.getElementById('toggleOriginalText');
+
+        const settingsBtn = document.getElementById('settingsBtn');
+        const settingsMenu = document.getElementById('settingsMenu');
+        const exportBtn = document.getElementById('exportBtn');
+        const importBtn = document.getElementById('importBtn');
+        const importFileInput = document.getElementById('importFileInput');
+
+        // --- 效能優化：徹底清除不可見字元 ---
+        function cleanString(str) {
+            if (str === null || str === undefined) return '';
+            return String(str).replace(/[\s\uFEFF\u200B-\u200D\r\n]/g, '');
+        }
+
+        // --- 輔助函數：無視大小寫與空白獲取 CSV 欄位值 ---
+        function getCol(row, colName) {
+            if (!row || typeof row !== 'object') return null;
+            const targetCol = cleanString(colName).toLowerCase();
+            const key = Object.keys(row).find(k => cleanString(k).toLowerCase() === targetCol);
+            return key ? row[key] : null;
+        }
+
+        // --- 輔助函數：解析章節與節數 ---
+        function parseChaptersWithVerses(chaptersStr) {
+            if (!chaptersStr) return [];
+            const cleanStr = cleanString(chaptersStr).replace(/到/g, '-');
+            if (cleanStr === '') return [];
+            
+            const results = [];
+            const parts = cleanStr.split(',');
+            
+            parts.forEach(part => {
+                let vStart = null;
+                let vEnd = null;
+                let chapterPart = part;
+                
+                if (chapterPart.includes(':')) {
+                    const splitColon = chapterPart.split(':');
+                    chapterPart = splitColon[0]; 
+                    const vs = splitColon[1]; 
+                    
+                    if (vs && vs.includes('-')) {
+                        const vSplit = vs.split('-');
+                        vStart = parseInt(vSplit[0]);
+                        vEnd = parseInt(vSplit[1]);
+                    } else if (vs) {
+                        vStart = parseInt(vs);
+                        vEnd = parseInt(vs);
+                    }
+                }
+                
+                if (chapterPart.includes('-')) {
+                    const chSplit = chapterPart.split('-');
+                    const start = parseInt(chSplit[0]);
+                    const end = parseInt(chSplit[1]);
+                    for (let i = start; i <= end; i++) {
+                        if (!isNaN(i)) results.push({ ch: i.toString(), vStart, vEnd });
+                    }
+                } else {
+                    const num = parseInt(chapterPart);
+                    if (!isNaN(num)) results.push({ ch: num.toString(), vStart, vEnd });
+                }
+            });
+            return results;
+        }
+
+        // --- Modal 註釋控制函數 ---
+        function showFootnoteModal(content) {
+            document.getElementById('footnoteContent').textContent = content;
+            document.getElementById('footnoteModal').classList.remove('hidden');
+        }
+        
+        function closeFootnoteModal() {
+            document.getElementById('footnoteModal').classList.add('hidden');
+        }
+
+        // --- 控制畫面顯示模式 (中英切換) ---
+        function setViewMode(mode) {
+            currentViewMode = mode;
+
+            if (mode === 'english') {
+                originalText.classList.remove('hidden');
+                translatedText.classList.add('hidden');
+                contentTitle.innerHTML = '📝 原始英文靈修內容';
+                toggleOriginalText.textContent = "顯示中文翻譯";
+            } else if (mode === 'chinese') {
+                originalText.classList.add('hidden');
+                translatedText.classList.remove('hidden');
+                contentTitle.innerHTML = '📝 靈修內容';
+                toggleOriginalText.textContent = "顯示英文原文";
+            }
+            
+            if (synth.speaking) {
+                handleStop();
+            }
+        }
+
+        // --- 匯出 / 匯入設定功能 (移除 AI 包袱) ---
+        function handleExport() {
+            const dataToExport = {
+                gemini_start_date: localStorage.getItem('gemini_start_date') || "",
+                tts_rate: localStorage.getItem('tts_rate') || "",
+                tts_voice_name: localStorage.getItem('tts_voice_name') || "",
+                gemini_read_progress: localStorage.getItem('gemini_read_progress') || "{}"
+            };
+
+            const jsonStr = JSON.stringify(dataToExport, null, 4);
+            const blob = new Blob([jsonStr], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            const dateStr = new Date().toISOString().split('T')[0];
+            a.download = `Bible_App_Backup_${dateStr}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            settingsMenu.classList.add('hidden');
+        }
+
+        function handleImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    
+                    if (importedData.gemini_start_date !== undefined) localStorage.setItem('gemini_start_date', importedData.gemini_start_date);
+                    if (importedData.tts_rate !== undefined) localStorage.setItem('tts_rate', importedData.tts_rate);
+                    if (importedData.tts_voice_name !== undefined) localStorage.setItem('tts_voice_name', importedData.tts_voice_name);
+                    if (importedData.gemini_read_progress !== undefined) localStorage.setItem('gemini_read_progress', importedData.gemini_read_progress);
+                    
+                    alert('🎉 匯入成功！系統即將重新載入以套用您的設定與進度。');
+                    window.location.reload();
+                } catch (err) {
+                    alert('❌ 匯入失敗：檔案格式不正確。請確保您選擇的是先前匯出的 .json 備份檔。');
+                }
+            };
+            reader.readAsText(file);
+            settingsMenu.classList.add('hidden');
+            event.target.value = '';
+        }
+
+        // --- 初始化 ---
+        async function init() {
+            // 清理舊版廢棄的 LocalStorage
+            localStorage.removeItem('gemini_api_key');
+            localStorage.removeItem('gemini_model');
+            localStorage.removeItem('gemini_translations_cache');
+
+            const savedStartDate = localStorage.getItem('gemini_start_date');
+            const savedRate = localStorage.getItem('tts_rate');
+            
+            if (savedStartDate) startDateInput.value = savedStartDate;
+            if (savedRate) rateSelector.value = savedRate;
+
+            saveKeyBtn.addEventListener('click', () => {
+                const startDate = startDateInput.value;
+                const rate = rateSelector.value;
+                
+                if (rate) localStorage.setItem('tts_rate', rate);
+                if (voiceSelector.value !== "" && voices[voiceSelector.value]) {
+                    localStorage.setItem('tts_voice_name', voices[voiceSelector.value].name);
+                }
+                if (startDate) {
+                    localStorage.setItem('gemini_start_date', startDate);
+                    const targetDay = calculateCurrentDay(startDate);
+                    if (targetDay && bibleData && Object.keys(bibleData).length > 0) changeDay(targetDay);
+                }
+                
+                keyStatus.classList.remove('hidden');
+                setTimeout(() => keyStatus.classList.add('hidden'), 3000);
+            });
+
+            daySelector.addEventListener('change', (e) => {
+                let day = parseInt(e.target.value);
+                if (day < 1) day = 1;
+                if (day > 358) day = 358;
+                changeDay(day);
+            });
+
+            prevDayBtn.addEventListener('click', () => changeDay(currentDay - 1));
+            nextDayBtn.addEventListener('click', () => changeDay(currentDay + 1));
+            
+            playBtn.addEventListener('click', handlePlay);
+            stopBtn.addEventListener('click', handleStop);
+
+            toggleOriginalBtn.addEventListener('click', () => {
+                setViewMode(currentViewMode === 'chinese' ? 'english' : 'chinese');
+            });
+
+            readProgressCheckbox.addEventListener('change', (e) => {
+                readProgress[currentDay] = e.target.checked;
+                localStorage.setItem('gemini_read_progress', JSON.stringify(readProgress));
+            });
+
+            settingsBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                settingsMenu.classList.toggle('hidden');
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!settingsBtn.contains(e.target) && !settingsMenu.contains(e.target)) {
+                    settingsMenu.classList.add('hidden');
+                }
+            });
+
+            exportBtn.addEventListener('click', handleExport);
+            importBtn.addEventListener('click', () => importFileInput.click());
+            importFileInput.addEventListener('change', handleImport);
+
+            populateVoiceList();
+            if (speechSynthesis.onvoiceschanged !== undefined) {
+                speechSynthesis.onvoiceschanged = populateVoiceList;
+            }
+
+            await loadCSVs();
+        }
+
+        function populateVoiceList() {
+            voices = synth.getVoices().filter(v => v.lang.includes('zh') || v.lang.includes('cmn') || v.name.includes('Taiwan') || v.name.includes('Chinese') || v.lang.includes('en'));
+            voiceSelector.innerHTML = '';
+            
+            if (voices.length === 0) {
+                voiceSelector.innerHTML = '<option value="">(系統無可用語音)</option>';
+                return;
+            }
+
+            const savedVoiceName = localStorage.getItem('tts_voice_name');
+            voices.forEach((voice, i) => {
+                const option = document.createElement('option');
+                let displayName = voice.name.replace('Microsoft ', '').replace('Google ', '');
+                const langLabel = voice.lang.includes('en') ? '[EN]' : '[ZH]';
+                option.textContent = `${langLabel} ${displayName}`;
+                option.value = i;
+                
+                if (savedVoiceName && voice.name === savedVoiceName) {
+                    option.selected = true;
+                } else if (!savedVoiceName && (voice.name.includes('HsiaoChen') || voice.name.includes('國語'))) {
+                    option.selected = true;
+                }
+                voiceSelector.appendChild(option);
+            });
+        }
+
+        function calculateCurrentDay(startDateStr) {
+            if (!startDateStr) return null;
+            const startDate = new Date(startDateStr);
+            startDate.setHours(0, 0, 0, 0);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            const diffTime = today - startDate;
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            
+            let targetDay = diffDays + 1;
+            if (targetDay < 1) targetDay = 1;
+            if (targetDay > 358) targetDay = 358;
+            return targetDay;
+        }
+
+        // --- 載入與解析 CSV ---
+        async function loadCSVs() {
+            statusText.textContent = "正在從伺服器下載 CSV 資料...";
+            
+            async function fetchCsvContent(url) {
+                try {
+                    const res = await fetch(url);
+                    if (!res.ok) return null;
+                    const buffer = await res.arrayBuffer();
+                    try {
+                        const decoder = new TextDecoder('utf-8', { fatal: true });
+                        return decoder.decode(buffer).replace(/^\uFEFF/, '');
+                    } catch (e) {
+                        const decoder = new TextDecoder('big5');
+                        return decoder.decode(buffer).replace(/^\uFEFF/, '');
+                    }
+                } catch (e) {
+                    return null;
+                }
+            }
+
+            try {
+                const [metaCsvStr, contentCsvStr, translatedCsvStr, rcuvCsvStr, videoCsvStr] = await Promise.all([
+                    fetchCsvContent('./bible_metadata.csv'),
+                    fetchCsvContent('./bible_reading_plan.csv'),
+                    fetchCsvContent('./bible_reading_plan_translated.csv'),
+                    fetchCsvContent('./rcuv.csv'),
+                    fetchCsvContent('./bible_reading_plan_videos.csv')
+                ]);
+
+                if (!metaCsvStr || !contentCsvStr || !translatedCsvStr) throw new Error("主要檔案讀取失敗 (可能缺少 bible_reading_plan_translated.csv)");
+
+                const metaParsed = Papa.parse(metaCsvStr, { header: true, skipEmptyLines: true }).data;
+                const contentParsed = Papa.parse(contentCsvStr, { header: true, skipEmptyLines: true }).data;
+                const translatedParsed = Papa.parse(translatedCsvStr, { header: true, skipEmptyLines: true }).data;
+                
+                // 1. 解析並全域儲存 RCUV 聖經資料 (🚀 效能優化：預先計算乾淨的比對字串)
+                if (rcuvCsvStr) {
+                    const rawRcuvData = Papa.parse(rcuvCsvStr, { header: true, skipEmptyLines: true }).data;
+                    if (rawRcuvData.length > 0) {
+                        rcuvData = rawRcuvData.map(row => {
+                            const vals = Object.values(row);
+                            const rawBook = getCol(row, 'book') || vals[0] || '';
+                            const rawChap = (getCol(row, 'chapter') || vals[1] || '').toString();
+                            const rawVerse = (getCol(row, 'verse') || vals[2] || '').toString();
+                            
+                            return {
+                                book: rawBook,
+                                chapter: rawChap,
+                                verse: rawVerse,
+                                text: getCol(row, 'text') || vals[3] || '',
+                                // 預先清理，日後切換天數時可瞬間完成比對
+                                _cleanBook: cleanString(rawBook),
+                                _cleanChap: cleanString(rawChap),
+                                _vNum: parseInt(rawVerse) || 0
+                            };
+                        });
+                    }
+                }
+
+                // 2. 解析 YouTube 影片資料
+                videoData = {};
+                if (videoCsvStr) {
+                    const rawVideoData = Papa.parse(videoCsvStr, { header: true, skipEmptyLines: true }).data;
+                    if (rawVideoData.length > 0) {
+                        rawVideoData.forEach(row => {
+                            const vals = Object.values(row);
+                            const dayStr = getCol(row, 'Day') || getCol(row, 'day') || vals[0];
+                            const day = parseInt(dayStr);
+                            if (isNaN(day)) return;
+
+                            videoData[day] = {
+                                enTitle: getCol(row, 'En_Title') || vals[1] || '',
+                                enLink: getCol(row, 'En_YouTubeLink') || vals[2] || '',
+                                chTitle: getCol(row, 'Ch_Title') || vals[3] || '',
+                                chLink: getCol(row, 'Ch_YouTubeLink') || vals[4] || ''
+                            };
+                        });
+                    }
+                }
+
+                let currentBook = "";
+                bibleData = {};
+
+                // 3. 組合靈修內容 Metadata
+                metaParsed.forEach(row => {
+                    const vals = Object.values(row);
+                    const dayStr = getCol(row, 'day') || getCol(row, 'Day') || vals[0];
+                    const day = parseInt(dayStr);
+                    if (isNaN(day)) return;
+                    
+                    const bookRaw = getCol(row, 'book') || getCol(row, 'Book') || vals[1] || "";
+                    if (cleanString(bookRaw) !== "") currentBook = bookRaw.trim();
+                    
+                    bibleData[day] = {
+                        book: currentBook,
+                        chapters: getCol(row, 'chapters') || getCol(row, 'Chapters') || vals[2] || "",
+                        psalms: getCol(row, 'psalms') || getCol(row, 'Psalms') || vals[3] || "",
+                        contentEn: "",
+                        contentCh: ""
+                    };
+                });
+
+                // 4. 合併英文靈修內文
+                contentParsed.forEach(row => {
+                    const vals = Object.values(row);
+                    const dayStr = getCol(row, 'day') || getCol(row, 'Day') || vals[0];
+                    const day = parseInt(dayStr);
+                    if (isNaN(day)) return;
+                    if (bibleData[day]) {
+                        bibleData[day].contentEn = getCol(row, 'content') || getCol(row, 'Content') || vals[1] || vals[2] || "";
+                    }
+                });
+
+                // 5. 合併中文靈修內文
+                translatedParsed.forEach(row => {
+                    const vals = Object.values(row);
+                    const dayStr = getCol(row, 'Day') || getCol(row, 'day') || vals[0];
+                    const day = parseInt(dayStr);
+                    if (isNaN(day)) return;
+                    if (bibleData[day]) {
+                        bibleData[day].contentCh = getCol(row, 'Chinese_Translation') || getCol(row, 'chinese_translation') || vals[1] || "";
+                    }
+                });
+
+                statusText.textContent = "✅ 資料載入成功！";
+                readingSection.classList.remove('opacity-50', 'pointer-events-none');
+                
+                const savedStartDate = localStorage.getItem('gemini_start_date');
+                const initialDay = calculateCurrentDay(savedStartDate) || 1;
+                changeDay(initialDay);
+
+            } catch (error) {
+                console.error("CSV 載入錯誤:", error);
+                statusText.innerHTML = `❌ 載入失敗。<br><span class="text-sm text-red-500">發生錯誤：${error.message}。請確認所有必要的 CSV 檔案皆已上傳。</span>`;
+            }
+        }
+
+        // --- 切換天數與顯示 ---
+        function changeDay(day) {
+            if (day < 1 || day > 358) return;
+            handleStop(); 
+            
+            currentDay = day;
+            daySelector.value = day;
+            
+            const data = bibleData[day];
+            if (!data) {
+                displayTitle.textContent = `找不到 Day ${day} 的資料`;
+                return;
+            }
+
+            readProgressCheckbox.checked = !!readProgress[day];
+
+            const dayStr = day.toString().padStart(3, '0');
+            const visualChapters = data.chapters ? data.chapters.toString().replace("-", "到") : "";
+            displayTitle.textContent = `全年讀經第${dayStr}天 ${data.book}第${visualChapters}章、詩篇第${data.psalms}篇`;
+            
+            // 更新絕對日期顯示
+            const savedStartDate = localStorage.getItem('gemini_start_date');
+            if (savedStartDate) {
+                const date = new Date(savedStartDate);
+                date.setHours(0, 0, 0, 0);
+                date.setDate(date.getDate() + (day - 1));
+                
+                const options = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' };
+                absoluteDateDisplay.textContent = date.toLocaleDateString('zh-TW', options);
+                absoluteDateDisplay.classList.remove('hidden');
+            } else {
+                absoluteDateDisplay.classList.add('hidden');
+            }
+            
+            // 載入中英文靈修資料
+            originalText.textContent = data.contentEn || "此天無英文靈修資料。";
+            translatedText.textContent = data.contentCh || "此天無中文靈修資料。";
+            setViewMode('chinese');
+
+            // --- 更新輔助影片區塊 ---
+            const vData = videoData[day];
+            const vChLink = vData ? cleanString(vData.chLink) : "";
+            const vEnLink = vData ? cleanString(vData.enLink) : "";
+
+            if (vChLink || vEnLink) {
+                let embedUrl = "";
+                let vTitle = "";
+                if (vChLink) {
+                    embedUrl = `https://www.youtube.com/embed/${vChLink}`;
+                    vTitle = vData.chTitle || "輔助影片 (中文)";
+                } else {
+                    embedUrl = `https://www.youtube.com/embed/${vEnLink}?cc_load_policy=1&hl=zh-TW&cc_lang_pref=zh-TW`;
+                    vTitle = vData.enTitle || "輔助影片 (英文附中文字幕)";
+                }
+                youtubePlayer.src = embedUrl;
+                videoTitle.textContent = vTitle;
+                videoSection.classList.remove('hidden');
+            } else {
+                youtubePlayer.src = "";
+                videoSection.classList.add('hidden');
+            }
+            
+            // --- 🚀 極速版：更新經文顯示 ---
+            let scriptureHtml = '';
+            if (rcuvData.length > 0) {
+                const targetBookClean = cleanString(data.book);
+                const targetChapters = parseChaptersWithVerses(data.chapters);
+                const targetPsalms = parseChaptersWithVerses(data.psalms);
+
+                let mainVerses = [];
+                let psalmVerses = [];
+
+                if (targetBookClean !== '') {
+                    mainVerses = rcuvData.filter(row => {
+                        if (row._cleanBook !== targetBookClean) return false;
+                        
+                        const matchCh = targetChapters.find(tc => tc.ch === row._cleanChap);
+                        if (matchCh) {
+                            if (matchCh.vStart !== null && matchCh.vEnd !== null) {
+                                return row._vNum >= matchCh.vStart && row._vNum <= matchCh.vEnd;
+                            }
+                            return true;
+                        }
+                        return false;
+                    });
+                }
+
+                if (targetPsalms.length > 0) {
+                    psalmVerses = rcuvData.filter(row => {
+                        if (row._cleanBook !== '詩篇') return false;
+
+                        const matchPs = targetPsalms.find(tp => tp.ch === row._cleanChap);
+                        if (matchPs) {
+                            if (matchPs.vStart !== null && matchPs.vEnd !== null) {
+                                return row._vNum >= matchPs.vStart && row._vNum <= matchPs.vEnd;
+                            }
+                            return true;
+                        }
+                        return false;
+                    });
+                }
+
+                const dayVerses = targetBookClean === '詩篇' ? mainVerses : [...mainVerses, ...psalmVerses];
+
+                if (dayVerses.length > 0) {
+                    let currentGroupBook = '';
+                    let currentGroupChapter = '';
+                    let isFirstHeader = true;
+
+                    dayVerses.forEach(row => {
+                        const textContent = row.text || "";
+                        const formattedText = textContent.replace(/\?註：(.*?)\?/g, (match, p1) => {
+                            const safeFootnote = p1.replace(/['"&<>]/g, function(c) {
+                                return {'\'': '&#39;', '"': '&quot;', '&': '&amp;', '<': '&lt;', '>': '&gt;'}[c];
+                            });
+                            return `<span class="inline-flex items-center justify-center cursor-pointer text-xl ml-1 opacity-80 hover:opacity-100 hover:scale-110 transition-transform" onclick="showFootnoteModal('註：${safeFootnote}')" title="點擊查看註釋">📝</span>`;
+                        });
+
+                        const b = row.book.trim();
+                        const c = row.chapter.trim();
+                        const v = row.verse.trim();
+
+                        if (b !== currentGroupBook || c !== currentGroupChapter) {
+                            const chapterLabel = (b === '詩篇') ? '篇' : '章';
+                            const mtClass = isFirstHeader ? 'mb-4' : 'mt-10 mb-4';
+                            isFirstHeader = false;
+                            
+                            scriptureHtml += `<h5 class="text-2xl font-bold text-stone-800 ${mtClass} border-b border-stone-200 pb-2">${b} 第${c}${chapterLabel}</h5>`;
+                            
+                            currentGroupBook = b;
+                            currentGroupChapter = c;
+                        }
+
+                        scriptureHtml += `<div class="mb-3 flex items-start leading-relaxed">
+                                            <strong class="text-stone-400 font-bold mr-3 text-base w-6 text-right shrink-0 select-none pt-[2px]">${v}</strong>
+                                            <span class="text-stone-800 text-lg">${formattedText}</span>
+                                          </div>`;
+                    });
+                } else {
+                    scriptureHtml = '<p class="text-stone-400">找不到符合今日進度的經文。</p>';
+                }
+            } else {
+                scriptureHtml = '<p class="text-red-400">無法載入 rcuv.csv 檔案，請確認檔案存在且格式為 book,chapter,verse,text</p>';
+            }
+            
+            scriptureText.innerHTML = scriptureHtml;
+
+            prevDayBtn.disabled = (day === 1);
+            nextDayBtn.disabled = (day === 358);
+        }
+
+        // --- 語音朗讀 (智慧判斷目前語言) ---
+        function handlePlay() {
+            const contentToRead = currentViewMode === 'chinese' ? translatedText.textContent : originalText.textContent;
+            
+            if (!contentToRead || contentToRead.trim() === "") return;
+
+            const fullTextToRead = `${displayTitle.textContent}。\n\n${contentToRead}`;
+            if (synth.speaking) synth.cancel();
+
+            const utterance = new SpeechSynthesisUtterance(fullTextToRead);
+            const selectedVoiceIndex = voiceSelector.value;
+            if (selectedVoiceIndex !== "" && voices[selectedVoiceIndex]) {
+                utterance.voice = voices[selectedVoiceIndex];
+            }
+            utterance.rate = parseFloat(rateSelector.value); 
+
+            utterance.onstart = () => { playBtn.classList.add('hidden'); stopBtn.classList.remove('hidden'); };
+            utterance.onend = () => handleStop();
+            utterance.onerror = () => handleStop();
+
+            synth.speak(utterance);
+        }
+
+        function handleStop() {
+            if (synth.speaking) synth.cancel();
+            stopBtn.classList.add('hidden');
+            playBtn.classList.remove('hidden');
+        }
+
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
