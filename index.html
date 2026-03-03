@@ -17,10 +17,31 @@
 <body class="bg-stone-100 text-stone-800 min-h-screen pb-10">
 
     <div class="max-w-5xl mx-auto p-4 sm:p-6 lg:p-8">
-        <!-- 標題區 -->
-        <header class="text-center mb-8">
-            <h1 class="text-3xl sm:text-4xl font-bold text-stone-700 mb-2">📖 全年讀經 AI 助手</h1>
-            <p class="text-stone-500" id="statusText">正在初始化系統...</p>
+        <!-- 標題區 (加入右上角設定齒輪) -->
+        <header class="relative flex justify-center items-start mb-8">
+            <div class="text-center mt-2">
+                <h1 class="text-3xl sm:text-4xl font-bold text-stone-700 mb-2">📖 全年讀經 AI 助手</h1>
+                <p class="text-stone-500" id="statusText">正在初始化系統...</p>
+            </div>
+            
+            <!-- 進階設定按鈕 (匯出/匯入) -->
+            <div class="absolute right-0 top-0">
+                <button id="settingsBtn" class="p-2 text-stone-400 hover:text-stone-600 transition rounded-full hover:bg-stone-200 focus:outline-none" title="進階設定 (匯出/匯入進度)">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                </button>
+                <!-- 下拉選單 -->
+                <div id="settingsMenu" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-stone-200 z-50 py-2">
+                    <button id="exportBtn" class="w-full text-left px-4 py-2 text-sm text-stone-700 hover:bg-stone-50 transition flex items-center">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        匯出進度與設定
+                    </button>
+                    <button id="importBtn" class="w-full text-left px-4 py-2 text-sm text-stone-700 hover:bg-stone-50 transition flex items-center">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                        匯入進度與設定
+                    </button>
+                    <input type="file" id="importFileInput" accept=".json" class="hidden">
+                </div>
+            </div>
         </header>
 
         <!-- 設定區 (API Key, 模型, 進度與語音) -->
@@ -203,7 +224,7 @@
         // --- 變數與狀態 ---
         let bibleData = {}; 
         let rcuvData = [];  
-        let videoData = {}; // 儲存影片資料
+        let videoData = {}; 
         
         let currentDay = 1;
         const synth = window.speechSynthesis;
@@ -248,6 +269,13 @@
         const readingGrid = document.getElementById('readingGrid');
         const toggleOriginalBtn = document.getElementById('toggleOriginalBtn');
         const toggleOriginalText = document.getElementById('toggleOriginalText');
+
+        // 🔥 新增：匯出匯入 DOM 元素 🔥
+        const settingsBtn = document.getElementById('settingsBtn');
+        const settingsMenu = document.getElementById('settingsMenu');
+        const exportBtn = document.getElementById('exportBtn');
+        const importBtn = document.getElementById('importBtn');
+        const importFileInput = document.getElementById('importFileInput');
 
         // --- 終極防護：徹底清除不可見字元 ---
         function cleanString(str) {
@@ -377,6 +405,69 @@
             }
         }
 
+        // --- 🔥 匯出 / 匯入設定功能 🔥 ---
+        function handleExport() {
+            // 收集所有需要備份的 localStorage 欄位
+            const dataToExport = {
+                gemini_api_key: localStorage.getItem('gemini_api_key') || "",
+                gemini_model: localStorage.getItem('gemini_model') || "",
+                gemini_start_date: localStorage.getItem('gemini_start_date') || "",
+                tts_rate: localStorage.getItem('tts_rate') || "",
+                tts_voice_name: localStorage.getItem('tts_voice_name') || "",
+                gemini_translations_cache: localStorage.getItem('gemini_translations_cache') || "{}",
+                gemini_read_progress: localStorage.getItem('gemini_read_progress') || "{}"
+            };
+
+            // 將資料轉換為高可讀性的縮排 JSON 字串 (文字檔)
+            const jsonStr = JSON.stringify(dataToExport, null, 4);
+            const blob = new Blob([jsonStr], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            
+            // 建立暫時的下載連結並點擊
+            const a = document.createElement('a');
+            a.href = url;
+            const dateStr = new Date().toISOString().split('T')[0];
+            a.download = `Bible_AI_Backup_${dateStr}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            // 隱藏選單
+            settingsMenu.classList.add('hidden');
+        }
+
+        function handleImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    
+                    // 逐一寫入 localStorage
+                    if (importedData.gemini_api_key !== undefined) localStorage.setItem('gemini_api_key', importedData.gemini_api_key);
+                    if (importedData.gemini_model !== undefined) localStorage.setItem('gemini_model', importedData.gemini_model);
+                    if (importedData.gemini_start_date !== undefined) localStorage.setItem('gemini_start_date', importedData.gemini_start_date);
+                    if (importedData.tts_rate !== undefined) localStorage.setItem('tts_rate', importedData.tts_rate);
+                    if (importedData.tts_voice_name !== undefined) localStorage.setItem('tts_voice_name', importedData.tts_voice_name);
+                    if (importedData.gemini_translations_cache !== undefined) localStorage.setItem('gemini_translations_cache', importedData.gemini_translations_cache);
+                    if (importedData.gemini_read_progress !== undefined) localStorage.setItem('gemini_read_progress', importedData.gemini_read_progress);
+                    
+                    alert('🎉 匯入成功！系統即將重新載入以套用您的設定與進度。');
+                    window.location.reload();
+                } catch (err) {
+                    alert('❌ 匯入失敗：檔案格式不正確。請確保您選擇的是先前匯出的 .json 備份檔。');
+                }
+            };
+            reader.readAsText(file);
+            settingsMenu.classList.add('hidden');
+            // 清除 input 值，確保下次選同一個檔案也能觸發 change 事件
+            event.target.value = '';
+        }
+
+
         // --- 初始化 ---
         async function init() {
             const urlParams = new URLSearchParams(window.location.search);
@@ -446,6 +537,23 @@
                 readProgress[currentDay] = e.target.checked;
                 localStorage.setItem('gemini_read_progress', JSON.stringify(readProgress));
             });
+
+            // 設定齒輪按鈕的展開/收合事件
+            settingsBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                settingsMenu.classList.toggle('hidden');
+            });
+
+            // 點擊畫面其他地方時關閉設定選單
+            document.addEventListener('click', (e) => {
+                if (!settingsBtn.contains(e.target) && !settingsMenu.contains(e.target)) {
+                    settingsMenu.classList.add('hidden');
+                }
+            });
+
+            exportBtn.addEventListener('click', handleExport);
+            importBtn.addEventListener('click', () => importFileInput.click());
+            importFileInput.addEventListener('change', handleImport);
 
             populateVoiceList();
             if (speechSynthesis.onvoiceschanged !== undefined) {
@@ -870,6 +978,7 @@
                 const selectedModel = modelSelector.value;
                 const url = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${apiKey}`;
                 
+                // 🔥 修改此處的 Prompt 提示詞，加入嚴格的輸出限制 🔥
                 const prompt = `角色與目標：
 * 作為一名資深改革宗浸信會（Reformed Baptist）譯者，你的任務是協助台灣信徒翻譯一套全年讀經計畫的每日默想短文。
 * 確保翻譯用語與《聖經和合本2010》（RCUV）保持一致。
@@ -890,15 +999,11 @@
  b) 對於深奧的神學概念（如『因信稱義』、『預定論』等），使用簡單的類比，但不失去改革宗神學的嚴謹本質。
  c) 確保語氣親切、溫柔且具有啟發性。
 
-3) 輸出流程：
- a) 接收原始短文後，進行核心神學要點的解析，確保不偏離原意。
- b) 產出適合口語表達、流暢的繁體中文譯文。
- c) 針對特定的翻譯選擇或神學詞彙，提供簡短的專業解釋，說明其如何符合《和合本2010》或神學精確性。
-
-整體語調：
-* 專業且具備深厚的神學底蘊。
-* 親切、易於接近，像是一位睿智的導師在耳邊輕聲分享。
-* 專注於台灣在地信徒的理解與語言習慣。
+3) 輸出限制 (非常重要)：
+ a) 請直接輸出翻譯後的內文以及反思問題。
+ b) 絕對不要加上任何開場白或問候語（例如：「這份譯文是...」）。
+ c) 絕對不要在結尾加上任何「專業解釋」、「神學說明」或「翻譯註註」。
+ d) 只需要純粹的譯文內容本身。
 
 請根據以上指引，翻譯以下英文內容：
 
