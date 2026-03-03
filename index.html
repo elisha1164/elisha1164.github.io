@@ -110,46 +110,36 @@
                     </label>
                 </div>
 
-                <div id="readingGrid" class="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6 flex-grow transition-all duration-300">
-                    <!-- 左側：原始英文內文 -->
-                    <div id="originalColumn" class="flex flex-col h-full">
-                        <div class="flex justify-between items-center mb-3">
-                            <h4 class="font-semibold text-stone-700 flex items-center">
-                                📝 原始英文靈修內容
-                            </h4>
+                <!-- 🔥 單一視圖切換區塊 🔥 -->
+                <div id="readingGrid" class="p-6 flex flex-col flex-grow transition-all duration-300">
+                    <!-- 頂部工具列 -->
+                    <div class="flex flex-wrap gap-3 justify-between items-center mb-4 border-b border-stone-100 pb-4">
+                        <h4 id="contentTitle" class="font-semibold text-stone-700 flex items-center text-lg">
+                            📝 原始英文靈修內容
+                        </h4>
+                        <div class="flex gap-2">
+                            <button id="toggleOriginalBtn" class="bg-stone-200 text-stone-700 hover:bg-stone-300 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center shadow-sm hidden">
+                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path></svg>
+                                <span id="toggleOriginalText">顯示譯文</span>
+                            </button>
+                            <button id="translateBtn" class="bg-amber-100 text-amber-800 hover:bg-amber-200 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center shadow-sm">
+                                <svg id="translateIcon" class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                                <span id="translateBtnText">AI 翻譯</span>
+                            </button>
+                            <button id="playBtn" class="bg-stone-800 text-white hover:bg-stone-700 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center shadow-sm hidden">
+                                <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
+                                朗讀
+                            </button>
+                            <button id="stopBtn" class="bg-red-100 text-red-700 hover:bg-red-200 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center shadow-sm hidden">
+                                <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clip-rule="evenodd"></path></svg>
+                                停止
+                            </button>
                         </div>
-                        <div id="originalText" class="w-full flex-grow h-[400px] overflow-y-auto no-scrollbar p-5 bg-stone-50 border border-stone-200 rounded-xl text-stone-600 leading-relaxed text-lg whitespace-pre-wrap font-serif"></div>
                     </div>
 
-                    <!-- 右側：AI 翻譯與朗讀結果 -->
-                    <div id="translationColumn" class="flex flex-col h-full">
-                        <div class="flex flex-wrap gap-2 justify-between items-center mb-3">
-                            <h4 class="font-semibold text-stone-700 flex items-center">
-                                ✨ AI 翻譯結果
-                            </h4>
-                            <div class="flex gap-2">
-                                <button id="toggleOriginalBtn" class="bg-stone-200 text-stone-700 hover:bg-stone-300 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center shadow-sm hidden">
-                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path></svg>
-                                    <span id="toggleOriginalText">顯示原文</span>
-                                </button>
-                                <button id="translateBtn" class="bg-amber-100 text-amber-800 hover:bg-amber-200 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center shadow-sm">
-                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                                    AI 翻譯
-                                </button>
-                                <button id="playBtn" class="bg-stone-800 text-white hover:bg-stone-700 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center shadow-sm">
-                                    <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
-                                    朗讀
-                                </button>
-                                <button id="stopBtn" class="bg-red-100 text-red-700 hover:bg-red-200 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center shadow-sm hidden">
-                                    <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clip-rule="evenodd"></path></svg>
-                                    停止
-                                </button>
-                            </div>
-                        </div>
-                        <div id="translatedText" class="w-full flex-grow h-[400px] overflow-y-auto no-scrollbar p-5 bg-amber-50/30 border border-amber-200 rounded-xl text-stone-800 leading-relaxed text-lg whitespace-pre-wrap relative">
-                            <span class="text-stone-400 italic absolute top-5 left-5">點擊上方「AI 翻譯」按鈕產生中文內容...</span>
-                        </div>
-                    </div>
+                    <!-- 內容顯示區 (兩個 div 輪流顯示，不並排) -->
+                    <div id="originalText" class="w-full flex-grow h-[400px] overflow-y-auto no-scrollbar p-5 bg-stone-50 border border-stone-200 rounded-xl text-stone-600 leading-relaxed text-lg whitespace-pre-wrap font-serif"></div>
+                    <div id="translatedText" class="w-full flex-grow h-[400px] overflow-y-auto no-scrollbar p-5 bg-amber-50/30 border border-amber-200 rounded-xl text-stone-800 leading-relaxed text-lg whitespace-pre-wrap hidden"></div>
                 </div>
             </div>
 
@@ -203,7 +193,7 @@
         const synth = window.speechSynthesis;
         let voices = []; 
         let readProgress = JSON.parse(localStorage.getItem('gemini_read_progress') || '{}');
-        let isOriginalVisible = true;
+        let currentViewMode = 'original'; // 追蹤目前顯示的是 'original' 還是 'translated'
 
         // --- DOM 元素 ---
         const statusText = document.getElementById('statusText');
@@ -223,16 +213,18 @@
         const readProgressCheckbox = document.getElementById('readProgressCheckbox');
         
         const displayTitle = document.getElementById('displayTitle');
+        const contentTitle = document.getElementById('contentTitle');
         const originalText = document.getElementById('originalText');
         const translatedText = document.getElementById('translatedText');
         const scriptureText = document.getElementById('scriptureText');
         
         const translateBtn = document.getElementById('translateBtn');
+        const translateBtnText = document.getElementById('translateBtnText');
+        const translateIcon = document.getElementById('translateIcon');
         const playBtn = document.getElementById('playBtn');
         const stopBtn = document.getElementById('stopBtn');
         
         const readingGrid = document.getElementById('readingGrid');
-        const originalColumn = document.getElementById('originalColumn');
         const toggleOriginalBtn = document.getElementById('toggleOriginalBtn');
         const toggleOriginalText = document.getElementById('toggleOriginalText');
 
@@ -326,18 +318,45 @@
             localStorage.setItem('gemini_translations_cache', JSON.stringify(translations));
         }
 
-        function setOriginalVisibility(show) {
-            isOriginalVisible = show;
-            if (show) {
-                originalColumn.style.display = '';
-                readingGrid.classList.add('lg:grid-cols-2');
-                readingGrid.classList.remove('lg:grid-cols-1');
-                toggleOriginalText.textContent = "隱藏原文";
-            } else {
-                originalColumn.style.display = 'none';
-                readingGrid.classList.remove('lg:grid-cols-2');
-                readingGrid.classList.add('lg:grid-cols-1');
+        // --- 控制畫面顯示模式 (單一視圖切換) ---
+        function setViewMode(mode) {
+            currentViewMode = mode;
+            const hasTranslation = !!getSavedTranslation(currentDay) || (translatedText.textContent.length > 0 && !translatedText.textContent.includes('AI 正在努力翻譯中'));
+
+            if (mode === 'original') {
+                originalText.classList.remove('hidden');
+                translatedText.classList.add('hidden');
+                contentTitle.innerHTML = '📝 原始英文靈修內容';
+                
+                // 如果有翻譯可以切換，就顯示切換按鈕
+                if (hasTranslation) {
+                    toggleOriginalBtn.classList.remove('hidden');
+                    toggleOriginalText.textContent = "顯示譯文";
+                } else {
+                    toggleOriginalBtn.classList.add('hidden');
+                }
+                
+                // 隱藏朗讀功能 (只針對中文朗讀)
+                playBtn.classList.add('hidden');
+                stopBtn.classList.add('hidden');
+                
+                // 翻譯按鈕文字動態變化
+                translateBtn.classList.remove('hidden');
+                translateBtnText.textContent = hasTranslation ? "重新翻譯" : "AI 翻譯";
+                
+            } else if (mode === 'translated') {
+                originalText.classList.add('hidden');
+                translatedText.classList.remove('hidden');
+                contentTitle.innerHTML = '✨ AI 翻譯結果';
+                
+                toggleOriginalBtn.classList.remove('hidden');
                 toggleOriginalText.textContent = "顯示原文";
+                
+                if (!synth.speaking) playBtn.classList.remove('hidden');
+                else stopBtn.classList.remove('hidden');
+                
+                translateBtn.classList.remove('hidden');
+                translateBtnText.textContent = "重新翻譯";
             }
         }
 
@@ -402,7 +421,10 @@
             playBtn.addEventListener('click', handlePlay);
             stopBtn.addEventListener('click', handleStop);
 
-            toggleOriginalBtn.addEventListener('click', () => setOriginalVisibility(!isOriginalVisible));
+            // 切換原文/譯文按鈕事件
+            toggleOriginalBtn.addEventListener('click', () => {
+                setViewMode(currentViewMode === 'original' ? 'translated' : 'original');
+            });
 
             readProgressCheckbox.addEventListener('change', (e) => {
                 readProgress[currentDay] = e.target.checked;
@@ -757,15 +779,14 @@
             
             scriptureText.innerHTML = scriptureHtml;
             
+            // 檢查暫存翻譯並設定畫面
             const savedTranslation = getSavedTranslation(day);
             if (savedTranslation) {
                 translatedText.textContent = savedTranslation;
-                setOriginalVisibility(false); 
-                toggleOriginalBtn.classList.remove('hidden');
+                setViewMode('translated'); // 如果有翻譯，預設顯示中文
             } else {
-                translatedText.innerHTML = '<span class="text-stone-400 italic absolute top-5 left-5">點擊上方「AI 翻譯」按鈕產生中文內容...</span>';
-                setOriginalVisibility(true); 
-                toggleOriginalBtn.classList.add('hidden');
+                translatedText.textContent = '';
+                setViewMode('original'); // 如果沒翻譯，預設顯示英文
             }
 
             prevDayBtn.disabled = (day === 1);
@@ -784,8 +805,16 @@
             const rawText = originalText.textContent;
             if (!rawText || rawText === "此天無靈修資料。") return;
 
+            // 準備 UI 狀態
             translateBtn.disabled = true;
-            translateBtn.innerHTML = `<svg class="animate-spin w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> 翻譯中...`;
+            translateIcon.innerHTML = `<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>`;
+            translateIcon.classList.add('animate-spin');
+            translateBtnText.textContent = "翻譯中...";
+            
+            // 切換至翻譯畫面並顯示動畫
+            setViewMode('translated');
+            toggleOriginalBtn.classList.add('hidden'); // 翻譯期間隱藏切換按鈕
+            playBtn.classList.add('hidden');
             translatedText.innerHTML = '<div class="flex h-full items-center justify-center text-amber-600 animate-pulse font-medium">AI 正在努力翻譯中，請稍候...</div>';
 
             try {
@@ -841,17 +870,19 @@ ${rawText}`;
                 const aiResult = data.candidates[0].content.parts[0].text.trim();
                 translatedText.textContent = aiResult;
                 
-                // 翻譯成功：儲存並隱藏原文
+                // 翻譯成功：儲存並重新整理檢視模式
                 saveTranslation(currentDay, aiResult);
-                setOriginalVisibility(false);
-                toggleOriginalBtn.classList.remove('hidden');
+                setViewMode('translated');
 
             } catch (error) {
                 console.error("API 錯誤:", error);
                 translatedText.innerHTML = `<span class="text-red-500">❌ 發生錯誤：<br>${error.message} <br><br>請確認 API Key 是否有效。</span>`;
+                toggleOriginalBtn.classList.remove('hidden'); // 發生錯誤時允許切換回去
             } finally {
                 translateBtn.disabled = false;
-                translateBtn.innerHTML = `<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg> AI 翻譯`;
+                translateIcon.classList.remove('animate-spin');
+                translateIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>`;
+                translateBtnText.textContent = getSavedTranslation(currentDay) ? "重新翻譯" : "AI 翻譯";
             }
         }
 
