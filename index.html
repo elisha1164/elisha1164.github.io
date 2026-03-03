@@ -466,7 +466,7 @@
             statusText.textContent = "正在從伺服器下載 CSV 資料...";
             
             try {
-                // 載入三個檔案 (包含 rcuv.csv 聖經全書)
+                // 🔥 加入 .replace(/^\uFEFF/, '') 強制去除隱形 BOM 字元，確保欄位名稱正確 🔥
                 const [metaRes, contentRes, rcuvRes] = await Promise.all([
                     fetch('./bible_metadata.csv'),
                     fetch('./bible_reading_plan.csv'),
@@ -475,16 +475,32 @@
 
                 if (!metaRes.ok || !contentRes.ok) throw new Error("主要檔案讀取失敗");
 
-                const metaCsvStr = await metaRes.text();
-                const contentCsvStr = await contentRes.text();
+                const metaCsvStr = (await metaRes.text()).replace(/^\uFEFF/, '');
+                const contentCsvStr = (await contentRes.text()).replace(/^\uFEFF/, '');
 
                 const metaParsed = Papa.parse(metaCsvStr, { header: true, skipEmptyLines: true }).data;
                 const contentParsed = Papa.parse(contentCsvStr, { header: true, skipEmptyLines: true }).data;
                 
                 // 解析並全域儲存 RCUV 聖經資料
                 if (rcuvRes && rcuvRes.ok) {
-                    const rcuvCsvStr = await rcuvRes.text();
-                    rcuvData = Papa.parse(rcuvCsvStr, { header: true, skipEmptyLines: true }).data;
+                    const rcuvCsvStr = (await rcuvRes.text()).replace(/^\uFEFF/, '');
+                    const rawRcuvData = Papa.parse(rcuvCsvStr, { header: true, skipEmptyLines: true }).data;
+                    
+                    if (rawRcuvData.length > 0) {
+                        const firstRow = rawRcuvData[0];
+                        // 🔥 動態尋找欄位名稱，避免大小寫或隱藏空白導致的問題 🔥
+                        const bookKey = Object.keys(firstRow).find(k => k.trim().toLowerCase() === 'book') || Object.keys(firstRow)[0];
+                        const chKey = Object.keys(firstRow).find(k => k.trim().toLowerCase() === 'chapter') || Object.keys(firstRow)[1];
+                        const vKey = Object.keys(firstRow).find(k => k.trim().toLowerCase() === 'verse') || Object.keys(firstRow)[2];
+                        const textKey = Object.keys(firstRow).find(k => k.trim().toLowerCase() === 'text') || Object.keys(firstRow)[3];
+
+                        rcuvData = rawRcuvData.map(row => ({
+                            book: row[bookKey] ? row[bookKey].trim().replace(/\s+/g, '') : '',
+                            chapter: row[chKey] ? row[chKey].toString().trim() : '',
+                            verse: row[vKey] ? row[vKey].toString().trim() : '',
+                            text: row[textKey] || ''
+                        }));
+                    }
                 }
 
                 let currentBook = "";
@@ -492,20 +508,23 @@
 
                 // 組合靈修內容 Metadata
                 metaParsed.forEach(row => {
-                    const day = parseInt(row.Day);
+                    const day = parseInt(row.Day || row.day || row.DAY);
                     if (isNaN(day)) return;
-                    if (row.Book && row.Book.trim() !== "") currentBook = row.Book.trim();
+                    
+                    const bookRaw = row.Book || row.book || row.BOOK || "";
+                    if (bookRaw.trim() !== "") currentBook = bookRaw.trim();
+                    
                     bibleData[day] = {
                         book: currentBook,
-                        chapters: row.Chapters,
-                        psalms: row.Psalms,
+                        chapters: row.Chapters || row.chapters || row.CHAPTERS || "",
+                        psalms: row.Psalms || row.psalms || row.PSALMS || "",
                         content: ""
                     };
                 });
 
                 // 合併靈修內文
                 contentParsed.forEach(row => {
-                    const day = parseInt(row.Day || row.day);
+                    const day = parseInt(row.Day || row.day || row.DAY);
                     if (isNaN(day)) return;
                     if (bibleData[day]) {
                         bibleData[day].content = row.Content || Object.values(row)[2] || Object.values(row)[1] || "";
@@ -552,25 +571,23 @@
             // --- 🔥 動態過濾並生成 RCUV 經文 🔥 ---
             let scriptureHtml = '';
             if (rcuvData.length > 0) {
-                const targetBook = data.book ? data.book.trim() : "";
+                // 將目標書卷名稱去除空白，以便與清理過的 rcuvData 精準比對
+                const targetBook = data.book ? data.book.trim().replace(/\s+/g, '') : "";
                 const targetChapters = parseChapters(data.chapters);
                 const targetPsalms = parseChapters(data.psalms);
 
                 // 篩選出符合今日進度的經文 (主經文 + 詩篇)
                 const dayVerses = rcuvData.filter(row => {
                     if (!row.book || !row.chapter) return false;
-                    const b = row.book.trim();
-                    const c = row.chapter.trim();
                     
-                    if (b === targetBook && targetChapters.includes(c)) return true;
-                    if (b === '詩篇' && targetPsalms.includes(c)) return true;
+                    if (row.book === targetBook && targetChapters.includes(row.chapter)) return true;
+                    if (row.book === '詩篇' && targetPsalms.includes(row.chapter)) return true;
                     return false;
                 });
 
                 if (dayVerses.length > 0) {
                     scriptureHtml = dayVerses.map(row => {
                         // 使用 Regex 尋找 ?...? 並替換為 📝 按鈕
-                        // 確保 row.text 存在
                         const textContent = row.text || "";
                         const formattedText = textContent.replace(/\?(.*?)\?/g, (match, p1) => {
                             // 跳脫引號，避免 HTML 屬性錯誤
