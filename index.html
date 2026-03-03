@@ -4,13 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>全年讀經與 AI 翻譯朗讀助手</title>
-    <!-- 引入 Tailwind CSS (用於快速排版) -->
+    <!-- 引入 Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- 引入 PapaParse (用於解析 CSV) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <style>
         body { font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; }
-        /* 隱藏捲軸但保留捲動功能，讓介面更乾淨 */
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
@@ -26,15 +25,12 @@
 
         <!-- 設定區 (API Key, 模型, 進度與語音) -->
         <section class="bg-white rounded-2xl shadow-sm p-6 mb-8 border border-stone-200">
-            <!-- 使用 Grid 讓排版在不同螢幕上都能整齊排列 -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 items-end">
-                <!-- 1. API Key -->
                 <div class="w-full">
                     <label class="block text-sm font-medium text-stone-600 mb-1">🔑 Gemini API Key</label>
                     <input type="password" id="apiKeyInput" placeholder="在此貼上 API Key" 
                         class="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none transition text-sm">
                 </div>
-                <!-- 2. AI 模型 -->
                 <div class="w-full">
                     <label class="block text-sm font-medium text-stone-600 mb-1">🧠 選擇 AI 模型</label>
                     <select id="modelSelector" class="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none transition bg-white text-sm text-stone-700">
@@ -44,12 +40,10 @@
                         <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
                     </select>
                 </div>
-                <!-- 3. 開始日期 -->
                 <div class="w-full">
                     <label class="block text-sm font-medium text-stone-600 mb-1">📅 Day 1 開始日期</label>
                     <input type="date" id="startDateInput" class="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none transition bg-white text-sm text-stone-700">
                 </div>
-                <!-- 4. 語音與語速 -->
                 <div class="w-full">
                     <label class="block text-sm font-medium text-stone-600 mb-1 flex justify-between">
                         <span>🗣️ 語音與語速</span>
@@ -69,7 +63,6 @@
                 </div>
             </div>
             
-            <!-- 儲存按鈕列 -->
             <div class="mt-6 flex items-center justify-between border-t border-stone-100 pt-4">
                 <p class="text-xs text-stone-400">強烈建議使用 <b>Microsoft Edge</b> 瀏覽器開啟此網頁，以獲得最佳的 AI 語音品質。</p>
                 <div class="flex items-center gap-3">
@@ -99,32 +92,40 @@
                 </button>
             </div>
 
-            <!-- 內容顯示卡片 -->
-            <div class="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden flex flex-col">
+            <!-- 內容顯示卡片 (靈修內容) -->
+            <div class="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden flex flex-col mb-6">
                 
-                <!-- 每日標題 -->
-                <div class="bg-amber-50 border-b border-amber-100 p-6 text-center">
-                    <h3 id="displayTitle" class="text-2xl sm:text-3xl font-bold text-stone-800 tracking-tight">載入中...</h3>
+                <!-- 每日標題 + 核取方塊 -->
+                <div class="bg-amber-50 border-b border-amber-100 p-6 flex flex-col items-center justify-center relative">
+                    <h3 id="displayTitle" class="text-2xl sm:text-3xl font-bold text-stone-800 tracking-tight text-center">載入中...</h3>
+                    <label class="mt-4 flex items-center cursor-pointer text-stone-600 hover:text-amber-700 transition bg-white px-4 py-1.5 rounded-full shadow-sm border border-amber-200 select-none">
+                        <input type="checkbox" id="readProgressCheckbox" class="w-5 h-5 rounded border-stone-300 text-amber-600 focus:ring-amber-500 cursor-pointer mr-2">
+                        <span class="font-medium text-sm">標記為已讀</span>
+                    </label>
                 </div>
 
-                <div class="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6 flex-grow">
+                <div id="readingGrid" class="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6 flex-grow transition-all duration-300">
                     <!-- 左側：原始英文內文 -->
-                    <div class="flex flex-col h-full">
+                    <div id="originalColumn" class="flex flex-col h-full">
                         <div class="flex justify-between items-center mb-3">
                             <h4 class="font-semibold text-stone-700 flex items-center">
-                                📝 原始英文內容
+                                📝 原始英文靈修內容
                             </h4>
                         </div>
                         <div id="originalText" class="w-full flex-grow h-[400px] overflow-y-auto no-scrollbar p-5 bg-stone-50 border border-stone-200 rounded-xl text-stone-600 leading-relaxed text-lg whitespace-pre-wrap font-serif"></div>
                     </div>
 
                     <!-- 右側：AI 翻譯與朗讀結果 -->
-                    <div class="flex flex-col h-full">
+                    <div id="translationColumn" class="flex flex-col h-full">
                         <div class="flex flex-wrap gap-2 justify-between items-center mb-3">
                             <h4 class="font-semibold text-stone-700 flex items-center">
                                 ✨ AI 翻譯結果
                             </h4>
                             <div class="flex gap-2">
+                                <button id="toggleOriginalBtn" class="bg-stone-200 text-stone-700 hover:bg-stone-300 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center shadow-sm hidden">
+                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path></svg>
+                                    <span id="toggleOriginalText">顯示原文</span>
+                                </button>
                                 <button id="translateBtn" class="bg-amber-100 text-amber-800 hover:bg-amber-200 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center shadow-sm">
                                     <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
                                     AI 翻譯
@@ -145,6 +146,20 @@
                     </div>
                 </div>
             </div>
+
+            <!-- 內容顯示卡片 (經文內容) -->
+            <div class="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden flex flex-col">
+                <div class="bg-stone-50 border-b border-stone-200 p-5 flex justify-between items-center">
+                    <h4 class="font-bold text-stone-700 flex items-center text-lg tracking-wide">
+                        📖 今日經文 (和合本 2010 RCUV)
+                    </h4>
+                </div>
+                <!-- 經文列表將在此處生成 -->
+                <div id="scriptureText" class="p-6 text-stone-800 leading-loose text-lg font-serif min-h-[150px] max-h-[600px] overflow-y-auto no-scrollbar space-y-2">
+                    載入中...
+                </div>
+            </div>
+
         </section>
 
         <!-- 版權聲明區 -->
@@ -159,12 +174,30 @@
 
     </div>
 
+    <!-- 註釋彈出框 (Modal) -->
+    <div id="footnoteModal" class="fixed inset-0 bg-stone-900/40 hidden flex items-center justify-center z-50 transition-opacity backdrop-blur-sm" onclick="if(event.target === this) closeFootnoteModal()">
+        <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full mx-4 relative transform transition-transform scale-100">
+            <button onclick="closeFootnoteModal()" class="absolute top-4 right-4 text-stone-400 hover:text-stone-600 transition bg-stone-100 hover:bg-stone-200 rounded-full p-1">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+            <div class="flex items-center mb-4">
+                <span class="text-2xl mr-2">📝</span>
+                <h4 class="font-bold text-stone-800 text-lg">經文註釋</h4>
+            </div>
+            <p id="footnoteContent" class="text-stone-600 leading-relaxed bg-stone-50 p-4 rounded-xl border border-stone-100"></p>
+        </div>
+    </div>
+
     <script>
         // --- 變數與狀態 ---
         let bibleData = {}; // 儲存合併後的資料 { day: { book, chapters, psalms, content } }
+        let rcuvData = [];  // 🔥 儲存整本 RCUV 聖經陣列 🔥
+        
         let currentDay = 1;
         const synth = window.speechSynthesis;
-        let voices = []; // 儲存系統可用的語音清單
+        let voices = []; 
+        let readProgress = JSON.parse(localStorage.getItem('gemini_read_progress') || '{}');
+        let isOriginalVisible = true;
 
         // --- DOM 元素 ---
         const statusText = document.getElementById('statusText');
@@ -180,27 +213,81 @@
         const daySelector = document.getElementById('daySelector');
         const prevDayBtn = document.getElementById('prevDayBtn');
         const nextDayBtn = document.getElementById('nextDayBtn');
+        const readProgressCheckbox = document.getElementById('readProgressCheckbox');
         
         const displayTitle = document.getElementById('displayTitle');
         const originalText = document.getElementById('originalText');
         const translatedText = document.getElementById('translatedText');
+        const scriptureText = document.getElementById('scriptureText');
         
         const translateBtn = document.getElementById('translateBtn');
         const playBtn = document.getElementById('playBtn');
         const stopBtn = document.getElementById('stopBtn');
+        
+        const readingGrid = document.getElementById('readingGrid');
+        const originalColumn = document.getElementById('originalColumn');
+        const toggleOriginalBtn = document.getElementById('toggleOriginalBtn');
+        const toggleOriginalText = document.getElementById('toggleOriginalText');
+
+        // --- Modal 註釋控制函數 ---
+        function showFootnoteModal(content) {
+            document.getElementById('footnoteContent').textContent = content;
+            document.getElementById('footnoteModal').classList.remove('hidden');
+        }
+        
+        function closeFootnoteModal() {
+            document.getElementById('footnoteModal').classList.add('hidden');
+        }
+
+        // --- 暫存翻譯的輔助函數 ---
+        function getSavedTranslation(day) {
+            const saved = localStorage.getItem('gemini_translations_cache');
+            if (saved) {
+                try {
+                    const translations = JSON.parse(saved);
+                    return translations[day] || null;
+                } catch (e) {
+                    return null;
+                }
+            }
+            return null;
+        }
+
+        function saveTranslation(day, text) {
+            let translations = {};
+            const saved = localStorage.getItem('gemini_translations_cache');
+            if (saved) {
+                try { translations = JSON.parse(saved); } catch (e) { translations = {}; }
+            }
+            translations[day] = text;
+            localStorage.setItem('gemini_translations_cache', JSON.stringify(translations));
+        }
+
+        // --- 控制原文顯示隱藏 ---
+        function setOriginalVisibility(show) {
+            isOriginalVisible = show;
+            if (show) {
+                originalColumn.style.display = '';
+                readingGrid.classList.add('lg:grid-cols-2');
+                readingGrid.classList.remove('lg:grid-cols-1');
+                toggleOriginalText.textContent = "隱藏原文";
+            } else {
+                originalColumn.style.display = 'none';
+                readingGrid.classList.remove('lg:grid-cols-2');
+                readingGrid.classList.add('lg:grid-cols-1');
+                toggleOriginalText.textContent = "顯示原文";
+            }
+        }
 
         // --- 初始化 ---
         async function init() {
-            // 解析網址參數中的 API Key (?api=YOUR_KEY)
             const urlParams = new URLSearchParams(window.location.search);
             const urlApiKey = urlParams.get('api');
-            
             if (urlApiKey) {
                 localStorage.setItem('gemini_api_key', urlApiKey);
                 window.history.replaceState({}, document.title, window.location.pathname);
             }
 
-            // 讀取儲存的設定
             const savedKey = localStorage.getItem('gemini_api_key');
             const savedModel = localStorage.getItem('gemini_model');
             const savedStartDate = localStorage.getItem('gemini_start_date');
@@ -208,16 +295,12 @@
             
             if (savedKey) {
                 apiKeyInput.value = savedKey;
-                // 自動更新可用的模型清單
                 fetchAvailableModels(savedKey, savedModel);
             }
-            if (savedModel && !savedKey) {
-                modelSelector.value = savedModel;
-            }
+            if (savedModel && !savedKey) modelSelector.value = savedModel;
             if (savedStartDate) startDateInput.value = savedStartDate;
             if (savedRate) rateSelector.value = savedRate;
 
-            // 綁定事件
             saveKeyBtn.addEventListener('click', () => {
                 const key = apiKeyInput.value.trim();
                 const model = modelSelector.value;
@@ -226,27 +309,21 @@
                 
                 if (key) {
                     localStorage.setItem('gemini_api_key', key);
-                    // 當使用者存入新的 API Key 時，重新抓取可用的模型清單
                     fetchAvailableModels(key, model);
                 }
                 if (model) localStorage.setItem('gemini_model', model);
                 if (rate) localStorage.setItem('tts_rate', rate);
-                
-                // 儲存選擇的語音名稱
                 if (voiceSelector.value !== "" && voices[voiceSelector.value]) {
                     localStorage.setItem('tts_voice_name', voices[voiceSelector.value].name);
                 }
-
                 if (startDate) {
                     localStorage.setItem('gemini_start_date', startDate);
                     const targetDay = calculateCurrentDay(startDate);
-                    if (targetDay && bibleData && Object.keys(bibleData).length > 0) {
-                        changeDay(targetDay);
-                    }
+                    if (targetDay && bibleData && Object.keys(bibleData).length > 0) changeDay(targetDay);
                 }
                 
                 keyStatus.classList.remove('hidden');
-                setTimeout(() => keyStatus.classList.add('hidden'), 3000); // 3秒後隱藏提示
+                setTimeout(() => keyStatus.classList.add('hidden'), 3000);
             });
 
             daySelector.addEventListener('change', (e) => {
@@ -263,48 +340,42 @@
             playBtn.addEventListener('click', handlePlay);
             stopBtn.addEventListener('click', handleStop);
 
-            // 載入可用語音清單
+            toggleOriginalBtn.addEventListener('click', () => setOriginalVisibility(!isOriginalVisible));
+
+            readProgressCheckbox.addEventListener('change', (e) => {
+                readProgress[currentDay] = e.target.checked;
+                localStorage.setItem('gemini_read_progress', JSON.stringify(readProgress));
+            });
+
             populateVoiceList();
             if (speechSynthesis.onvoiceschanged !== undefined) {
                 speechSynthesis.onvoiceschanged = populateVoiceList;
             }
 
-            // 自動載入 CSV
             await loadCSVs();
         }
 
-        // --- 從 Google API 動態擷取可用模型清單 ---
         async function fetchAvailableModels(apiKey, currentSelection) {
             try {
                 const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
                 const data = await response.json();
                 
-                if (data.error) {
-                    console.warn("擷取模型失敗 (可能是 API Key 錯誤或無權限)", data.error);
-                    return; // 失敗時保留預設清單
-                }
+                if (data.error) return;
 
                 if (data.models) {
-                    // 備份當前選取的模型
                     const targetModel = currentSelection || modelSelector.value;
-                    
-                    // 清空原本寫死的選項
                     modelSelector.innerHTML = '';
                     
-                    // 1. 強制加回 gemini-flash-latest 別名 (API 清單中通常不會直接列出此別名)
                     const latestOpt = document.createElement('option');
                     latestOpt.value = 'gemini-flash-latest';
                     latestOpt.textContent = 'Gemini Flash Latest (最新快速/預設)';
                     modelSelector.appendChild(latestOpt);
                     
-                    // 定義要排除的非純文字/特殊模型關鍵字
                     const excludeKeywords = ['image', 'vision', 'audio', 'embedding', 'tts', 'aqa'];
-
-                    // 2. 過濾出包含 gemini 且支援 generateContent 的文字生成模型，並排除特定非純文字模型
                     const geminiModels = data.models.filter(m => 
                         m.name.includes('gemini') && 
                         m.supportedGenerationMethods.includes('generateContent') &&
-                        m.name.replace('models/', '') !== 'gemini-flash-latest' && // 避免萬一 API 未來回傳了導致重複
+                        m.name.replace('models/', '') !== 'gemini-flash-latest' &&
                         !excludeKeywords.some(keyword => m.name.toLowerCase().includes(keyword))
                     );
 
@@ -312,17 +383,14 @@
                         const option = document.createElement('option');
                         const modelId = model.name.replace('models/', '');
                         option.value = modelId;
-                        // 讓顯示名稱更清楚
                         option.textContent = `${model.displayName} (${modelId})`;
                         modelSelector.appendChild(option);
                     });
 
-                    // 嘗試還原使用者之前的選擇，如果官方清單裡或別名裡有這個模型的話
                     const optionsArray = Array.from(modelSelector.options);
                     if (optionsArray.some(opt => opt.value === targetModel)) {
                         modelSelector.value = targetModel;
                     } else {
-                        // 如果原本選的找不到了，安全地預設為 gemini-flash-latest
                         modelSelector.value = 'gemini-flash-latest';
                     }
                 }
@@ -331,11 +399,8 @@
             }
         }
 
-        // --- 處理語音清單 ---
         function populateVoiceList() {
-            // 過濾出與中文相關的語音
             voices = synth.getVoices().filter(v => v.lang.includes('zh') || v.lang.includes('cmn') || v.name.includes('Taiwan') || v.name.includes('Chinese'));
-            
             voiceSelector.innerHTML = '';
             
             if (voices.length === 0) {
@@ -344,30 +409,25 @@
             }
 
             const savedVoiceName = localStorage.getItem('tts_voice_name');
-            
             voices.forEach((voice, i) => {
                 const option = document.createElement('option');
-                // 美化語音名稱，去掉多餘的前綴
                 let displayName = voice.name.replace('Microsoft ', '').replace('Google ', '');
                 option.textContent = displayName;
                 option.value = i;
                 
-                // 自動選擇邏輯：先看有沒有存過，沒有的話優先挑 Edge 內建的高音質 HsiaoChen 或 Google 國語
                 if (savedVoiceName && voice.name === savedVoiceName) {
                     option.selected = true;
                 } else if (!savedVoiceName && (voice.name.includes('HsiaoChen') || voice.name.includes('國語'))) {
                     option.selected = true;
                 }
-                
                 voiceSelector.appendChild(option);
             });
         }
 
-        // --- 計算推算天數 ---
         function calculateCurrentDay(startDateStr) {
             if (!startDateStr) return null;
             const startDate = new Date(startDateStr);
-            startDate.setHours(0, 0, 0, 0); // 歸零時間，只比對日期
+            startDate.setHours(0, 0, 0, 0);
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
@@ -375,12 +435,30 @@
             const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
             
             let targetDay = diffDays + 1;
-            
-            // 確保在 1 到 358 天的範圍內
             if (targetDay < 1) targetDay = 1;
             if (targetDay > 358) targetDay = 358;
-            
             return targetDay;
+        }
+
+        // --- 輔助函數：解析章節字串 (例如 "1-3,5" 轉成陣列 [1,2,3,5]) ---
+        function parseChapters(chaptersStr) {
+            if (!chaptersStr) return [];
+            // 處理可能有中文的狀況
+            const cleanStr = chaptersStr.toString().replace(/到/g, '-').trim();
+            if (cleanStr === '') return [];
+            
+            const chapters = [];
+            const parts = cleanStr.split(',');
+            parts.forEach(part => {
+                if (part.includes('-')) {
+                    const [start, end] = part.split('-').map(Number);
+                    for (let i = start; i <= end; i++) chapters.push(i);
+                } else {
+                    const num = Number(part);
+                    if (!isNaN(num)) chapters.push(num);
+                }
+            });
+            return chapters;
         }
 
         // --- 載入與解析 CSV ---
@@ -388,76 +466,68 @@
             statusText.textContent = "正在從伺服器下載 CSV 資料...";
             
             try {
-                // 將檔案改為讀取 bible_reading_plan.csv
-                const [metaRes, contentRes] = await Promise.all([
+                // 載入三個檔案 (包含 rcuv.csv 聖經全書)
+                const [metaRes, contentRes, rcuvRes] = await Promise.all([
                     fetch('./bible_metadata.csv'),
-                    fetch('./bible_reading_plan.csv') 
+                    fetch('./bible_reading_plan.csv'),
+                    fetch('./rcuv.csv').catch(() => null) 
                 ]);
 
-                if (!metaRes.ok || !contentRes.ok) throw new Error("檔案讀取失敗");
+                if (!metaRes.ok || !contentRes.ok) throw new Error("主要檔案讀取失敗");
 
                 const metaCsvStr = await metaRes.text();
                 const contentCsvStr = await contentRes.text();
 
-                // 解析 Metadata
                 const metaParsed = Papa.parse(metaCsvStr, { header: true, skipEmptyLines: true }).data;
-                // 解析 Content
                 const contentParsed = Papa.parse(contentCsvStr, { header: true, skipEmptyLines: true }).data;
+                
+                // 解析並全域儲存 RCUV 聖經資料
+                if (rcuvRes && rcuvRes.ok) {
+                    const rcuvCsvStr = await rcuvRes.text();
+                    rcuvData = Papa.parse(rcuvCsvStr, { header: true, skipEmptyLines: true }).data;
+                }
 
-                // --- 核心邏輯：合併資料與填補空白書卷 ---
                 let currentBook = "";
                 bibleData = {};
 
-                // 處理 Metadata (填補空白書卷)
+                // 組合靈修內容 Metadata
                 metaParsed.forEach(row => {
                     const day = parseInt(row.Day);
                     if (isNaN(day)) return;
-
-                    if (row.Book && row.Book.trim() !== "") {
-                        currentBook = row.Book.trim();
-                    }
-
+                    if (row.Book && row.Book.trim() !== "") currentBook = row.Book.trim();
                     bibleData[day] = {
                         book: currentBook,
                         chapters: row.Chapters,
                         psalms: row.Psalms,
-                        content: "" // 預設空內容
+                        content: ""
                     };
                 });
 
-                // 處理 Content (合併內文)
+                // 合併靈修內文
                 contentParsed.forEach(row => {
                     const day = parseInt(row.Day || row.day);
                     if (isNaN(day)) return;
-                    
                     if (bibleData[day]) {
-                        // 抓取原始爬蟲資料的 Content 欄位
-                        const text = row.Content || Object.values(row)[2] || Object.values(row)[1] || "";
-                        bibleData[day].content = text;
+                        bibleData[day].content = row.Content || Object.values(row)[2] || Object.values(row)[1] || "";
                     }
                 });
 
                 statusText.textContent = "✅ 資料載入成功！";
-                
-                // 解除畫面鎖定
                 readingSection.classList.remove('opacity-50', 'pointer-events-none');
                 
-                // 顯示推算的天數或預設第一天
                 const savedStartDate = localStorage.getItem('gemini_start_date');
                 const initialDay = calculateCurrentDay(savedStartDate) || 1;
                 changeDay(initialDay);
 
             } catch (error) {
                 console.error("CSV 載入錯誤:", error);
-                statusText.innerHTML = `❌ 載入失敗。<br><span class="text-sm text-red-500">請確認 \`bible_metadata.csv\` 與 \`bible_reading_plan.csv\` 已上傳至同一個資料夾。</span>`;
+                statusText.innerHTML = `❌ 載入失敗。<br><span class="text-sm text-red-500">請確認 \`bible_metadata.csv\`, \`bible_reading_plan.csv\`, 以及 \`rcuv.csv\` 是否已上傳至同一個資料夾。</span>`;
             }
         }
 
-        // --- 切換天數 ---
+        // --- 切換天數與顯示 ---
         function changeDay(day) {
             if (day < 1 || day > 358) return;
-            
-            // 停止朗讀
             handleStop();
             
             currentDay = day;
@@ -469,19 +539,64 @@
                 return;
             }
 
-            // 組合標題
+            // 更新核取方塊狀態
+            readProgressCheckbox.checked = !!readProgress[day];
+
             const dayStr = day.toString().padStart(3, '0');
             const visualChapters = data.chapters.replace("-", "到");
-            const title = `全年讀經第${dayStr}天 ${data.book}第${visualChapters}章、詩篇第${data.psalms}篇`;
+            displayTitle.textContent = `全年讀經第${dayStr}天 ${data.book}第${visualChapters}章、詩篇第${data.psalms}篇`;
             
-            // 更新畫面
-            displayTitle.textContent = title;
-            originalText.textContent = data.content || "此天無內文資料。";
+            // 填入靈修英文內文
+            originalText.textContent = data.content || "此天無靈修資料。";
             
-            // 清空翻譯區
-            translatedText.innerHTML = '<span class="text-stone-400 italic absolute top-5 left-5">點擊上方「AI 翻譯」按鈕產生中文內容...</span>';
+            // --- 🔥 動態過濾並生成 RCUV 經文 🔥 ---
+            let scriptureHtml = '';
+            if (rcuvData.length > 0) {
+                const targetBook = data.book.trim();
+                const targetChapters = parseChapters(data.chapters);
+                const targetPsalms = parseChapters(data.psalms);
 
-            // 更新按鈕狀態
+                // 篩選出符合今日進度的經文 (主經文 + 詩篇)
+                const dayVerses = rcuvData.filter(row => {
+                    if (!row.book || !row.chapter) return false;
+                    const b = row.book.trim();
+                    const c = parseInt(row.chapter);
+                    if (b === targetBook && targetChapters.includes(c)) return true;
+                    if (b === '詩篇' && targetPsalms.includes(c)) return true;
+                    return false;
+                });
+
+                if (dayVerses.length > 0) {
+                    scriptureHtml = dayVerses.map(row => {
+                        // 使用 Regex 尋找 ?...? 並替換為 📝 按鈕
+                        const formattedText = row.text.replace(/\?(.*?)\?/g, (match, p1) => {
+                            // 跳脫引號，避免 HTML 屬性錯誤
+                            const safeFootnote = p1.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                            return `<span class="inline-flex items-center justify-center cursor-pointer text-xl ml-1 opacity-80 hover:opacity-100 hover:scale-110 transition-transform" onclick="showFootnoteModal('${safeFootnote}')" title="點擊查看註釋">📝</span>`;
+                        });
+                        return `<div class="mb-2"><strong class="text-stone-700 mr-2">${row.book} ${row.chapter}:${row.verse}</strong><span class="text-stone-600">${formattedText}</span></div>`;
+                    }).join('');
+                } else {
+                    scriptureHtml = "<p class="text-stone-400">找不到符合今日進度的經文。</p>";
+                }
+            } else {
+                scriptureHtml = "<p class="text-red-400">無法載入 rcuv.csv 檔案，請確認檔案存在且格式為 book,chapter,verse,text</p>";
+            }
+            // 寫入 HTML
+            scriptureText.innerHTML = scriptureHtml;
+            
+            // 檢查暫存翻譯
+            const savedTranslation = getSavedTranslation(day);
+            if (savedTranslation) {
+                translatedText.textContent = savedTranslation;
+                setOriginalVisibility(false); // 自動隱藏原文全寬顯示
+                toggleOriginalBtn.classList.remove('hidden');
+            } else {
+                translatedText.innerHTML = '<span class="text-stone-400 italic absolute top-5 left-5">點擊上方「AI 翻譯」按鈕產生中文內容...</span>';
+                setOriginalVisibility(true); // 沒有暫存時顯示雙欄
+                toggleOriginalBtn.classList.add('hidden');
+            }
+
             prevDayBtn.disabled = (day === 1);
             nextDayBtn.disabled = (day === 358);
         }
@@ -496,21 +611,16 @@
             }
 
             const rawText = originalText.textContent;
-            if (!rawText || rawText === "此天無內文資料。") return;
+            if (!rawText || rawText === "此天無靈修資料。") return;
 
-            // 改變按鈕狀態
             translateBtn.disabled = true;
             translateBtn.innerHTML = `<svg class="animate-spin w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> 翻譯中...`;
             translatedText.innerHTML = '<div class="flex h-full items-center justify-center text-amber-600 animate-pulse font-medium">AI 正在努力翻譯中，請稍候...</div>';
 
             try {
-                // 取得使用者選擇的模型
                 const selectedModel = modelSelector.value;
-                
-                // 呼叫 Gemini REST API
                 const url = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${apiKey}`;
                 
-                // 🔥 將使用者提供的完整 Prompt 整合進來 🔥
                 const prompt = `角色與目標：
 * 作為一名資深改革宗浸信會（Reformed Baptist）譯者，你的任務是協助台灣信徒翻譯一套全年讀經計畫的每日默想短文。
 * 確保翻譯用語與《聖經和合本2010》（RCUV）保持一致。
@@ -555,86 +665,57 @@ ${rawText}`;
                 });
 
                 const data = await response.json();
-                
-                if (data.error) {
-                    throw new Error(data.error.message);
-                }
+                if (data.error) throw new Error(data.error.message);
 
-                const aiResult = data.candidates[0].content.parts[0].text;
+                const aiResult = data.candidates[0].content.parts[0].text.trim();
+                translatedText.textContent = aiResult;
                 
-                // 顯示結果
-                translatedText.textContent = aiResult.trim();
+                // 翻譯成功：儲存並隱藏原文
+                saveTranslation(currentDay, aiResult);
+                setOriginalVisibility(false);
+                toggleOriginalBtn.classList.remove('hidden');
 
             } catch (error) {
                 console.error("API 錯誤:", error);
-                translatedText.innerHTML = `<span class="text-red-500">❌ 發生錯誤：<br>${error.message} <br><br>請確認您的 API Key 是否正確且有效，或嘗試切換至 Gemini 2.5 Flash 模型。</span>`;
+                translatedText.innerHTML = `<span class="text-red-500">❌ 發生錯誤：<br>${error.message} <br><br>請確認 API Key 是否有效。</span>`;
             } finally {
-                // 恢復按鈕狀態
                 translateBtn.disabled = false;
                 translateBtn.innerHTML = `<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg> AI 翻譯`;
             }
         }
 
-        // --- Web Speech API 語音朗讀 ---
+        // --- 語音朗讀 ---
         function handlePlay() {
             let contentToRead = translatedText.textContent;
-            
-            // 防呆機制，若使用者還沒翻譯就按朗讀，阻止它唸英文
             if (contentToRead.includes("點擊上方") || contentToRead.includes("AI 正在努力翻譯中")) {
-                alert("請先點擊「AI 翻譯」按鈕，等產生中文內容後再進行朗讀喔！");
+                alert("請先翻譯後再進行朗讀喔！");
                 return;
             }
 
-            // 加上標題一起唸
             const fullTextToRead = `${displayTitle.textContent}。\n\n${contentToRead}`;
-
-            // 如果正在播放，就先停止
-            if (synth.speaking) {
-                synth.cancel();
-            }
+            if (synth.speaking) synth.cancel();
 
             const utterance = new SpeechSynthesisUtterance(fullTextToRead);
-            
-            // 讀取使用者從下拉選單選擇的語音
             const selectedVoiceIndex = voiceSelector.value;
             if (selectedVoiceIndex !== "" && voices[selectedVoiceIndex]) {
                 utterance.voice = voices[selectedVoiceIndex];
             }
-            
-            // 讀取使用者選擇的語速
             utterance.rate = parseFloat(rateSelector.value); 
 
-            utterance.onstart = () => {
-                playBtn.classList.add('hidden');
-                stopBtn.classList.remove('hidden');
-            };
-
-            utterance.onend = () => {
-                handleStop();
-            };
-
-            utterance.onerror = (e) => {
-                console.error("語音播放錯誤:", e);
-                handleStop();
-            };
+            utterance.onstart = () => { playBtn.classList.add('hidden'); stopBtn.classList.remove('hidden'); };
+            utterance.onend = () => handleStop();
+            utterance.onerror = () => handleStop();
 
             synth.speak(utterance);
         }
 
         function handleStop() {
-            if (synth.speaking) {
-                synth.cancel();
-            }
+            if (synth.speaking) synth.cancel();
             stopBtn.classList.add('hidden');
             playBtn.classList.remove('hidden');
         }
 
-        // 確保語音套件載入完成
-        speechSynthesis.onvoiceschanged = () => {};
-
-        // 啟動程式
         window.addEventListener('DOMContentLoaded', init);
-
     </script>
 </body>
 </html>
