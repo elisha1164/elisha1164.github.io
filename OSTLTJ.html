@@ -51,7 +51,12 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
                 <div class="w-full">
                     <label class="block text-sm font-medium text-stone-600 mb-2">📅 Day 1 開始日期</label>
-                    <input type="date" id="startDateInput" class="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none transition bg-white text-sm text-stone-700">
+                    <div class="flex gap-2">
+                        <input type="date" id="startDateInput" class="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none transition bg-white text-sm text-stone-700">
+                        <button id="setTodayBtn" class="bg-stone-200 hover:bg-stone-300 text-stone-700 px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap shadow-sm border border-stone-300">
+                            設為今日
+                        </button>
+                    </div>
                 </div>
                 <div class="w-full">
                     <label class="block text-sm font-medium text-stone-600 mb-2">🗣️ 系統語音與語速</label>
@@ -66,15 +71,6 @@
                             <option value="1.5">快速</option>
                         </select>
                     </div>
-                </div>
-            </div>
-            
-            <div class="mt-5 flex items-center justify-end border-t border-stone-100 pt-5">
-                <div class="flex items-center gap-3">
-                    <p id="keyStatus" class="text-sm font-medium text-amber-600 hidden">設定已安全儲存！</p>
-                    <button id="saveKeyBtn" class="bg-stone-800 text-white px-6 py-2 rounded-lg hover:bg-stone-700 transition font-medium whitespace-nowrap text-sm shadow-sm">
-                        儲存設定
-                    </button>
                 </div>
             </div>
         </section>
@@ -213,10 +209,9 @@
         // --- DOM 元素 ---
         const statusText = document.getElementById('statusText');
         const startDateInput = document.getElementById('startDateInput');
+        const setTodayBtn = document.getElementById('setTodayBtn'); // 新增的按鈕
         const voiceSelector = document.getElementById('voiceSelector');
         const rateSelector = document.getElementById('rateSelector');
-        const saveKeyBtn = document.getElementById('saveKeyBtn');
-        const keyStatus = document.getElementById('keyStatus');
         const readingSection = document.getElementById('readingSection');
         
         const daySelector = document.getElementById('daySelector');
@@ -400,24 +395,41 @@
             if (savedStartDate) startDateInput.value = savedStartDate;
             if (savedRate) rateSelector.value = savedRate;
 
-            saveKeyBtn.addEventListener('click', () => {
-                const startDate = startDateInput.value;
-                const rate = rateSelector.value;
-                
-                if (rate) localStorage.setItem('tts_rate', rate);
-                if (voiceSelector.value !== "" && voices[voiceSelector.value]) {
-                    localStorage.setItem('tts_voice_name', voices[voiceSelector.value].name);
-                }
+            // --- 自動儲存邏輯 (取代原本的儲存按鈕) ---
+            startDateInput.addEventListener('change', (e) => {
+                const startDate = e.target.value;
                 if (startDate) {
                     localStorage.setItem('gemini_start_date', startDate);
                     const targetDay = calculateCurrentDay(startDate);
                     if (targetDay && bibleData && Object.keys(bibleData).length > 0) changeDay(targetDay);
+                } else {
+                    localStorage.removeItem('gemini_start_date');
                 }
-                
-                keyStatus.classList.remove('hidden');
-                setTimeout(() => keyStatus.classList.add('hidden'), 3000);
             });
 
+            setTodayBtn.addEventListener('click', () => {
+                const today = new Date();
+                // 獲取本地時區的 YYYY-MM-DD
+                const offset = today.getTimezoneOffset();
+                const todayStr = new Date(today.getTime() - (offset*60*1000)).toISOString().split('T')[0];
+                
+                startDateInput.value = todayStr;
+                localStorage.setItem('gemini_start_date', todayStr);
+                const targetDay = calculateCurrentDay(todayStr);
+                if (targetDay && bibleData && Object.keys(bibleData).length > 0) changeDay(targetDay);
+            });
+
+            rateSelector.addEventListener('change', (e) => {
+                localStorage.setItem('tts_rate', e.target.value);
+            });
+
+            voiceSelector.addEventListener('change', (e) => {
+                if (e.target.value !== "" && voices[e.target.value]) {
+                    localStorage.setItem('tts_voice_name', voices[e.target.value].name);
+                }
+            });
+
+            // --- 介面控制事件 ---
             daySelector.addEventListener('change', (e) => {
                 let day = parseInt(e.target.value);
                 if (day < 1) day = 1;
