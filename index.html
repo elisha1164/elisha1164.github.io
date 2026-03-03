@@ -498,24 +498,39 @@
         async function loadCSVs() {
             statusText.textContent = "正在從伺服器下載 CSV 資料...";
             
+            // --- 智慧編碼讀取器 (自動判斷 UTF-8 或 Big5) ---
+            async function fetchCsvContent(url) {
+                try {
+                    const res = await fetch(url);
+                    if (!res.ok) return null;
+                    const buffer = await res.arrayBuffer();
+                    try {
+                        // 嘗試以 UTF-8 解碼，若有亂碼(非UTF-8)會觸發 fatal error
+                        const decoder = new TextDecoder('utf-8', { fatal: true });
+                        return decoder.decode(buffer).replace(/^\uFEFF/, '');
+                    } catch (e) {
+                        // 觸發錯誤代表檔案是 Big5 編碼 (Excel 預設的 ANSI/CSV 編碼)
+                        const decoder = new TextDecoder('big5');
+                        return decoder.decode(buffer).replace(/^\uFEFF/, '');
+                    }
+                } catch (e) {
+                    return null;
+                }
+            }
+
             try {
-                const [metaRes, contentRes, rcuvRes] = await Promise.all([
-                    fetch('./bible_metadata.csv'),
-                    fetch('./bible_reading_plan.csv'),
-                    fetch('./rcuv.csv').catch(() => null) 
-                ]);
+                // 使用智慧讀取器載入所有 CSV 檔案
+                const metaCsvStr = await fetchCsvContent('./bible_metadata.csv');
+                const contentCsvStr = await fetchCsvContent('./bible_reading_plan.csv');
+                const rcuvCsvStr = await fetchCsvContent('./rcuv.csv');
 
-                if (!metaRes.ok || !contentRes.ok) throw new Error("主要檔案讀取失敗");
-
-                const metaCsvStr = await metaRes.text();
-                const contentCsvStr = await contentRes.text();
+                if (!metaCsvStr || !contentCsvStr) throw new Error("主要檔案讀取失敗");
 
                 const metaParsed = Papa.parse(metaCsvStr, { header: true, skipEmptyLines: true }).data;
                 const contentParsed = Papa.parse(contentCsvStr, { header: true, skipEmptyLines: true }).data;
                 
                 // 解析並全域儲存 RCUV 聖經資料
-                if (rcuvRes && rcuvRes.ok) {
-                    const rcuvCsvStr = await rcuvRes.text();
+                if (rcuvCsvStr) {
                     const rawRcuvData = Papa.parse(rcuvCsvStr, { header: true, skipEmptyLines: true }).data;
                     
                     if (rawRcuvData.length > 0) {
