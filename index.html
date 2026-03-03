@@ -577,7 +577,7 @@
                         return `<div class="mb-2"><strong class="text-stone-700 mr-2">${row.book} ${row.chapter}:${row.verse}</strong><span class="text-stone-600">${formattedText}</span></div>`;
                     }).join('');
                 } else {
-                    scriptureHtml = "<p class="text-stone-400">找不到符合今日進度的經文。</p>";
+                    scriptureHtml = '<p class="text-stone-400">找不到符合今日進度的經文。</p>';
                 }
             } else {
                 scriptureHtml = "<p class="text-red-400">無法載入 rcuv.csv 檔案，請確認檔案存在且格式為 book,chapter,verse,text</p>";
