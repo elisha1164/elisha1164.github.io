@@ -232,7 +232,6 @@
         // --- 終極防護：徹底清除不可見字元 ---
         function cleanString(str) {
             if (str === null || str === undefined) return '';
-            // 移除所有的空白、換行、BOM、零寬字元等，確保字串純淨無瑕
             return String(str).replace(/[\s\uFEFF\u200B-\u200D\r\n]/g, '');
         }
 
@@ -244,7 +243,7 @@
             return key ? row[key] : null;
         }
 
-        // --- 輔助函數：解析章節與節數 (處理 "1-3", "5", 或 "119:97-128") ---
+        // --- 輔助函數：解析章節與節數 ---
         function parseChaptersWithVerses(chaptersStr) {
             if (!chaptersStr) return [];
             const cleanStr = cleanString(chaptersStr).replace(/到/g, '-');
@@ -258,11 +257,10 @@
                 let vEnd = null;
                 let chapterPart = part;
                 
-                // 處理帶有節數的格式，如 "119:97-128"
                 if (chapterPart.includes(':')) {
                     const splitColon = chapterPart.split(':');
-                    chapterPart = splitColon[0]; // "119"
-                    const vs = splitColon[1]; // "97-128"
+                    chapterPart = splitColon[0]; 
+                    const vs = splitColon[1]; 
                     
                     if (vs && vs.includes('-')) {
                         const vSplit = vs.split('-');
@@ -321,7 +319,6 @@
             localStorage.setItem('gemini_translations_cache', JSON.stringify(translations));
         }
 
-        // --- 控制原文顯示隱藏 ---
         function setOriginalVisibility(show) {
             isOriginalVisible = show;
             if (show) {
@@ -417,7 +414,6 @@
             try {
                 const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
                 const data = await response.json();
-                
                 if (data.error) return;
 
                 if (data.models) {
@@ -517,7 +513,7 @@
                 const metaParsed = Papa.parse(metaCsvStr, { header: true, skipEmptyLines: true }).data;
                 const contentParsed = Papa.parse(contentCsvStr, { header: true, skipEmptyLines: true }).data;
                 
-                // 解析並全域儲存 RCUV 聖經資料 (加入防護)
+                // 解析並全域儲存 RCUV 聖經資料
                 if (rcuvRes && rcuvRes.ok) {
                     const rcuvCsvStr = await rcuvRes.text();
                     const rawRcuvData = Papa.parse(rcuvCsvStr, { header: true, skipEmptyLines: true }).data;
@@ -602,7 +598,7 @@
             
             originalText.textContent = data.content || "此天無靈修資料。";
             
-            // --- 🔥 終極版：動態過濾並生成 RCUV 經文 🔥 ---
+            // --- 🔥 偵錯版：動態過濾並生成 RCUV 經文 🔥 ---
             let scriptureHtml = '';
             if (rcuvData.length > 0) {
                 const targetBookClean = cleanString(data.book);
@@ -656,7 +652,28 @@
                         return `<div class="mb-2"><strong class="text-stone-700 mr-2">${row.book.trim()} ${row.chapter.trim()}:${row.verse.trim()}</strong><span class="text-stone-600">${formattedText}</span></div>`;
                     }).join('');
                 } else {
-                    scriptureHtml = '<p class="text-stone-400">找不到符合今日進度的經文。</p>';
+                    // 🔥 內建無敵偵錯面板 🔥
+                    const sampleBook = rcuvData.filter(r => cleanString(r.book) === targetBookClean).slice(0, 3);
+                    const allSample = rcuvData.slice(0, 3);
+                    
+                    scriptureHtml = `
+                        <div class="bg-red-50 text-red-600 p-4 rounded-xl border border-red-200">
+                            <p class="font-bold mb-2">找不到符合今日進度的經文。</p>
+                            <p class="text-sm mb-4">這通常是因為資料格式、編碼或標題不符。請將下方的「偵錯資訊」複製並回報，我們能立刻抓出問題！</p>
+                            <div class="bg-stone-900 text-green-400 p-4 rounded text-xs font-mono overflow-auto max-h-[300px]">
+                                <p class="text-white mb-1">=== 系統偵錯資訊 ===</p>
+                                <p>總經文筆數: ${rcuvData.length}</p>
+                                <p>今日目標書卷: [${targetBookClean}]</p>
+                                <p>今日目標章節: ${JSON.stringify(targetChapters)}</p>
+                                <p>今日目標詩篇: ${JSON.stringify(targetPsalms)}</p>
+                                <br>
+                                <p class="text-white mb-1">=== rcuv.csv 前 3 筆解析結果 (檢查亂碼與欄位) ===</p>
+                                <pre>${JSON.stringify(allSample, null, 2)}</pre>
+                                <br>
+                                <p class="text-white mb-1">=== 資料庫中與 [${targetBookClean}] 相符的前 3 筆 ===</p>
+                                <pre>${JSON.stringify(sampleBook, null, 2)}</pre>
+                            </div>
+                        </div>`;
                 }
             } else {
                 scriptureHtml = '<p class="text-red-400">無法載入 rcuv.csv 檔案，請確認檔案存在且格式為 book,chapter,verse,text</p>';
