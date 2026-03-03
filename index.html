@@ -155,7 +155,7 @@
                     </h4>
                 </div>
                 <!-- 經文列表將在此處生成 -->
-                <div id="scriptureText" class="p-6 text-stone-800 leading-loose text-lg font-serif min-h-[150px] max-h-[600px] overflow-y-auto no-scrollbar space-y-2">
+                <div id="scriptureText" class="p-6 text-stone-800 leading-loose font-serif min-h-[150px] max-h-[600px] overflow-y-auto no-scrollbar">
                     載入中...
                 </div>
             </div>
@@ -613,7 +613,7 @@
             
             originalText.textContent = data.content || "此天無靈修資料。";
             
-            // --- 🔥 偵錯版：動態過濾並生成 RCUV 經文 🔥 ---
+            // --- 🔥 優化版排版：動態過濾並生成分組 RCUV 經文 🔥 ---
             let scriptureHtml = '';
             if (rcuvData.length > 0) {
                 const targetBookClean = cleanString(data.book);
@@ -655,7 +655,11 @@
                 });
 
                 if (dayVerses.length > 0) {
-                    scriptureHtml = dayVerses.map(row => {
+                    let currentGroupBook = '';
+                    let currentGroupChapter = '';
+                    let isFirstHeader = true;
+
+                    dayVerses.forEach(row => {
                         const textContent = row.text || "";
                         // 精準匹配 "?註：...?"，避免破壞正常問號
                         const formattedText = textContent.replace(/\?註：(.*?)\?/g, (match, p1) => {
@@ -664,10 +668,31 @@
                             });
                             return `<span class="inline-flex items-center justify-center cursor-pointer text-xl ml-1 opacity-80 hover:opacity-100 hover:scale-110 transition-transform" onclick="showFootnoteModal('註：${safeFootnote}')" title="點擊查看註釋">📝</span>`;
                         });
-                        return `<div class="mb-2"><strong class="text-stone-700 mr-2">${row.book.trim()} ${row.chapter.trim()}:${row.verse.trim()}</strong><span class="text-stone-600">${formattedText}</span></div>`;
-                    }).join('');
+
+                        const b = row.book.trim();
+                        const c = row.chapter.trim();
+                        const v = row.verse.trim();
+
+                        // 判斷是否需要生成新的章節標題
+                        if (b !== currentGroupBook || c !== currentGroupChapter) {
+                            const chapterLabel = (b === '詩篇') ? '篇' : '章';
+                            const mtClass = isFirstHeader ? 'mb-4' : 'mt-10 mb-4';
+                            isFirstHeader = false;
+                            
+                            scriptureHtml += `<h5 class="text-2xl font-bold text-stone-800 ${mtClass} border-b border-stone-200 pb-2">${b} 第${c}${chapterLabel}</h5>`;
+                            
+                            currentGroupBook = b;
+                            currentGroupChapter = c;
+                        }
+
+                        // 生成每節經文 (節數與經文內容分開，整齊排版)
+                        scriptureHtml += `<div class="mb-3 flex items-start leading-relaxed">
+                                            <strong class="text-stone-400 font-bold mr-3 text-base w-6 text-right shrink-0 select-none pt-[2px]">${v}</strong>
+                                            <span class="text-stone-800 text-lg">${formattedText}</span>
+                                          </div>`;
+                    });
                 } else {
-                    // 🔥 內建無敵偵錯面板 🔥
+                    // 內建無敵偵錯面板
                     const sampleBook = rcuvData.filter(r => cleanString(r.book) === targetBookClean).slice(0, 3);
                     const allSample = rcuvData.slice(0, 3);
                     
