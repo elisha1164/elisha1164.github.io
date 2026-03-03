@@ -159,6 +159,17 @@
                     <h4 class="font-bold text-stone-700 flex items-center text-lg tracking-wide">
                         📖 今日經文 (和合本 2010 RCUV)
                     </h4>
+                    <!-- 經文專屬朗讀按鈕 -->
+                    <div class="flex gap-2">
+                        <button id="playScriptureBtn" class="bg-stone-800 text-white hover:bg-stone-700 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center shadow-sm">
+                            <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
+                            朗讀經文
+                        </button>
+                        <button id="stopScriptureBtn" class="bg-red-100 text-red-700 hover:bg-red-200 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center shadow-sm hidden">
+                            <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clip-rule="evenodd"></path></svg>
+                            停止
+                        </button>
+                    </div>
                 </div>
                 <!-- 經文列表將在此處生成 -->
                 <div id="scriptureText" class="p-6 text-stone-800 leading-loose font-serif min-h-[150px] max-h-[600px] overflow-y-auto no-scrollbar">
@@ -209,7 +220,7 @@
         // --- DOM 元素 ---
         const statusText = document.getElementById('statusText');
         const startDateInput = document.getElementById('startDateInput');
-        const setTodayBtn = document.getElementById('setTodayBtn'); // 新增的按鈕
+        const setTodayBtn = document.getElementById('setTodayBtn'); 
         const voiceSelector = document.getElementById('voiceSelector');
         const rateSelector = document.getElementById('rateSelector');
         const readingSection = document.getElementById('readingSection');
@@ -233,6 +244,10 @@
         
         const playBtn = document.getElementById('playBtn');
         const stopBtn = document.getElementById('stopBtn');
+        
+        // 經文專屬按鈕
+        const playScriptureBtn = document.getElementById('playScriptureBtn');
+        const stopScriptureBtn = document.getElementById('stopScriptureBtn');
         
         const toggleOriginalBtn = document.getElementById('toggleOriginalBtn');
         const toggleOriginalText = document.getElementById('toggleOriginalText');
@@ -395,7 +410,7 @@
             if (savedStartDate) startDateInput.value = savedStartDate;
             if (savedRate) rateSelector.value = savedRate;
 
-            // --- 自動儲存邏輯 (取代原本的儲存按鈕) ---
+            // --- 自動儲存邏輯 ---
             startDateInput.addEventListener('change', (e) => {
                 const startDate = e.target.value;
                 if (startDate) {
@@ -409,7 +424,6 @@
 
             setTodayBtn.addEventListener('click', () => {
                 const today = new Date();
-                // 獲取本地時區的 YYYY-MM-DD
                 const offset = today.getTimezoneOffset();
                 const todayStr = new Date(today.getTime() - (offset*60*1000)).toISOString().split('T')[0];
                 
@@ -440,8 +454,11 @@
             prevDayBtn.addEventListener('click', () => changeDay(currentDay - 1));
             nextDayBtn.addEventListener('click', () => changeDay(currentDay + 1));
             
-            playBtn.addEventListener('click', handlePlay);
+            playBtn.addEventListener('click', handlePlayContent);
             stopBtn.addEventListener('click', handleStop);
+            
+            playScriptureBtn.addEventListener('click', handlePlayScripture);
+            stopScriptureBtn.addEventListener('click', handleStop);
 
             toggleOriginalBtn.addEventListener('click', () => {
                 setViewMode(currentViewMode === 'chinese' ? 'english' : 'chinese');
@@ -553,7 +570,7 @@
                 const contentParsed = Papa.parse(contentCsvStr, { header: true, skipEmptyLines: true }).data;
                 const translatedParsed = Papa.parse(translatedCsvStr, { header: true, skipEmptyLines: true }).data;
                 
-                // 1. 解析並全域儲存 RCUV 聖經資料 (🚀 效能優化：預先計算乾淨的比對字串)
+                // 1. 解析並全域儲存 RCUV 聖經資料 
                 if (rcuvCsvStr) {
                     const rawRcuvData = Papa.parse(rcuvCsvStr, { header: true, skipEmptyLines: true }).data;
                     if (rawRcuvData.length > 0) {
@@ -568,7 +585,6 @@
                                 chapter: rawChap,
                                 verse: rawVerse,
                                 text: getCol(row, 'text') || vals[3] || '',
-                                // 預先清理，日後切換天數時可瞬間完成比對
                                 _cleanBook: cleanString(rawBook),
                                 _cleanChap: cleanString(rawChap),
                                 _vNum: parseInt(rawVerse) || 0
@@ -806,13 +822,13 @@
             nextDayBtn.disabled = (day === 358);
         }
 
-        // --- 語音朗讀 (智慧判斷目前語言) ---
-        function handlePlay() {
+        // --- 語音朗讀邏輯 ---
+        function handlePlayContent() {
             const contentToRead = currentViewMode === 'chinese' ? translatedText.textContent : originalText.textContent;
             
             if (!contentToRead || contentToRead.trim() === "") return;
 
-            const fullTextToRead = `${displayTitle.textContent}。\n\n${contentToRead}`;
+            const fullTextToRead = `${displayTitle.textContent}。 靈修內容。\n\n${contentToRead}`;
             if (synth.speaking) synth.cancel();
 
             const utterance = new SpeechSynthesisUtterance(fullTextToRead);
@@ -822,17 +838,74 @@
             }
             utterance.rate = parseFloat(rateSelector.value); 
 
-            utterance.onstart = () => { playBtn.classList.add('hidden'); stopBtn.classList.remove('hidden'); };
+            utterance.onstart = () => { 
+                playBtn.classList.add('hidden'); 
+                stopBtn.classList.remove('hidden'); 
+                
+                // 確保切換時，經文的朗讀按鈕被重置
+                playScriptureBtn.classList.remove('hidden');
+                stopScriptureBtn.classList.add('hidden');
+            };
             utterance.onend = () => handleStop();
             utterance.onerror = () => handleStop();
 
             synth.speak(utterance);
         }
 
+        // --- 經文專屬語音朗讀邏輯 ---
+        function handlePlayScripture() {
+            // 檢查是否為空或錯誤狀態
+            if (!scriptureText.innerText || scriptureText.innerText === "載入中..." || scriptureText.innerText.includes("找不到符合今日進度")) return;
+
+            let contentToRead = '';
+            
+            // 智慧過濾：只抓取章節標題 (H5) 和經文內容 (SPAN)，刻意略過節號 (STRONG)
+            const elements = scriptureText.querySelectorAll('h5, span.text-stone-800');
+            elements.forEach(el => {
+                if (el.tagName === 'H5') {
+                    // 章節標題後加句號停頓
+                    contentToRead += el.innerText + '。\n'; 
+                } else if (el.tagName === 'SPAN') {
+                    // 經文內容，利用 Regex 移除「📝」註釋圖示
+                    contentToRead += el.innerText.replace(/📝/g, '') + ' '; 
+                }
+            });
+
+            contentToRead = contentToRead.trim();
+
+            const fullTextToRead = `今日經文。\n\n${contentToRead}`;
+            if (synth.speaking) synth.cancel();
+
+            const utterance = new SpeechSynthesisUtterance(fullTextToRead);
+            const selectedVoiceIndex = voiceSelector.value;
+            if (selectedVoiceIndex !== "" && voices[selectedVoiceIndex]) {
+                utterance.voice = voices[selectedVoiceIndex];
+            }
+            utterance.rate = parseFloat(rateSelector.value); 
+
+            utterance.onstart = () => { 
+                playScriptureBtn.classList.add('hidden'); 
+                stopScriptureBtn.classList.remove('hidden'); 
+                
+                // 確保切換時，靈修內容的朗讀按鈕被重置
+                playBtn.classList.remove('hidden');
+                stopBtn.classList.add('hidden');
+            };
+            utterance.onend = () => handleStop();
+            utterance.onerror = () => handleStop();
+
+            synth.speak(utterance);
+        }
+
+        // --- 統一停止語音 ---
         function handleStop() {
             if (synth.speaking) synth.cancel();
+            
+            // 重置所有播放按鈕狀態
             stopBtn.classList.add('hidden');
             playBtn.classList.remove('hidden');
+            stopScriptureBtn.classList.add('hidden');
+            playScriptureBtn.classList.remove('hidden');
         }
 
         window.addEventListener('DOMContentLoaded', init);
