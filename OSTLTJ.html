@@ -4,23 +4,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>指向耶穌的大故事：一年讀完整本聖經</title>
-    <!-- 自動偵測並強制跳出 LINE 內建瀏覽器 -->
+    <!-- 自動偵測並強制跳出 LINE/FB 內建瀏覽器 -->
     <script>
         (function() {
             var ua = navigator.userAgent || navigator.vendor || window.opera;
-            if (ua.indexOf('Line') > -1 || ua.indexOf('LINE') > -1) {
+            if (ua.indexOf('Line') > -1 || ua.indexOf('LINE') > -1 || ua.indexOf('FBAV') > -1) {
                 if (window.location.search.indexOf('openExternalBrowser=1') === -1) {
                     var sep = window.location.href.indexOf('?') === -1 ? '?' : '&';
-                    window.location.href = window.location.href + sep + 'openExternalBrowser=1';
+                    window.location.replace(window.location.href + sep + 'openExternalBrowser=1');
                 }
             }
         })();
     </script>
-    <!-- 使用書本 Emoji 作為網站圖示 (Favicon) -->
+    <!-- 使用書本 Emoji 作為網站圖示 -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📖</text></svg>">
     <!-- 引入 Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- 引入 PapaParse (用於解析 CSV) -->
+    <!-- 引入 PapaParse (用於極速解析 CSV) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <!-- 引入 Driver.js (用於新手導覽) -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/driver.js@1.3.1/dist/driver.css"/>
@@ -29,7 +29,6 @@
         body { font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        /* 微調 Driver.js 的按鈕樣式以符合整體質感 */
         .driver-popover-footer button { border-radius: 6px !important; text-shadow: none !important; }
     </style>
 </head>
@@ -43,7 +42,7 @@
                 <p class="text-stone-500" id="statusText">正在初始化系統...</p>
             </div>
             
-            <!-- 進階設定按鈕 (匯出/匯入/重置/導覽) -->
+            <!-- 進階設定按鈕 -->
             <div class="absolute right-0 top-0">
                 <button id="settingsBtn" class="p-2 text-stone-400 hover:text-stone-600 transition rounded-full hover:bg-stone-200 focus:outline-none" title="進階設定">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
@@ -126,7 +125,7 @@
             <!-- 內容顯示卡片 (靈修內容) -->
             <div class="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden flex flex-col mb-6">
                 
-                <!-- 每日標題 + 核取方塊 (動態視覺回饋) -->
+                <!-- 每日標題 + 核取方塊 -->
                 <div id="titleHeaderBox" class="p-6 flex flex-col items-center justify-center relative transition-colors duration-300 border-b border-stone-100">
                     <h3 id="displayTitle" class="text-2xl sm:text-3xl font-bold tracking-tight text-center transition-colors duration-300 text-stone-800">載入中...</h3>
                     <label id="readProgressLabel" class="mt-4 flex items-center cursor-pointer transition-colors duration-300 bg-white px-4 py-1.5 rounded-full shadow-sm border border-stone-200 select-none">
@@ -269,7 +268,7 @@
         let voices = []; 
         let readProgress = JSON.parse(localStorage.getItem('gemini_read_progress') || '{}');
         let currentViewMode = 'chinese'; 
-        let activeVideoLang = 'ch'; // 用於追蹤當前影片語言 ('ch' 或 'en')
+        let activeVideoLang = 'ch';
 
         // --- 網頁載入時間戳記 (用於 24 小時強制重整) ---
         const APP_LOAD_TIME = Date.now();
@@ -278,13 +277,12 @@
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible') {
                 if (Date.now() - APP_LOAD_TIME > TWENTY_FOUR_HOURS) {
-                    console.log('網頁已閒置超過 24 小時，執行自動重新整理...');
                     window.location.reload();
                 }
             }
         });
 
-        // --- 複製網址工具 (防範 APP 內建瀏覽器無法跳轉的情況) ---
+        // --- 複製網址工具 (防範 APP 內建瀏覽器) ---
         window.copyAppUrl = function() {
             var dummy = document.createElement('input');
             document.body.appendChild(dummy);
@@ -299,57 +297,49 @@
             document.body.removeChild(dummy);
         };
 
-        // --- DOM 元素 ---
-        const statusText = document.getElementById('statusText');
-        const startDateInput = document.getElementById('startDateInput');
-        const setTodayBtn = document.getElementById('setTodayBtn'); 
-        const voiceSelector = document.getElementById('voiceSelector');
-        const rateSelector = document.getElementById('rateSelector');
-        const readingSection = document.getElementById('readingSection');
-        
-        const daySelector = document.getElementById('daySelector');
-        const prevDayBtn = document.getElementById('prevDayBtn');
-        const nextDayBtn = document.getElementById('nextDayBtn');
-        const absoluteDateDisplay = document.getElementById('absoluteDateDisplay');
-        
-        const titleHeaderBox = document.getElementById('titleHeaderBox');
-        const displayTitle = document.getElementById('displayTitle');
-        const readProgressLabel = document.getElementById('readProgressLabel');
-        const readProgressCheckbox = document.getElementById('readProgressCheckbox');
-        const readProgressText = document.getElementById('readProgressText');
-        
-        const contentTitle = document.getElementById('contentTitle');
-        const originalText = document.getElementById('originalText');
-        const translatedText = document.getElementById('translatedText');
-        
-        const videoSection = document.getElementById('videoSection');
-        const videoTitle = document.getElementById('videoTitle');
-        const youtubePlayer = document.getElementById('youtubePlayer');
-        const toggleVideoBtn = document.getElementById('toggleVideoBtn'); // 影片語言切換按鈕
-
-        const scriptureText = document.getElementById('scriptureText');
-        
-        const playBtn = document.getElementById('playBtn');
-        const stopBtn = document.getElementById('stopBtn');
-        
-        const playScriptureBtn = document.getElementById('playScriptureBtn');
-        const stopScriptureBtn = document.getElementById('stopScriptureBtn');
-        
-        const toggleOriginalBtn = document.getElementById('toggleOriginalBtn');
-        const toggleOriginalText = document.getElementById('toggleOriginalText');
-
-        const settingsBtn = document.getElementById('settingsBtn');
-        const settingsMenu = document.getElementById('settingsMenu');
-        const exportBtn = document.getElementById('exportBtn');
-        const importBtn = document.getElementById('importBtn');
-        const importFileInput = document.getElementById('importFileInput');
-        const startTourBtn = document.getElementById('startTourBtn'); 
-        
-        const resetMenuBtn = document.getElementById('resetMenuBtn');
-        const resetConfirmModal = document.getElementById('resetConfirmModal');
-        const exportAndResetBtn = document.getElementById('exportAndResetBtn');
-        const confirmResetBtn = document.getElementById('confirmResetBtn');
-        const cancelResetBtn = document.getElementById('cancelResetBtn');
+        // --- DOM 元素集中管理 ---
+        const dom = {
+            statusText: document.getElementById('statusText'),
+            startDateInput: document.getElementById('startDateInput'),
+            setTodayBtn: document.getElementById('setTodayBtn'),
+            voiceSelector: document.getElementById('voiceSelector'),
+            rateSelector: document.getElementById('rateSelector'),
+            readingSection: document.getElementById('readingSection'),
+            daySelector: document.getElementById('daySelector'),
+            prevDayBtn: document.getElementById('prevDayBtn'),
+            nextDayBtn: document.getElementById('nextDayBtn'),
+            absoluteDateDisplay: document.getElementById('absoluteDateDisplay'),
+            titleHeaderBox: document.getElementById('titleHeaderBox'),
+            displayTitle: document.getElementById('displayTitle'),
+            readProgressLabel: document.getElementById('readProgressLabel'),
+            readProgressCheckbox: document.getElementById('readProgressCheckbox'),
+            readProgressText: document.getElementById('readProgressText'),
+            contentTitle: document.getElementById('contentTitle'),
+            originalText: document.getElementById('originalText'),
+            translatedText: document.getElementById('translatedText'),
+            videoSection: document.getElementById('videoSection'),
+            videoTitle: document.getElementById('videoTitle'),
+            youtubePlayer: document.getElementById('youtubePlayer'),
+            toggleVideoBtn: document.getElementById('toggleVideoBtn'),
+            scriptureText: document.getElementById('scriptureText'),
+            playBtn: document.getElementById('playBtn'),
+            stopBtn: document.getElementById('stopBtn'),
+            playScriptureBtn: document.getElementById('playScriptureBtn'),
+            stopScriptureBtn: document.getElementById('stopScriptureBtn'),
+            toggleOriginalBtn: document.getElementById('toggleOriginalBtn'),
+            toggleOriginalText: document.getElementById('toggleOriginalText'),
+            settingsBtn: document.getElementById('settingsBtn'),
+            settingsMenu: document.getElementById('settingsMenu'),
+            exportBtn: document.getElementById('exportBtn'),
+            importBtn: document.getElementById('importBtn'),
+            importFileInput: document.getElementById('importFileInput'),
+            startTourBtn: document.getElementById('startTourBtn'),
+            resetMenuBtn: document.getElementById('resetMenuBtn'),
+            resetConfirmModal: document.getElementById('resetConfirmModal'),
+            exportAndResetBtn: document.getElementById('exportAndResetBtn'),
+            confirmResetBtn: document.getElementById('confirmResetBtn'),
+            cancelResetBtn: document.getElementById('cancelResetBtn')
+        };
 
         // --- 核心工具函數 ---
         function cleanString(str) {
@@ -357,6 +347,7 @@
             return String(str).replace(/[\s\uFEFF\u200B-\u200D\r\n]/g, '');
         }
 
+        // 預先解析經文章節 (加速日後切換時的效能)
         function parseChaptersWithVerses(chaptersStr) {
             if (!chaptersStr) return [];
             const cleanStr = cleanString(chaptersStr).replace(/到/g, '-');
@@ -366,8 +357,7 @@
             const parts = cleanStr.split(',');
             
             parts.forEach(part => {
-                let vStart = null;
-                let vEnd = null;
+                let vStart = null, vEnd = null;
                 let chapterPart = part;
                 
                 if (chapterPart.includes(':')) {
@@ -400,10 +390,8 @@
             return results;
         }
 
-        // 保護時區與日光節約時間的精準計算
         function calculateCurrentDay(startDateStr) {
             if (!startDateStr) return null;
-            
             const parts = startDateStr.split('-');
             const startDate = new Date(parts[0], parts[1] - 1, parts[2]); 
             startDate.setHours(0, 0, 0, 0);
@@ -421,77 +409,61 @@
         }
 
         function updateHeaderVisuals(day, isRead) {
-            const savedStartDate = localStorage.getItem('gemini_start_date');
-            let actualDay = calculateCurrentDay(savedStartDate);
+            let actualDay = calculateCurrentDay(localStorage.getItem('gemini_start_date'));
             if (actualDay === null) actualDay = 358; 
 
             const isFuture = day > actualDay;
 
-            titleHeaderBox.classList.remove('bg-amber-50', 'bg-green-50', 'bg-red-50', 'bg-stone-100', 'border-amber-100', 'border-green-200', 'border-red-200', 'border-stone-200');
-            displayTitle.classList.remove('text-stone-800', 'text-green-800', 'text-red-800', 'text-stone-500');
-            readProgressLabel.classList.remove('text-stone-600', 'text-green-700', 'text-red-600', 'text-stone-500', 'hover:text-amber-700', 'hover:text-green-800', 'hover:text-red-700', 'hover:text-stone-600', 'border-amber-200', 'border-green-300', 'border-red-300', 'border-stone-300', 'bg-white', 'hover:bg-green-50', 'hover:bg-red-50', 'hover:bg-stone-100');
-            readProgressCheckbox.classList.remove('text-amber-600', 'text-green-600', 'text-red-600', 'text-stone-400', 'focus:ring-amber-500', 'focus:ring-green-500', 'focus:ring-red-500', 'focus:ring-stone-500', 'border-stone-300', 'border-green-400', 'border-red-400');
-            readProgressText.classList.remove('text-stone-600', 'text-green-700', 'text-red-600', 'text-stone-500');
+            dom.titleHeaderBox.className = 'p-6 flex flex-col items-center justify-center relative transition-colors duration-300 border-b border-stone-100 ' + 
+                (isRead ? 'bg-green-50 border-green-200' : isFuture ? 'bg-stone-100 border-stone-200' : 'bg-red-50 border-red-200');
+            
+            dom.displayTitle.className = 'text-2xl sm:text-3xl font-bold tracking-tight text-center transition-colors duration-300 ' + 
+                (isRead ? 'text-green-800' : isFuture ? 'text-stone-500' : 'text-red-800');
 
-            if (isRead) {
-                titleHeaderBox.classList.add('bg-green-50', 'border-green-200');
-                displayTitle.classList.add('text-green-800');
-                readProgressLabel.classList.add('border-green-300', 'hover:bg-green-50', 'bg-white');
-                readProgressCheckbox.classList.add('text-green-600', 'focus:ring-green-500', 'border-green-400');
-                readProgressText.classList.add('text-green-700');
-                readProgressText.textContent = "✅ 已完成閱讀";
-            } else if (isFuture) {
-                titleHeaderBox.classList.add('bg-stone-100', 'border-stone-200');
-                displayTitle.classList.add('text-stone-500');
-                readProgressLabel.classList.add('border-stone-300', 'hover:bg-stone-100', 'bg-white');
-                readProgressCheckbox.classList.add('text-stone-400', 'focus:ring-stone-500', 'border-stone-300');
-                readProgressText.classList.add('text-stone-500');
-                readProgressText.textContent = "標記為已讀";
-            } else {
-                titleHeaderBox.classList.add('bg-red-50', 'border-red-200');
-                displayTitle.classList.add('text-red-800');
-                readProgressLabel.classList.add('border-red-300', 'hover:bg-red-50', 'bg-white');
-                readProgressCheckbox.classList.add('text-red-600', 'focus:ring-red-500', 'border-red-400');
-                readProgressText.classList.add('text-red-600');
-                readProgressText.textContent = "⭕ 待閱讀...";
-            }
+            dom.readProgressLabel.className = 'mt-4 flex items-center cursor-pointer transition-colors duration-300 px-4 py-1.5 rounded-full shadow-sm border select-none bg-white ' + 
+                (isRead ? 'border-green-300 hover:bg-green-50' : isFuture ? 'border-stone-300 hover:bg-stone-100' : 'border-red-300 hover:bg-red-50');
+            
+            dom.readProgressCheckbox.className = 'w-5 h-5 rounded cursor-pointer mr-2 transition-colors duration-300 border ' + 
+                (isRead ? 'text-green-600 focus:ring-green-500 border-green-400' : isFuture ? 'text-stone-400 focus:ring-stone-500 border-stone-300' : 'text-red-600 focus:ring-red-500 border-red-400');
+            
+            dom.readProgressText.className = 'font-medium text-sm ' + 
+                (isRead ? 'text-green-700' : isFuture ? 'text-stone-500' : 'text-red-600');
+            
+            dom.readProgressText.textContent = isRead ? "✅ 已完成閱讀" : isFuture ? "標記為已讀" : "⭕ 待閱讀...";
         }
 
-        function showFootnoteModal(content) {
+        window.showFootnoteModal = function(content) {
             document.getElementById('footnoteContent').textContent = content;
             document.getElementById('footnoteModal').classList.remove('hidden');
         }
         
-        function closeFootnoteModal() {
+        window.closeFootnoteModal = function() {
             document.getElementById('footnoteModal').classList.add('hidden');
         }
 
         function setViewMode(mode) {
             currentViewMode = mode;
-
             if (mode === 'english') {
-                originalText.classList.remove('hidden');
-                translatedText.classList.add('hidden');
-                contentTitle.innerHTML = '📝 原始英文靈修內容';
-                toggleOriginalText.textContent = "顯示中文翻譯";
-            } else if (mode === 'chinese') {
-                originalText.classList.add('hidden');
-                translatedText.classList.remove('hidden');
-                contentTitle.innerHTML = '📝 靈修內容';
-                toggleOriginalText.textContent = "顯示英文原文";
+                dom.originalText.classList.remove('hidden');
+                dom.translatedText.classList.add('hidden');
+                dom.contentTitle.innerHTML = '📝 原始英文靈修內容';
+                dom.toggleOriginalText.textContent = "顯示中文翻譯";
+            } else {
+                dom.originalText.classList.add('hidden');
+                dom.translatedText.classList.remove('hidden');
+                dom.contentTitle.innerHTML = '📝 靈修內容';
+                dom.toggleOriginalText.textContent = "顯示英文原文";
             }
-            
             if (synth.speaking) handleStop();
         }
 
-        // 影片區塊更新函式 (加入 rel=0 參數，限制只推薦同頻道的影片)
         function updateVideoDisplay(vData, lang) {
             if (lang === 'ch' && vData.chLink) {
-                youtubePlayer.src = `https://www.youtube.com/embed/${cleanString(vData.chLink)}?rel=0`;
-                videoTitle.textContent = vData.chTitle || "輔助影片 (中文)";
+                dom.youtubePlayer.src = `https://www.youtube.com/embed/${cleanString(vData.chLink)}?rel=0`;
+                dom.videoTitle.textContent = vData.chTitle || "輔助影片 (中文)";
             } else if (lang === 'en' && vData.enLink) {
-                youtubePlayer.src = `https://www.youtube.com/embed/${cleanString(vData.enLink)}?cc_load_policy=1&hl=zh-TW&cc_lang_pref=zh-TW&rel=0`;
-                videoTitle.textContent = vData.enTitle || "輔助影片 (英文附中文字幕)";
+                dom.youtubePlayer.src = `https://www.youtube.com/embed/${cleanString(vData.enLink)}?cc_load_policy=1&hl=zh-TW&cc_lang_pref=zh-TW&rel=0`;
+                dom.videoTitle.textContent = vData.enTitle || "輔助影片 (英文附中文字幕)";
             }
         }
 
@@ -502,37 +474,29 @@
                 tts_voice_name: localStorage.getItem('tts_voice_name') || "",
                 gemini_read_progress: localStorage.getItem('gemini_read_progress') || "{}"
             };
-
-            const jsonStr = JSON.stringify(dataToExport, null, 4);
-            const blob = new Blob([jsonStr], { type: "application/json" });
+            const blob = new Blob([JSON.stringify(dataToExport, null, 4)], { type: "application/json" });
             const url = URL.createObjectURL(blob);
-            
             const a = document.createElement('a');
             a.href = url;
-            const dateStr = new Date().toISOString().split('T')[0];
-            a.download = `Bible_App_Backup_${dateStr}.json`;
+            a.download = `Bible_App_Backup_${new Date().toISOString().split('T')[0]}.json`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
-            
-            settingsMenu.classList.add('hidden');
+            dom.settingsMenu.classList.add('hidden');
         }
 
         function handleImport(event) {
             const file = event.target.files[0];
             if (!file) return;
-
             const reader = new FileReader();
             reader.onload = function(e) {
                 try {
                     const importedData = JSON.parse(e.target.result);
-                    
                     if (importedData.gemini_start_date !== undefined) localStorage.setItem('gemini_start_date', importedData.gemini_start_date);
                     if (importedData.tts_rate !== undefined) localStorage.setItem('tts_rate', importedData.tts_rate);
                     if (importedData.tts_voice_name !== undefined) localStorage.setItem('tts_voice_name', importedData.tts_voice_name);
                     if (importedData.gemini_read_progress !== undefined) localStorage.setItem('gemini_read_progress', importedData.gemini_read_progress);
-                    
                     alert('🎉 匯入成功！系統即將重新載入以套用您的設定與進度。');
                     window.location.reload();
                 } catch (err) {
@@ -540,33 +504,29 @@
                 }
             };
             reader.readAsText(file);
-            settingsMenu.classList.add('hidden');
+            dom.settingsMenu.classList.add('hidden');
             event.target.value = '';
         }
 
         function closeResetModal() {
-            resetConfirmModal.classList.add('hidden');
+            dom.resetConfirmModal.classList.add('hidden');
         }
 
         function performReset() {
             readProgress = {};
             localStorage.setItem('gemini_read_progress', JSON.stringify(readProgress));
-            
-            const today = new Date();
-            const offset = today.getTimezoneOffset();
-            const todayStr = new Date(today.getTime() - (offset*60*1000)).toISOString().split('T')[0];
-            
-            startDateInput.value = todayStr;
+            const todayStr = new Date(Date.now() - (new Date().getTimezoneOffset()*60*1000)).toISOString().split('T')[0];
+            dom.startDateInput.value = todayStr;
             localStorage.setItem('gemini_start_date', todayStr);
-            
             changeDay(1);
             alert('🔄 進度已成功重置！');
         }
 
-        // --- 🚀 新手導覽邏輯 (基於 Driver.js) ---
         function startTour() {
-            const driver = window.driver.js.driver;
-            
+            const driverObj = window.driver.js.driver({
+                showProgress: true, animate: true, doneBtnText: '完成', nextBtnText: '下一步', prevBtnText: '上一步',
+                onDestroyStarted: () => { localStorage.setItem('tour_completed', 'true'); driverObj.destroy(); }
+            });
             const steps = [
                 { popover: { title: '👋 歡迎', description: '歡迎加入一年讀完整本聖經的行列！<br><br>讓我們一起探索這個指向耶穌的大故事！' } },
                 { element: '#tour-start-date', popover: { title: '開始日期', description: '在這裡你可以設定你開始讀經的日期。' } },
@@ -574,384 +534,201 @@
                 { element: '#titleHeaderBox', popover: { title: '每日讀經進度', description: '這裡會顯示每天的讀經進度，完成記得打勾唷。' } },
                 { element: '#readingGrid', popover: { title: '靈修內容', description: '每天都會有一篇簡單的靈修文章，幫助你把每天的經文對齊整本聖經的大故事。' } }
             ];
-
-            if (!document.getElementById('videoSection').classList.contains('hidden')) {
+            if (!dom.videoSection.classList.contains('hidden')) {
                 steps.push({ element: '#videoSection', popover: { title: '輔助影片', description: '搭配短片的解說，更能幫助你深入理解經文的精巧美妙。' } });
             }
-
             steps.push(
                 { element: '#tour-scripture', popover: { title: '今日經文', description: '推荐使用和合本2010，保留熟悉譯文的同時，不讓過時生澀的古言古語成為理解真道的阻礙。' } },
                 { element: '#settingsBtn', popover: { title: '進階設定', description: '需要匯出匯入或重置進度，都可以在這裡操作。' } },
                 { popover: { title: '🎉 準備出發', description: '導覽告一段落，祝你享受這個指向耶穌的大故事。<br><br>若需要再看一次導覽，請按右上角的齒輪按鈕。' } }
             );
-
-            const driverObj = driver({
-                showProgress: true,
-                animate: true,
-                doneBtnText: '完成',
-                nextBtnText: '下一步',
-                prevBtnText: '上一步',
-                onDestroyStarted: () => {
-                    localStorage.setItem('tour_completed', 'true');
-                    driverObj.destroy();
-                }
-            });
-
             driverObj.setSteps(steps);
             driverObj.drive();
         }
 
-        // --- 初始化邏輯 ---
         async function init() {
-            // 清理舊版廢棄的 LocalStorage，確保無殘留
             localStorage.removeItem('gemini_api_key');
             localStorage.removeItem('gemini_model');
             localStorage.removeItem('gemini_translations_cache');
 
-            const savedStartDate = localStorage.getItem('gemini_start_date');
-            const savedRate = localStorage.getItem('tts_rate');
-            
-            if (savedStartDate) startDateInput.value = savedStartDate;
-            if (savedRate) rateSelector.value = savedRate;
+            dom.startDateInput.value = localStorage.getItem('gemini_start_date') || '';
+            dom.rateSelector.value = localStorage.getItem('tts_rate') || '1.0';
 
-            startDateInput.addEventListener('change', (e) => {
-                const startDate = e.target.value;
-                if (startDate) {
-                    localStorage.setItem('gemini_start_date', startDate);
-                    const targetDay = calculateCurrentDay(startDate);
-                    if (targetDay !== null && bibleData && Object.keys(bibleData).length > 0) changeDay(targetDay);
-                } else {
-                    localStorage.removeItem('gemini_start_date');
-                }
+            dom.startDateInput.addEventListener('change', (e) => {
+                if (e.target.value) {
+                    localStorage.setItem('gemini_start_date', e.target.value);
+                    const targetDay = calculateCurrentDay(e.target.value);
+                    if (targetDay !== null && bibleData[1]) changeDay(targetDay);
+                } else localStorage.removeItem('gemini_start_date');
             });
 
-            setTodayBtn.addEventListener('click', () => {
-                const today = new Date();
-                const offset = today.getTimezoneOffset();
-                const todayStr = new Date(today.getTime() - (offset*60*1000)).toISOString().split('T')[0];
-                
-                startDateInput.value = todayStr;
+            dom.setTodayBtn.addEventListener('click', () => {
+                const todayStr = new Date(Date.now() - (new Date().getTimezoneOffset()*60*1000)).toISOString().split('T')[0];
+                dom.startDateInput.value = todayStr;
                 localStorage.setItem('gemini_start_date', todayStr);
                 const targetDay = calculateCurrentDay(todayStr);
-                if (targetDay !== null && bibleData && Object.keys(bibleData).length > 0) changeDay(targetDay);
+                if (targetDay !== null && bibleData[1]) changeDay(targetDay);
             });
 
-            rateSelector.addEventListener('change', (e) => {
-                localStorage.setItem('tts_rate', e.target.value);
+            dom.rateSelector.addEventListener('change', e => localStorage.setItem('tts_rate', e.target.value));
+            dom.voiceSelector.addEventListener('change', e => {
+                if (e.target.value !== "" && voices[e.target.value]) localStorage.setItem('tts_voice_name', voices[e.target.value].name);
             });
 
-            voiceSelector.addEventListener('change', (e) => {
-                if (e.target.value !== "" && voices[e.target.value]) {
-                    localStorage.setItem('tts_voice_name', voices[e.target.value].name);
-                }
-            });
-
-            daySelector.addEventListener('change', (e) => {
-                let day = parseInt(e.target.value);
-                if (day < 1) day = 1;
-                if (day > 358) day = 358;
-                changeDay(day);
-            });
-
-            prevDayBtn.addEventListener('click', () => changeDay(currentDay - 1));
-            nextDayBtn.addEventListener('click', () => changeDay(currentDay + 1));
+            dom.daySelector.addEventListener('change', e => changeDay(Math.max(1, Math.min(358, parseInt(e.target.value) || 1))));
+            dom.prevDayBtn.addEventListener('click', () => changeDay(currentDay - 1));
+            dom.nextDayBtn.addEventListener('click', () => changeDay(currentDay + 1));
             
-            playBtn.addEventListener('click', handlePlayContent);
-            stopBtn.addEventListener('click', handleStop);
-            
-            playScriptureBtn.addEventListener('click', handlePlayScripture);
-            stopScriptureBtn.addEventListener('click', handleStop);
+            dom.playBtn.addEventListener('click', handlePlayContent);
+            dom.stopBtn.addEventListener('click', handleStop);
+            dom.playScriptureBtn.addEventListener('click', handlePlayScripture);
+            dom.stopScriptureBtn.addEventListener('click', handleStop);
+            dom.toggleOriginalBtn.addEventListener('click', () => setViewMode(currentViewMode === 'chinese' ? 'english' : 'chinese'));
 
-            toggleOriginalBtn.addEventListener('click', () => {
-                setViewMode(currentViewMode === 'chinese' ? 'english' : 'chinese');
+            dom.toggleVideoBtn.addEventListener('click', () => {
+                if (!videoData[currentDay]) return;
+                activeVideoLang = activeVideoLang === 'ch' ? 'en' : 'ch';
+                dom.toggleVideoBtn.textContent = activeVideoLang === 'ch' ? '切換英文版' : '切換中文版';
+                updateVideoDisplay(videoData[currentDay], activeVideoLang);
             });
 
-            // 雙語影片切換功能綁定
-            toggleVideoBtn.addEventListener('click', () => {
-                const vData = videoData[currentDay];
-                if (!vData) return;
-                
-                if (activeVideoLang === 'ch') {
-                    activeVideoLang = 'en';
-                    toggleVideoBtn.textContent = '切換中文版';
-                } else {
-                    activeVideoLang = 'ch';
-                    toggleVideoBtn.textContent = '切換英文版';
-                }
-                updateVideoDisplay(vData, activeVideoLang);
-            });
-
-            readProgressCheckbox.addEventListener('change', (e) => {
-                const isRead = e.target.checked;
-                readProgress[currentDay] = isRead;
+            dom.readProgressCheckbox.addEventListener('change', e => {
+                readProgress[currentDay] = e.target.checked;
                 localStorage.setItem('gemini_read_progress', JSON.stringify(readProgress));
-                updateHeaderVisuals(currentDay, isRead);
+                updateHeaderVisuals(currentDay, e.target.checked);
             });
 
-            settingsBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                settingsMenu.classList.toggle('hidden');
-            });
+            dom.settingsBtn.addEventListener('click', e => { e.stopPropagation(); dom.settingsMenu.classList.toggle('hidden'); });
+            document.addEventListener('click', e => { if (!dom.settingsBtn.contains(e.target) && !dom.settingsMenu.contains(e.target)) dom.settingsMenu.classList.add('hidden'); });
 
-            document.addEventListener('click', (e) => {
-                if (!settingsBtn.contains(e.target) && !settingsMenu.contains(e.target)) {
-                    settingsMenu.classList.add('hidden');
-                }
-            });
+            dom.startTourBtn.addEventListener('click', e => { e.stopPropagation(); dom.settingsMenu.classList.add('hidden'); startTour(); });
+            dom.exportBtn.addEventListener('click', handleExport);
+            dom.importBtn.addEventListener('click', () => dom.importFileInput.click());
+            dom.importFileInput.addEventListener('change', handleImport);
 
-            // 綁定重新導覽按鈕
-            startTourBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                settingsMenu.classList.add('hidden');
-                startTour();
-            });
-
-            exportBtn.addEventListener('click', handleExport);
-            importBtn.addEventListener('click', () => importFileInput.click());
-            importFileInput.addEventListener('change', handleImport);
-
-            resetMenuBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                settingsMenu.classList.add('hidden'); 
-                resetConfirmModal.classList.remove('hidden'); 
-            });
-            
-            cancelResetBtn.addEventListener('click', closeResetModal);
-            
-            confirmResetBtn.addEventListener('click', () => {
-                performReset();
-                closeResetModal();
-            });
-
-            exportAndResetBtn.addEventListener('click', () => {
-                handleExport(); 
-                setTimeout(() => {
-                    performReset();
-                    closeResetModal();
-                }, 500); 
-            });
+            dom.resetMenuBtn.addEventListener('click', e => { e.stopPropagation(); dom.settingsMenu.classList.add('hidden'); dom.resetConfirmModal.classList.remove('hidden'); });
+            dom.cancelResetBtn.addEventListener('click', closeResetModal);
+            dom.confirmResetBtn.addEventListener('click', () => { performReset(); closeResetModal(); });
+            dom.exportAndResetBtn.addEventListener('click', () => { handleExport(); setTimeout(() => { performReset(); closeResetModal(); }, 500); });
 
             populateVoiceList();
-            if (speechSynthesis.onvoiceschanged !== undefined) {
-                speechSynthesis.onvoiceschanged = populateVoiceList;
-            }
+            if (speechSynthesis.onvoiceschanged !== undefined) speechSynthesis.onvoiceschanged = populateVoiceList;
 
             await loadCSVs();
         }
 
         function populateVoiceList() {
             const allVoices = synth.getVoices();
+            voices = allVoices.filter(v => (v.lang.includes('zh') || v.lang.includes('cmn') || v.name.includes('Chinese')) && (v.lang.includes('TW') || v.name.toLowerCase().includes('taiwan')));
+            if (voices.length === 0) voices = allVoices.filter(v => v.lang.includes('zh') || v.lang.includes('cmn') || v.name.includes('Chinese'));
             
-            // 篩選：主要保留中文且含有 Taiwan 或 TW 標籤的語音
-            voices = allVoices.filter(v => 
-                (v.lang.includes('zh') || v.lang.includes('cmn') || v.name.includes('Chinese')) && 
-                (v.lang.includes('TW') || v.name.toLowerCase().includes('taiwan'))
-            );
-            
-            // 防呆：如果使用者的系統完全沒有標示為 Taiwan 的語音，就退而求其次抓所有中文語音
-            if (voices.length === 0) {
-                voices = allVoices.filter(v => v.lang.includes('zh') || v.lang.includes('cmn') || v.name.includes('Chinese'));
-            }
-
-            voiceSelector.innerHTML = '';
-            
-            if (voices.length === 0) {
-                voiceSelector.innerHTML = '<option value="">(系統無可用中文語音)</option>';
-                return;
-            }
+            dom.voiceSelector.innerHTML = voices.length ? '' : '<option value="">(系統無可用中文語音)</option>';
+            if (!voices.length) return;
 
             const savedVoiceName = localStorage.getItem('tts_voice_name');
             voices.forEach((voice, i) => {
                 const option = document.createElement('option');
-                // 移除廠牌名稱，讓選單更簡潔
-                let displayName = voice.name.replace('Microsoft ', '').replace('Google ', '');
-                option.textContent = displayName;
+                option.textContent = voice.name.replace('Microsoft ', '').replace('Google ', '');
                 option.value = i;
-                
-                if (savedVoiceName && voice.name === savedVoiceName) {
-                    option.selected = true;
-                } else if (!savedVoiceName && (voice.name.includes('HsiaoChen') || voice.name.includes('國語'))) {
-                    option.selected = true;
-                }
-                voiceSelector.appendChild(option);
+                if (savedVoiceName === voice.name || (!savedVoiceName && (voice.name.includes('HsiaoChen') || voice.name.includes('國語')))) option.selected = true;
+                dom.voiceSelector.appendChild(option);
             });
         }
 
-        // --- 載入與解析 CSV ---
         async function loadCSVs() {
-            statusText.textContent = "正在從伺服器下載 CSV 資料...";
-            
-            async function fetchCsvContent(url) {
+            dom.statusText.textContent = "正在從伺服器下載 CSV 資料...";
+            const fetchCsv = async url => {
                 try {
                     const res = await fetch(url);
                     if (!res.ok) return null;
-                    const buffer = await res.arrayBuffer();
-                    try {
-                        const decoder = new TextDecoder('utf-8', { fatal: true });
-                        return decoder.decode(buffer).replace(/^\uFEFF/, '');
-                    } catch (e) {
-                        const decoder = new TextDecoder('big5');
-                        return decoder.decode(buffer).replace(/^\uFEFF/, '');
-                    }
-                } catch (e) {
-                    return null;
-                }
-            }
+                    const buf = await res.arrayBuffer();
+                    try { return new TextDecoder('utf-8', { fatal: true }).decode(buf).replace(/^\uFEFF/, ''); }
+                    catch { return new TextDecoder('big5').decode(buf).replace(/^\uFEFF/, ''); }
+                } catch { return null; }
+            };
 
             try {
-                const [metaCsvStr, contentCsvStr, translatedCsvStr, rcuvCsvStr, videoCsvStr] = await Promise.all([
-                    fetchCsvContent('./bible_metadata.csv'),
-                    fetchCsvContent('./bible_reading_plan.csv'),
-                    fetchCsvContent('./bible_reading_plan_translated.csv'),
-                    fetchCsvContent('./rcuv.csv'),
-                    fetchCsvContent('./bible_reading_plan_videos.csv')
+                const [metaStr, contentStr, transStr, rcuvStr, videoStr] = await Promise.all([
+                    fetchCsv('./bible_metadata.csv'), fetchCsv('./bible_reading_plan.csv'),
+                    fetchCsv('./bible_reading_plan_translated.csv'), fetchCsv('./rcuv.csv'), fetchCsv('./bible_reading_plan_videos.csv')
                 ]);
-
-                if (!metaCsvStr || !contentCsvStr || !translatedCsvStr) throw new Error("主要檔案讀取失敗 (可能缺少 bible_reading_plan_translated.csv)");
+                if (!metaStr || !contentStr || !transStr) throw new Error("主要檔案讀取失敗 (可能缺少 bible_reading_plan_translated.csv)");
 
                 const parseOpts = { header: true, skipEmptyLines: true, transformHeader: h => cleanString(h).toLowerCase() };
+                const [meta, content, trans] = [Papa.parse(metaStr, parseOpts).data, Papa.parse(contentStr, parseOpts).data, Papa.parse(transStr, parseOpts).data];
                 
-                const metaParsed = Papa.parse(metaCsvStr, parseOpts).data;
-                const contentParsed = Papa.parse(contentCsvStr, parseOpts).data;
-                const translatedParsed = Papa.parse(translatedCsvStr, parseOpts).data;
-                
+                // 🚀 記憶體瘦身：將書卷名存入外層 Key，減少 31,000 次字串存儲
                 rcuvIndex = {};
-                // 防呆處理：即便檔案不存在也確保解析為空字串，防止程式崩潰
-                if (rcuvCsvStr) {
-                    const rawRcuvData = Papa.parse(rcuvCsvStr || '', parseOpts).data;
-                    rawRcuvData.forEach(row => {
-                        const rawBook = row.book || '';
-                        const rawChap = (row.chapter || '').toString();
-                        const rawVerse = (row.verse || '').toString();
+                if (rcuvStr) {
+                    Papa.parse(rcuvStr, parseOpts).data.forEach(row => {
+                        const rawBook = row.book || '', rawChap = (row.chapter || '').toString();
                         const cBook = cleanString(rawBook);
-                        
                         if (!cBook) return;
                         if (!rcuvIndex[cBook]) rcuvIndex[cBook] = [];
-                        
                         rcuvIndex[cBook].push({
-                            book: rawBook,
-                            chapter: rawChap,
-                            verse: rawVerse,
-                            // 過濾掉【】包圍的段落標題，避免畫面顯示與語音朗讀
-                            text: (row.text || '').replace(/【.*?】/g, ''),
-                            _cleanChap: cleanString(rawChap),
-                            _vNum: parseInt(rawVerse) || 0
+                            c: cleanString(rawChap),
+                            v: (row.verse || '').toString(),
+                            n: parseInt(row.verse) || 0,
+                            t: (row.text || '').replace(/【.*?】/g, '')
                         });
                     });
                 }
 
                 videoData = {};
-                if (videoCsvStr) {
-                    const rawVideoData = Papa.parse(videoCsvStr || '', parseOpts).data;
-                    rawVideoData.forEach(row => {
+                if (videoStr) {
+                    Papa.parse(videoStr, parseOpts).data.forEach(row => {
                         const day = parseInt(row.day);
-                        if (isNaN(day)) return;
-                        videoData[day] = {
-                            enTitle: row.en_title || '',
-                            enLink: row.en_youtubelink || '',
-                            chTitle: row.ch_title || '',
-                            chLink: row.ch_youtubelink || ''
-                        };
+                        if (!isNaN(day)) videoData[day] = { enTitle: row.en_title || '', enLink: row.en_youtubelink || '', chTitle: row.ch_title || '', chLink: row.ch_youtubelink || '' };
                     });
                 }
 
                 let currentBook = "";
                 bibleData = {};
-
-                metaParsed.forEach(row => {
+                meta.forEach(row => {
                     const day = parseInt(row.day);
                     if (isNaN(day)) return;
-                    
-                    const bookRaw = row.book || "";
-                    if (cleanString(bookRaw) !== "") currentBook = bookRaw.trim();
-                    
+                    if (cleanString(row.book)) currentBook = (row.book || "").trim();
                     bibleData[day] = {
                         book: currentBook,
                         chapters: row.chapters || "",
                         psalms: row.psalms || "",
-                        contentEn: "",
-                        contentCh: ""
+                        // 🚀 效能優化：載入時預先解析，避免點擊時重複運算
+                        parsedChapters: parseChaptersWithVerses(row.chapters),
+                        parsedPsalms: parseChaptersWithVerses(row.psalms),
+                        contentEn: "", contentCh: ""
                     };
                 });
+                content.forEach(row => { const d = parseInt(row.day); if (!isNaN(d) && bibleData[d]) bibleData[d].contentEn = row.content || ""; });
+                trans.forEach(row => { const d = parseInt(row.day); if (!isNaN(d) && bibleData[d]) bibleData[d].contentCh = row.chinese_translation || ""; });
 
-                contentParsed.forEach(row => {
-                    const day = parseInt(row.day);
-                    if (!isNaN(day) && bibleData[day]) {
-                        bibleData[day].contentEn = row.content || "";
-                    }
-                });
-
-                translatedParsed.forEach(row => {
-                    const day = parseInt(row.day);
-                    if (!isNaN(day) && bibleData[day]) {
-                        bibleData[day].contentCh = row.chinese_translation || "";
-                    }
-                });
-
-                statusText.textContent = "✅ 資料載入成功！";
-                readingSection.classList.remove('opacity-50', 'pointer-events-none');
+                dom.statusText.textContent = "✅ 資料載入成功！";
+                dom.readingSection.classList.remove('opacity-50', 'pointer-events-none');
                 
-                let firstUnreadDay = null;
-                for (let i = 1; i <= 358; i++) {
-                    if (!readProgress[i]) {
-                        firstUnreadDay = i;
-                        break;
-                    }
-                }
-                const initialDay = firstUnreadDay !== null ? firstUnreadDay : 358; 
-                changeDay(initialDay);
+                let firstUnreadDay = 358;
+                for (let i = 1; i <= 358; i++) { if (!readProgress[i]) { firstUnreadDay = i; break; } }
+                changeDay(firstUnreadDay);
 
-                // 🔥 判斷是否為初次載入，並啟動導覽 🔥
-                if (!localStorage.getItem('tour_completed')) {
-                    // 給予一點延遲，確保畫面元素都已渲染完畢再啟動聚焦導覽
-                    setTimeout(startTour, 800);
-                }
-
+                if (!localStorage.getItem('tour_completed')) setTimeout(startTour, 800);
             } catch (error) {
                 console.error("CSV 載入錯誤:", error);
-                
-                // 💡 加入針對 APP 內建瀏覽器的被動防呆提示與一鍵複製按鈕
-                const isLine = /Line|LINE/.test(navigator.userAgent);
-                const isFb = /FBAN|FBAV|Instagram/.test(navigator.userAgent);
-                
-                if (isLine || isFb) {
-                    statusText.innerHTML = `❌ 載入被阻擋。<br>
-                        <span class="text-sm text-red-600 font-bold bg-red-50 px-4 py-3 rounded-xl inline-block mt-3 text-left shadow-sm">
-                            ⚠️ 偵測到您正使用 APP 內建瀏覽器，這會阻擋資料載入。<br><br>
-                            👉 建議解法一：請點擊角落選單，選擇「使用預設瀏覽器開啟」<br>
-                            👉 建議解法二：直接點擊下方按鈕複製網址<br>
-                            <button onclick="window.copyAppUrl()" class="mt-4 w-full bg-amber-100 text-amber-800 hover:bg-amber-200 px-4 py-2.5 rounded-lg text-sm font-bold shadow-sm transition flex items-center justify-center">
-                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-                                一鍵複製網址
-                            </button>
-                        </span>`;
-                } else {
-                    statusText.innerHTML = `❌ 載入失敗。<br><span class="text-sm text-red-500">發生錯誤：${error.message}。請確認所有必要的 CSV 檔案皆已上傳。</span>`;
-                }
+                if (/Line|LINE|FBAV|FBAN|Instagram/.test(navigator.userAgent)) {
+                    dom.statusText.innerHTML = `❌ 載入被阻擋。<br><span class="text-sm text-red-600 font-bold bg-red-50 px-4 py-3 rounded-xl inline-block mt-3 text-left shadow-sm">⚠️ 偵測到您正使用 APP 內建瀏覽器，這會阻擋資料載入。<br><br>👉 建議解法一：請點擊角落選單，選擇「使用預設瀏覽器開啟」<br>👉 建議解法二：直接點擊下方按鈕複製網址<br><button onclick="window.copyAppUrl()" class="mt-4 w-full bg-amber-100 text-amber-800 hover:bg-amber-200 px-4 py-2.5 rounded-lg text-sm font-bold shadow-sm transition flex items-center justify-center"><svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>一鍵複製網址</button></span>`;
+                } else dom.statusText.innerHTML = `❌ 載入失敗。<br><span class="text-sm text-red-500">發生錯誤：${error.message}。</span>`;
             }
         }
 
-        // --- 切換天數與顯示 ---
         function changeDay(day) {
             if (day < 1 || day > 358) return;
             handleStop(); 
-            
             currentDay = day;
-            daySelector.value = day;
+            dom.daySelector.value = day;
             
             const data = bibleData[day];
-            if (!data) {
-                displayTitle.textContent = `找不到 Day ${day} 的資料`;
-                return;
-            }
+            if (!data) return (dom.displayTitle.textContent = `找不到 Day ${day} 的資料`);
 
             const isRead = !!readProgress[day];
-            readProgressCheckbox.checked = isRead;
-
-            const dayStr = day.toString().padStart(3, '0');
-            const visualChapters = data.chapters ? data.chapters.toString().replace("-", "到") : "";
-            displayTitle.textContent = `全年讀經第${dayStr}天 ${data.book}第${visualChapters}章、詩篇第${data.psalms}篇`;
-            
+            dom.readProgressCheckbox.checked = isRead;
+            dom.displayTitle.textContent = `全年讀經第${day.toString().padStart(3, '0')}天 ${data.book}第${data.chapters ? data.chapters.replace("-", "到") : ""}章、詩篇第${data.psalms}篇`;
             updateHeaderVisuals(day, isRead);
 
             const savedStartDate = localStorage.getItem('gemini_start_date');
@@ -959,278 +736,136 @@
                 const date = new Date(savedStartDate);
                 date.setHours(0, 0, 0, 0);
                 date.setDate(date.getDate() + (day - 1));
-                
-                const options = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' };
-                absoluteDateDisplay.textContent = date.toLocaleDateString('zh-TW', options);
-                absoluteDateDisplay.classList.remove('hidden');
-            } else {
-                absoluteDateDisplay.classList.add('hidden');
-            }
+                dom.absoluteDateDisplay.textContent = date.toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' });
+                dom.absoluteDateDisplay.classList.remove('hidden');
+            } else dom.absoluteDateDisplay.classList.add('hidden');
             
-            originalText.textContent = data.contentEn || "此天無英文靈修資料。";
-            translatedText.textContent = data.contentCh || "此天無中文靈修資料。";
+            dom.originalText.textContent = data.contentEn || "此天無英文靈修資料。";
+            dom.translatedText.textContent = data.contentCh || "此天無中文靈修資料。";
             setViewMode('chinese');
 
-            // --- 影片區塊與雙語切換邏輯 ---
             const vData = videoData[day];
-            const vChLink = vData ? cleanString(vData.chLink) : "";
-            const vEnLink = vData ? cleanString(vData.enLink) : "";
-
-            // 預設語言：有中文就播中文，否則播英文
-            activeVideoLang = vChLink ? 'ch' : 'en';
-
-            if (vChLink || vEnLink) {
+            activeVideoLang = (vData && vData.chLink) ? 'ch' : 'en';
+            if (vData && (vData.chLink || vData.enLink)) {
                 updateVideoDisplay(vData, activeVideoLang);
-                videoSection.classList.remove('hidden');
-                
-                // 如果同時擁有雙語版本，顯示切換按鈕
-                if (vChLink && vEnLink) {
-                    toggleVideoBtn.classList.remove('hidden');
-                    toggleVideoBtn.textContent = '切換英文版';
-                } else {
-                    toggleVideoBtn.classList.add('hidden');
-                }
+                dom.videoSection.classList.remove('hidden');
+                if (vData.chLink && vData.enLink) {
+                    dom.toggleVideoBtn.classList.remove('hidden');
+                    dom.toggleVideoBtn.textContent = '切換英文版';
+                } else dom.toggleVideoBtn.classList.add('hidden');
             } else {
-                youtubePlayer.src = "";
-                videoSection.classList.add('hidden');
-                toggleVideoBtn.classList.add('hidden');
+                dom.youtubePlayer.src = "";
+                dom.videoSection.classList.add('hidden');
+                dom.toggleVideoBtn.classList.add('hidden');
             }
             
-            let scriptureHtml = '';
+            // 🚀 採用 O(1) 索引預先比對與 Array 渲染，達極致效能
+            let htmlChunks = [];
             if (Object.keys(rcuvIndex).length > 0) {
-                const targetBookClean = cleanString(data.book);
-                const targetChapters = parseChaptersWithVerses(data.chapters);
-                const targetPsalms = parseChaptersWithVerses(data.psalms);
+                const tBookClean = cleanString(data.book);
+                let mainV = tBookClean && rcuvIndex[tBookClean] ? rcuvIndex[tBookClean].filter(r => data.parsedChapters.some(tc => tc.ch === r.c && (tc.vStart === null || (r.n >= tc.vStart && r.n <= tc.vEnd)))).map(r => ({...r, b: tBookClean})) : [];
+                let psalmV = data.parsedPsalms.length && rcuvIndex['詩篇'] ? rcuvIndex['詩篇'].filter(r => data.parsedPsalms.some(tp => tp.ch === r.c && (tp.vStart === null || (r.n >= tp.vStart && r.n <= tp.vEnd)))).map(r => ({...r, b: '詩篇'})) : [];
 
-                let mainVerses = [];
-                let psalmVerses = [];
-
-                if (targetBookClean !== '' && rcuvIndex[targetBookClean]) {
-                    mainVerses = rcuvIndex[targetBookClean].filter(row => {
-                        const matchCh = targetChapters.find(tc => tc.ch === row._cleanChap);
-                        if (matchCh) {
-                            if (matchCh.vStart !== null && matchCh.vEnd !== null) {
-                                return row._vNum >= matchCh.vStart && row._vNum <= matchCh.vEnd;
-                            }
-                            return true;
-                        }
-                        return false;
-                    });
-                }
-
-                if (targetPsalms.length > 0 && rcuvIndex['詩篇']) {
-                    psalmVerses = rcuvIndex['詩篇'].filter(row => {
-                        const matchPs = targetPsalms.find(tp => tp.ch === row._cleanChap);
-                        if (matchPs) {
-                            if (matchPs.vStart !== null && matchPs.vEnd !== null) {
-                                return row._vNum >= matchPs.vStart && row._vNum <= matchPs.vEnd;
-                            }
-                            return true;
-                        }
-                        return false;
-                    });
-                }
-
-                const dayVerses = targetBookClean === '詩篇' ? mainVerses : [...mainVerses, ...psalmVerses];
+                const dayVerses = tBookClean === '詩篇' ? mainV : [...mainV, ...psalmV];
 
                 if (dayVerses.length > 0) {
-                    let currentGroupBook = '';
-                    let currentGroupChapter = '';
-                    let isFirstHeader = true;
-
+                    let curBook = '', curChap = '', isFirst = true;
                     dayVerses.forEach(row => {
-                        const textContent = row.text || "";
-                        const formattedText = textContent.replace(/\?註：(.*?)\?/g, (match, p1) => {
-                            const safeFootnote = p1.replace(/['"&<>]/g, function(c) {
-                                return {'\'': '&#39;', '"': '&quot;', '&': '&amp;', '<': '&lt;', '>': '&gt;'}[c];
-                            });
+                        const formattedText = (row.t || "").replace(/\?註：(.*?)\?/g, (m, p1) => {
+                            const safeFootnote = p1.replace(/['"&<>]/g, c => ({'\'':'&#39;','"':'&quot;','&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
                             return `<span class="inline-flex items-center justify-center cursor-pointer text-xl ml-1 opacity-80 hover:opacity-100 hover:scale-110 transition-transform" onclick="showFootnoteModal('註：${safeFootnote}')" title="點擊查看註釋">📝</span>`;
                         });
-
-                        const b = row.book.trim();
-                        const c = row.chapter.trim();
-                        const v = row.verse.trim();
-
-                        if (b !== currentGroupBook || c !== currentGroupChapter) {
-                            const chapterLabel = (b === '詩篇') ? '篇' : '章';
-                            const mtClass = isFirstHeader ? 'mb-4' : 'mt-10 mb-4';
-                            isFirstHeader = false;
-                            
-                            scriptureHtml += `<h5 class="text-2xl font-bold text-stone-800 ${mtClass} border-b border-stone-200 pb-2">${b} 第${c}${chapterLabel}</h5>`;
-                            
-                            currentGroupBook = b;
-                            currentGroupChapter = c;
+                        if (row.b !== curBook || row.c !== curChap) {
+                            htmlChunks.push(`<h5 class="text-2xl font-bold text-stone-800 ${isFirst ? 'mb-4' : 'mt-10 mb-4'} border-b border-stone-200 pb-2">${row.b} 第${row.c}${row.b === '詩篇' ? '篇' : '章'}</h5>`);
+                            curBook = row.b; curChap = row.c; isFirst = false;
                         }
-
-                        scriptureHtml += `<div class="mb-3 flex items-start leading-relaxed">
-                                            <strong class="text-stone-400 font-bold mr-3 text-base w-6 text-right shrink-0 select-none pt-[2px]">${v}</strong>
-                                            <span class="text-stone-800 text-lg">${formattedText}</span>
-                                          </div>`;
+                        htmlChunks.push(`<div class="mb-3 flex items-start leading-relaxed"><strong class="text-stone-400 font-bold mr-3 text-base w-6 text-right shrink-0 select-none pt-[2px]">${row.v}</strong><span class="text-stone-800 text-lg">${formattedText}</span></div>`);
                     });
-                } else {
-                    scriptureHtml = '<p class="text-stone-400">找不到符合今日進度的經文。</p>';
-                }
-            } else {
-                scriptureHtml = '<p class="text-red-400">無法載入 rcuv.csv 檔案，請確認檔案存在且格式為 book,chapter,verse,text</p>';
-            }
+                } else htmlChunks.push('<p class="text-stone-400">找不到符合今日進度的經文。</p>');
+            } else htmlChunks.push('<p class="text-red-400">無法載入 rcuv.csv 檔案，請確認檔案存在</p>');
             
-            scriptureText.innerHTML = scriptureHtml;
-
-            prevDayBtn.disabled = (day === 1);
-            nextDayBtn.disabled = (day === 358);
+            dom.scriptureText.innerHTML = htmlChunks.join('');
+            dom.prevDayBtn.disabled = (day === 1);
+            dom.nextDayBtn.disabled = (day === 358);
         }
 
-        // --- 🔥 重大升級：解決長文本朗讀超時中斷的「分段排隊」播放機制 🔥 ---
-        function speakTextChunks(text, langMode, onStartCallback, onEndCallback) {
+        // --- 智慧分段排隊機制 ---
+        function speakTextChunks(text, langMode, onStart, onEnd) {
             if (!text) return;
-            
-            // 將長文本以中英文標點符號或換行切割成短句陣列 (加入 . ! ? 以支援英文斷句)
-            const validChunks = text.match(/[^。！？；.!?;\n]+[。！？；.!?;\n]*/g);
-            if (!validChunks) return;
+            const rawChunks = text.match(/[^。！？；.!?;\n]+[。！？；.!?;\n]*/g) || [text];
+            const chunks = []; let curr = ""; const MAX = 150;
+            rawChunks.forEach(p => {
+                let part = p.trim();
+                if (!part) return;
+                if (curr.length + part.length > MAX) { if (curr) chunks.push(curr); curr = part; }
+                else curr += (curr ? " " : "") + part;
+            });
+            if (curr) chunks.push(curr);
+            if (!chunks.length) return;
 
-            // 清理前後空白，過濾掉純空白段落
-            const chunks = validChunks.map(c => c.trim()).filter(c => c.length > 0);
-            if (chunks.length === 0) return;
+            let idx = 0, isCanceled = false;
+            window._currentSpeechCancel = () => { isCanceled = true; synth.cancel(); };
 
-            let currentIndex = 0;
-            let isCanceled = false;
-
-            // 綁定全域停止函數，供 handleStop 呼叫
-            window._currentSpeechCancel = () => {
-                isCanceled = true;
-                synth.cancel();
-                if (onEndCallback) onEndCallback();
-            };
-
-            function speakNextChunk() {
+            function next() {
                 if (isCanceled) return;
-                
-                // 陣列全部播完，觸發結束回調
-                if (currentIndex >= chunks.length) {
-                    if (onEndCallback) onEndCallback();
-                    return;
-                }
+                if (idx >= chunks.length) { window._currentSpeechCancel = null; if (onEnd) onEnd(); return; }
 
-                const utterance = new SpeechSynthesisUtterance(chunks[currentIndex]);
-                
+                const utterance = new SpeechSynthesisUtterance(chunks[idx]);
                 if (langMode === 'en') {
-                    // 若為英文靈修內容，強制使用系統預設英文語音，忽略下拉選單
                     const allVoices = synth.getVoices();
-                    const enVoice = allVoices.find(v => v.lang === 'en-US' || v.lang === 'en-GB') || allVoices.find(v => v.lang.startsWith('en'));
-                    if (enVoice) utterance.voice = enVoice;
-                    utterance.lang = 'en-US'; // 提示底層引擎使用英文
+                    let enV = allVoices.find(v => (v.lang === 'en-US' || v.lang === 'en-GB') && (v.name.includes('Google') || v.name.includes('Online') || v.name.includes('Premium'))) || 
+                              allVoices.find(v => v.lang === 'en-US' || v.lang === 'en-GB') || allVoices.find(v => v.lang.startsWith('en'));
+                    if (enV) utterance.voice = enV;
+                    utterance.lang = 'en-US'; 
                 } else {
-                    // 若為中文，使用下拉選單選擇的語音
-                    const selectedVoiceIndex = voiceSelector.value;
-                    if (selectedVoiceIndex !== "" && voices[selectedVoiceIndex]) {
-                        utterance.voice = voices[selectedVoiceIndex];
-                    }
+                    if (dom.voiceSelector.value !== "" && voices[dom.voiceSelector.value]) utterance.voice = voices[dom.voiceSelector.value];
                     utterance.lang = 'zh-TW';
                 }
                 
-                utterance.rate = parseFloat(rateSelector.value);
-
-                utterance.onstart = () => {
-                    // 只有在第一句開始時，才觸發 UI 變更（例如按鈕變成停止）
-                    if (currentIndex === 0 && onStartCallback) onStartCallback();
-                };
-
-                utterance.onend = () => {
-                    if (isCanceled) return;
-                    currentIndex++;
-                    speakNextChunk(); // 播完這句，立刻排隊播下一句
-                };
-
-                utterance.onerror = (e) => {
+                utterance.rate = parseFloat(dom.rateSelector.value);
+                utterance.onstart = () => { if (idx === 0 && onStart) onStart(); };
+                utterance.onend = () => { if (isCanceled) return; idx++; next(); };
+                utterance.onerror = (e) => { 
                     if (isCanceled || e.error === 'canceled' || e.error === 'interrupted') return;
-                    console.error("語音播放發生錯誤:", e);
-                    // 若發生非手動取消的異常，跳過該句繼續嘗試播放後續內容
-                    currentIndex++;
-                    speakNextChunk();
+                    console.error("語音播放錯誤:", e); idx++; next(); 
                 };
-
-                synth.speak(utterance);
+                
+                // 🚀 防當機保險
+                try { synth.speak(utterance); } catch (e) { console.error("TTS 引擎拒絕發聲:", e); idx++; next(); }
             }
-
-            speakNextChunk();
+            next();
         }
 
-        // --- 語音朗讀邏輯 (套用新的分段播放與語系切換) ---
         function handlePlayContent() {
-            const isEnglish = currentViewMode === 'english';
-            const contentToRead = isEnglish ? originalText.textContent : translatedText.textContent;
-            
-            if (!contentToRead || contentToRead.trim() === "") return;
-
-            // 根據語言給予不同的開場白
-            const fullTextToRead = `${displayTitle.textContent}。 ${isEnglish ? 'Devotional Content' : '靈修內容'}。\n\n${contentToRead}`;
+            const isEn = currentViewMode === 'english';
+            const txt = isEn ? dom.originalText.textContent : dom.translatedText.textContent;
+            if (!txt || txt.trim() === "") return;
             if (synth.speaking) synth.cancel();
-
-            speakTextChunks(
-                fullTextToRead,
-                isEnglish ? 'en' : 'zh',
-                () => { // onStart
-                    playBtn.classList.add('hidden'); 
-                    stopBtn.classList.remove('hidden'); 
-                    
-                    playScriptureBtn.classList.remove('hidden');
-                    stopScriptureBtn.classList.add('hidden');
-                },
-                () => { // onEnd
-                    handleStop();
-                }
+            speakTextChunks(`${dom.displayTitle.textContent}。 ${isEn ? 'Devotional Content' : '靈修內容'}。\n\n${txt}`, isEn ? 'en' : 'zh',
+                () => { dom.playBtn.classList.add('hidden'); dom.stopBtn.classList.remove('hidden'); dom.playScriptureBtn.classList.remove('hidden'); dom.stopScriptureBtn.classList.add('hidden'); },
+                handleStop
             );
         }
 
         function handlePlayScripture() {
-            if (!scriptureText.innerText || scriptureText.innerText === "載入中..." || scriptureText.innerText.includes("找不到符合今日進度")) return;
-
-            let contentToRead = '';
-            
-            const elements = scriptureText.querySelectorAll('h5, span.text-stone-800');
-            elements.forEach(el => {
-                if (el.tagName === 'H5') {
-                    contentToRead += el.innerText + '。\n'; 
-                } else if (el.tagName === 'SPAN') {
-                    contentToRead += el.innerText.replace(/📝/g, '') + ' '; 
-                }
+            if (!dom.scriptureText.innerText || dom.scriptureText.innerText.includes("載入中") || dom.scriptureText.innerText.includes("找不到")) return;
+            let txt = '';
+            dom.scriptureText.querySelectorAll('h5, span.text-stone-800').forEach(el => {
+                txt += el.tagName === 'H5' ? el.innerText + '。\n' : el.innerText.replace(/📝/g, '') + ' ';
             });
-
-            contentToRead = contentToRead.trim();
-
-            const fullTextToRead = `今日經文。\n\n${contentToRead}`;
             if (synth.speaking) synth.cancel();
-
-            speakTextChunks(
-                fullTextToRead,
-                'zh', // 經文強制使用中文模式
-                () => { // onStart
-                    playScriptureBtn.classList.add('hidden'); 
-                    stopScriptureBtn.classList.remove('hidden'); 
-                    
-                    playBtn.classList.remove('hidden');
-                    stopBtn.classList.add('hidden');
-                },
-                () => { // onEnd
-                    handleStop();
-                }
+            speakTextChunks(`今日經文。\n\n${txt.trim()}`, 'zh',
+                () => { dom.playScriptureBtn.classList.add('hidden'); dom.stopScriptureBtn.classList.remove('hidden'); dom.playBtn.classList.remove('hidden'); dom.stopBtn.classList.add('hidden'); },
+                handleStop
             );
         }
 
         function handleStop() {
-            // 如果正在使用分段播放，呼叫自訂的取消邏輯
-            if (window._currentSpeechCancel) {
-                window._currentSpeechCancel();
-                window._currentSpeechCancel = null; // 執行後清除
-            } else {
-                synth.cancel();
-            }
-            
-            // 強制重置所有播放按鈕的 UI 狀態
-            stopBtn.classList.add('hidden');
-            playBtn.classList.remove('hidden');
-            stopScriptureBtn.classList.add('hidden');
-            playScriptureBtn.classList.remove('hidden');
+            const cancelFn = window._currentSpeechCancel;
+            window._currentSpeechCancel = null; 
+            if (cancelFn) cancelFn(); else synth.cancel();
+            dom.stopBtn.classList.add('hidden'); dom.playBtn.classList.remove('hidden');
+            dom.stopScriptureBtn.classList.add('hidden'); dom.playScriptureBtn.classList.remove('hidden');
         }
 
         window.addEventListener('DOMContentLoaded', init);
