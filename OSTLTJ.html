@@ -740,20 +740,32 @@
         }
 
         function populateVoiceList() {
-            voices = synth.getVoices().filter(v => v.lang.includes('zh') || v.lang.includes('cmn') || v.name.includes('Taiwan') || v.name.includes('Chinese') || v.lang.includes('en'));
+            const allVoices = synth.getVoices();
+            
+            // 篩選：主要保留中文且含有 Taiwan 或 TW 標籤的語音
+            voices = allVoices.filter(v => 
+                (v.lang.includes('zh') || v.lang.includes('cmn') || v.name.includes('Chinese')) && 
+                (v.lang.includes('TW') || v.name.toLowerCase().includes('taiwan'))
+            );
+            
+            // 防呆：如果使用者的系統完全沒有標示為 Taiwan 的語音，就退而求其次抓所有中文語音
+            if (voices.length === 0) {
+                voices = allVoices.filter(v => v.lang.includes('zh') || v.lang.includes('cmn') || v.name.includes('Chinese'));
+            }
+
             voiceSelector.innerHTML = '';
             
             if (voices.length === 0) {
-                voiceSelector.innerHTML = '<option value="">(系統無可用語音)</option>';
+                voiceSelector.innerHTML = '<option value="">(系統無可用中文語音)</option>';
                 return;
             }
 
             const savedVoiceName = localStorage.getItem('tts_voice_name');
             voices.forEach((voice, i) => {
                 const option = document.createElement('option');
+                // 移除廠牌名稱，讓選單更簡潔
                 let displayName = voice.name.replace('Microsoft ', '').replace('Google ', '');
-                const langLabel = voice.lang.includes('en') ? '[EN]' : '[ZH]';
-                option.textContent = `${langLabel} ${displayName}`;
+                option.textContent = displayName;
                 option.value = i;
                 
                 if (savedVoiceName && voice.name === savedVoiceName) {
@@ -1068,33 +1080,106 @@
             nextDayBtn.disabled = (day === 358);
         }
 
-        // --- 語音朗讀邏輯 ---
+        // --- 🔥 重大升級：解決長文本朗讀超時中斷的「分段排隊」播放機制 🔥 ---
+        function speakTextChunks(text, langMode, onStartCallback, onEndCallback) {
+            if (!text) return;
+            
+            // 將長文本以中英文標點符號或換行切割成短句陣列 (加入 . ! ? 以支援英文斷句)
+            const validChunks = text.match(/[^。！？；.!?;\n]+[。！？；.!?;\n]*/g);
+            if (!validChunks) return;
+
+            // 清理前後空白，過濾掉純空白段落
+            const chunks = validChunks.map(c => c.trim()).filter(c => c.length > 0);
+            if (chunks.length === 0) return;
+
+            let currentIndex = 0;
+            let isCanceled = false;
+
+            // 綁定全域停止函數，供 handleStop 呼叫
+            window._currentSpeechCancel = () => {
+                isCanceled = true;
+                synth.cancel();
+                if (onEndCallback) onEndCallback();
+            };
+
+            function speakNextChunk() {
+                if (isCanceled) return;
+                
+                // 陣列全部播完，觸發結束回調
+                if (currentIndex >= chunks.length) {
+                    if (onEndCallback) onEndCallback();
+                    return;
+                }
+
+                const utterance = new SpeechSynthesisUtterance(chunks[currentIndex]);
+                
+                if (langMode === 'en') {
+                    // 若為英文靈修內容，強制使用系統預設英文語音，忽略下拉選單
+                    const allVoices = synth.getVoices();
+                    const enVoice = allVoices.find(v => v.lang === 'en-US' || v.lang === 'en-GB') || allVoices.find(v => v.lang.startsWith('en'));
+                    if (enVoice) utterance.voice = enVoice;
+                    utterance.lang = 'en-US'; // 提示底層引擎使用英文
+                } else {
+                    // 若為中文，使用下拉選單選擇的語音
+                    const selectedVoiceIndex = voiceSelector.value;
+                    if (selectedVoiceIndex !== "" && voices[selectedVoiceIndex]) {
+                        utterance.voice = voices[selectedVoiceIndex];
+                    }
+                    utterance.lang = 'zh-TW';
+                }
+                
+                utterance.rate = parseFloat(rateSelector.value);
+
+                utterance.onstart = () => {
+                    // 只有在第一句開始時，才觸發 UI 變更（例如按鈕變成停止）
+                    if (currentIndex === 0 && onStartCallback) onStartCallback();
+                };
+
+                utterance.onend = () => {
+                    if (isCanceled) return;
+                    currentIndex++;
+                    speakNextChunk(); // 播完這句，立刻排隊播下一句
+                };
+
+                utterance.onerror = (e) => {
+                    if (isCanceled || e.error === 'canceled' || e.error === 'interrupted') return;
+                    console.error("語音播放發生錯誤:", e);
+                    // 若發生非手動取消的異常，跳過該句繼續嘗試播放後續內容
+                    currentIndex++;
+                    speakNextChunk();
+                };
+
+                synth.speak(utterance);
+            }
+
+            speakNextChunk();
+        }
+
+        // --- 語音朗讀邏輯 (套用新的分段播放與語系切換) ---
         function handlePlayContent() {
-            const contentToRead = currentViewMode === 'chinese' ? translatedText.textContent : originalText.textContent;
+            const isEnglish = currentViewMode === 'english';
+            const contentToRead = isEnglish ? originalText.textContent : translatedText.textContent;
             
             if (!contentToRead || contentToRead.trim() === "") return;
 
-            const fullTextToRead = `${displayTitle.textContent}。 靈修內容。\n\n${contentToRead}`;
+            // 根據語言給予不同的開場白
+            const fullTextToRead = `${displayTitle.textContent}。 ${isEnglish ? 'Devotional Content' : '靈修內容'}。\n\n${contentToRead}`;
             if (synth.speaking) synth.cancel();
 
-            const utterance = new SpeechSynthesisUtterance(fullTextToRead);
-            const selectedVoiceIndex = voiceSelector.value;
-            if (selectedVoiceIndex !== "" && voices[selectedVoiceIndex]) {
-                utterance.voice = voices[selectedVoiceIndex];
-            }
-            utterance.rate = parseFloat(rateSelector.value); 
-
-            utterance.onstart = () => { 
-                playBtn.classList.add('hidden'); 
-                stopBtn.classList.remove('hidden'); 
-                
-                playScriptureBtn.classList.remove('hidden');
-                stopScriptureBtn.classList.add('hidden');
-            };
-            utterance.onend = () => handleStop();
-            utterance.onerror = () => handleStop();
-
-            synth.speak(utterance);
+            speakTextChunks(
+                fullTextToRead,
+                isEnglish ? 'en' : 'zh',
+                () => { // onStart
+                    playBtn.classList.add('hidden'); 
+                    stopBtn.classList.remove('hidden'); 
+                    
+                    playScriptureBtn.classList.remove('hidden');
+                    stopScriptureBtn.classList.add('hidden');
+                },
+                () => { // onEnd
+                    handleStop();
+                }
+            );
         }
 
         function handlePlayScripture() {
@@ -1116,29 +1201,32 @@
             const fullTextToRead = `今日經文。\n\n${contentToRead}`;
             if (synth.speaking) synth.cancel();
 
-            const utterance = new SpeechSynthesisUtterance(fullTextToRead);
-            const selectedVoiceIndex = voiceSelector.value;
-            if (selectedVoiceIndex !== "" && voices[selectedVoiceIndex]) {
-                utterance.voice = voices[selectedVoiceIndex];
-            }
-            utterance.rate = parseFloat(rateSelector.value); 
-
-            utterance.onstart = () => { 
-                playScriptureBtn.classList.add('hidden'); 
-                stopScriptureBtn.classList.remove('hidden'); 
-                
-                playBtn.classList.remove('hidden');
-                stopBtn.classList.add('hidden');
-            };
-            utterance.onend = () => handleStop();
-            utterance.onerror = () => handleStop();
-
-            synth.speak(utterance);
+            speakTextChunks(
+                fullTextToRead,
+                'zh', // 經文強制使用中文模式
+                () => { // onStart
+                    playScriptureBtn.classList.add('hidden'); 
+                    stopScriptureBtn.classList.remove('hidden'); 
+                    
+                    playBtn.classList.remove('hidden');
+                    stopBtn.classList.add('hidden');
+                },
+                () => { // onEnd
+                    handleStop();
+                }
+            );
         }
 
         function handleStop() {
-            if (synth.speaking) synth.cancel();
+            // 如果正在使用分段播放，呼叫自訂的取消邏輯
+            if (window._currentSpeechCancel) {
+                window._currentSpeechCancel();
+                window._currentSpeechCancel = null; // 執行後清除
+            } else {
+                synth.cancel();
+            }
             
+            // 強制重置所有播放按鈕的 UI 狀態
             stopBtn.classList.add('hidden');
             playBtn.classList.remove('hidden');
             stopScriptureBtn.classList.add('hidden');
