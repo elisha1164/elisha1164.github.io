@@ -308,7 +308,7 @@
         const exportBtn = document.getElementById('exportBtn');
         const importBtn = document.getElementById('importBtn');
         const importFileInput = document.getElementById('importFileInput');
-        const startTourBtn = document.getElementById('startTourBtn'); // 重新導覽按鈕
+        const startTourBtn = document.getElementById('startTourBtn'); 
         
         const resetMenuBtn = document.getElementById('resetMenuBtn');
         const resetConfirmModal = document.getElementById('resetConfirmModal');
@@ -363,6 +363,28 @@
                 }
             });
             return results;
+        }
+
+        // 🐛 重大 Bug 修復：保護時區與日光節約時間的精準計算
+        function calculateCurrentDay(startDateStr) {
+            if (!startDateStr) return null;
+            
+            // 修復時區錯誤：避免 Date("YYYY-MM-DD") 預設轉為 UTC 導致在西半球時區（如美國）少一天
+            const parts = startDateStr.split('-');
+            const startDate = new Date(parts[0], parts[1] - 1, parts[2]); 
+            startDate.setHours(0, 0, 0, 0);
+            
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            const diffTime = today.getTime() - startDate.getTime();
+            // 修復日光節約時間 (DST) 錯誤：改用 Math.round 避免 23 小時的誤差被無條件捨去
+            const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+            
+            let targetDay = diffDays + 1;
+            if (targetDay < 1) targetDay = 1;
+            if (targetDay > 358) targetDay = 358;
+            return targetDay;
         }
 
         function updateHeaderVisuals(day, isRead) {
@@ -509,7 +531,6 @@
                 { element: '#readingGrid', popover: { title: '靈修內容', description: '每天都會有一篇簡單的靈修文章，幫助你把每天的經文對齊整本聖經的大故事。' } }
             ];
 
-            // 只有當影片區塊顯示時，才將其加入導覽步驟
             if (!document.getElementById('videoSection').classList.contains('hidden')) {
                 steps.push({ element: '#videoSection', popover: { title: '輔助影片', description: '搭配短片的解說，更能幫助你深入理解經文的精巧美妙。' } });
             }
@@ -527,7 +548,6 @@
                 nextBtnText: '下一步',
                 prevBtnText: '上一步',
                 onDestroyStarted: () => {
-                    // 記錄已完成導覽
                     localStorage.setItem('tour_completed', 'true');
                     driverObj.destroy();
                 }
@@ -555,7 +575,7 @@
                 if (startDate) {
                     localStorage.setItem('gemini_start_date', startDate);
                     const targetDay = calculateCurrentDay(startDate);
-                    if (targetDay && bibleData && Object.keys(bibleData).length > 0) changeDay(targetDay);
+                    if (targetDay !== null && bibleData && Object.keys(bibleData).length > 0) changeDay(targetDay);
                 } else {
                     localStorage.removeItem('gemini_start_date');
                 }
@@ -569,7 +589,7 @@
                 startDateInput.value = todayStr;
                 localStorage.setItem('gemini_start_date', todayStr);
                 const targetDay = calculateCurrentDay(todayStr);
-                if (targetDay && bibleData && Object.keys(bibleData).length > 0) changeDay(targetDay);
+                if (targetDay !== null && bibleData && Object.keys(bibleData).length > 0) changeDay(targetDay);
             });
 
             rateSelector.addEventListener('change', (e) => {
@@ -686,22 +706,6 @@
             });
         }
 
-        function calculateCurrentDay(startDateStr) {
-            if (!startDateStr) return null;
-            const startDate = new Date(startDateStr);
-            startDate.setHours(0, 0, 0, 0);
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-
-            const diffTime = today - startDate;
-            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-            
-            let targetDay = diffDays + 1;
-            if (targetDay < 1) targetDay = 1;
-            if (targetDay > 358) targetDay = 358;
-            return targetDay;
-        }
-
         // --- 載入與解析 CSV ---
         async function loadCSVs() {
             statusText.textContent = "正在從伺服器下載 CSV 資料...";
@@ -741,8 +745,9 @@
                 const translatedParsed = Papa.parse(translatedCsvStr, parseOpts).data;
                 
                 rcuvIndex = {};
+                // 防呆處理：即便檔案不存在也確保解析為空字串，防止程式崩潰
                 if (rcuvCsvStr) {
-                    const rawRcuvData = Papa.parse(rcuvCsvStr, parseOpts).data;
+                    const rawRcuvData = Papa.parse(rcuvCsvStr || '', parseOpts).data;
                     rawRcuvData.forEach(row => {
                         const rawBook = row.book || '';
                         const rawChap = (row.chapter || '').toString();
@@ -765,7 +770,7 @@
 
                 videoData = {};
                 if (videoCsvStr) {
-                    const rawVideoData = Papa.parse(videoCsvStr, parseOpts).data;
+                    const rawVideoData = Papa.parse(videoCsvStr || '', parseOpts).data;
                     rawVideoData.forEach(row => {
                         const day = parseInt(row.day);
                         if (isNaN(day)) return;
