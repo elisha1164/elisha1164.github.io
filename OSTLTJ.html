@@ -158,7 +158,13 @@
                     <h4 class="font-bold text-stone-700 flex items-center text-lg tracking-wide">
                         🎬 輔助影片
                     </h4>
-                    <span id="videoTitle" class="text-sm text-stone-500 font-medium truncate max-w-[200px] sm:max-w-xs"></span>
+                    <!-- 影片標題與切換按鈕區 -->
+                    <div class="flex items-center gap-3">
+                        <span id="videoTitle" class="text-sm text-stone-500 font-medium truncate max-w-[150px] sm:max-w-xs"></span>
+                        <button id="toggleVideoBtn" class="hidden bg-stone-200 text-stone-700 hover:bg-stone-300 px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center shadow-sm whitespace-nowrap">
+                            切換英文版
+                        </button>
+                    </div>
                 </div>
                 <div class="p-6">
                     <div class="relative w-full overflow-hidden rounded-xl shadow-sm border border-stone-100" style="padding-top: 56.25%;">
@@ -224,7 +230,7 @@
         <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4">
             <h4 class="font-bold text-stone-800 text-lg mb-3">⚠️ 確認重置進度</h4>
             <p class="text-stone-600 text-sm mb-6 leading-relaxed">
-                進度即將重置（回到 Day 1 並清空已讀紀錄），語音偏好將會保留。<br><br>若未來希望復原，請先匯出設定。
+                進度即將重置（回到 第 1 天 並清空已讀紀錄），語音偏好將會保留。<br><br>若未來希望復原，請先匯出設定。
             </p>
             <div class="flex flex-col gap-2">
                 <button id="exportAndResetBtn" class="w-full bg-stone-800 text-white py-2 rounded-lg hover:bg-stone-700 transition font-medium text-sm shadow-sm">
@@ -251,6 +257,7 @@
         let voices = []; 
         let readProgress = JSON.parse(localStorage.getItem('gemini_read_progress') || '{}');
         let currentViewMode = 'chinese'; 
+        let activeVideoLang = 'ch'; // 用於追蹤當前影片語言 ('ch' 或 'en')
 
         // --- 網頁載入時間戳記 (用於 24 小時強制重整) ---
         const APP_LOAD_TIME = Date.now();
@@ -291,6 +298,7 @@
         const videoSection = document.getElementById('videoSection');
         const videoTitle = document.getElementById('videoTitle');
         const youtubePlayer = document.getElementById('youtubePlayer');
+        const toggleVideoBtn = document.getElementById('toggleVideoBtn'); // 影片語言切換按鈕
 
         const scriptureText = document.getElementById('scriptureText');
         
@@ -365,11 +373,10 @@
             return results;
         }
 
-        // 🐛 重大 Bug 修復：保護時區與日光節約時間的精準計算
+        // 保護時區與日光節約時間的精準計算
         function calculateCurrentDay(startDateStr) {
             if (!startDateStr) return null;
             
-            // 修復時區錯誤：避免 Date("YYYY-MM-DD") 預設轉為 UTC 導致在西半球時區（如美國）少一天
             const parts = startDateStr.split('-');
             const startDate = new Date(parts[0], parts[1] - 1, parts[2]); 
             startDate.setHours(0, 0, 0, 0);
@@ -378,7 +385,6 @@
             today.setHours(0, 0, 0, 0);
 
             const diffTime = today.getTime() - startDate.getTime();
-            // 修復日光節約時間 (DST) 錯誤：改用 Math.round 避免 23 小時的誤差被無條件捨去
             const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
             
             let targetDay = diffDays + 1;
@@ -449,6 +455,17 @@
             }
             
             if (synth.speaking) handleStop();
+        }
+
+        // 影片區塊更新函式
+        function updateVideoDisplay(vData, lang) {
+            if (lang === 'ch' && vData.chLink) {
+                youtubePlayer.src = `https://www.youtube.com/embed/${cleanString(vData.chLink)}`;
+                videoTitle.textContent = vData.chTitle || "輔助影片 (中文)";
+            } else if (lang === 'en' && vData.enLink) {
+                youtubePlayer.src = `https://www.youtube.com/embed/${cleanString(vData.enLink)}?cc_load_policy=1&hl=zh-TW&cc_lang_pref=zh-TW`;
+                videoTitle.textContent = vData.enTitle || "輔助影片 (英文附中文字幕)";
+            }
         }
 
         function handleExport() {
@@ -620,6 +637,21 @@
 
             toggleOriginalBtn.addEventListener('click', () => {
                 setViewMode(currentViewMode === 'chinese' ? 'english' : 'chinese');
+            });
+
+            // 雙語影片切換功能綁定
+            toggleVideoBtn.addEventListener('click', () => {
+                const vData = videoData[currentDay];
+                if (!vData) return;
+                
+                if (activeVideoLang === 'ch') {
+                    activeVideoLang = 'en';
+                    toggleVideoBtn.textContent = '切換中文版';
+                } else {
+                    activeVideoLang = 'ch';
+                    toggleVideoBtn.textContent = '切換英文版';
+                }
+                updateVideoDisplay(vData, activeVideoLang);
             });
 
             readProgressCheckbox.addEventListener('change', (e) => {
@@ -882,27 +914,29 @@
             translatedText.textContent = data.contentCh || "此天無中文靈修資料。";
             setViewMode('chinese');
 
-            // --- 更新輔助影片區塊 ---
+            // --- 影片區塊與雙語切換邏輯 ---
             const vData = videoData[day];
             const vChLink = vData ? cleanString(vData.chLink) : "";
             const vEnLink = vData ? cleanString(vData.enLink) : "";
 
+            // 預設語言：有中文就播中文，否則播英文
+            activeVideoLang = vChLink ? 'ch' : 'en';
+
             if (vChLink || vEnLink) {
-                let embedUrl = "";
-                let vTitle = "";
-                if (vChLink) {
-                    embedUrl = `https://www.youtube.com/embed/${vChLink}`;
-                    vTitle = vData.chTitle || "輔助影片 (中文)";
-                } else {
-                    embedUrl = `https://www.youtube.com/embed/${vEnLink}?cc_load_policy=1&hl=zh-TW&cc_lang_pref=zh-TW`;
-                    vTitle = vData.enTitle || "輔助影片 (英文附中文字幕)";
-                }
-                youtubePlayer.src = embedUrl;
-                videoTitle.textContent = vTitle;
+                updateVideoDisplay(vData, activeVideoLang);
                 videoSection.classList.remove('hidden');
+                
+                // 如果同時擁有雙語版本，顯示切換按鈕
+                if (vChLink && vEnLink) {
+                    toggleVideoBtn.classList.remove('hidden');
+                    toggleVideoBtn.textContent = '切換英文版';
+                } else {
+                    toggleVideoBtn.classList.add('hidden');
+                }
             } else {
                 youtubePlayer.src = "";
                 videoSection.classList.add('hidden');
+                toggleVideoBtn.classList.add('hidden');
             }
             
             let scriptureHtml = '';
