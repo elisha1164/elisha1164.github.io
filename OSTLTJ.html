@@ -4,6 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>指向耶穌的大故事：一年讀完整本聖經</title>
+    <!-- 自動偵測並強制跳出 LINE 內建瀏覽器 -->
+    <script>
+        (function() {
+            var ua = navigator.userAgent || navigator.vendor || window.opera;
+            if (ua.indexOf('Line') > -1 || ua.indexOf('LINE') > -1) {
+                if (window.location.search.indexOf('openExternalBrowser=1') === -1) {
+                    var sep = window.location.href.indexOf('?') === -1 ? '?' : '&';
+                    window.location.href = window.location.href + sep + 'openExternalBrowser=1';
+                }
+            }
+        })();
+    </script>
     <!-- 使用書本 Emoji 作為網站圖示 (Favicon) -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📖</text></svg>">
     <!-- 引入 Tailwind CSS -->
@@ -870,7 +882,16 @@
 
             } catch (error) {
                 console.error("CSV 載入錯誤:", error);
-                statusText.innerHTML = `❌ 載入失敗。<br><span class="text-sm text-red-500">發生錯誤：${error.message}。請確認所有必要的 CSV 檔案皆已上傳。</span>`;
+                
+                // 💡 加入針對 APP 內建瀏覽器的被動防呆提示
+                const isLine = /Line|LINE/.test(navigator.userAgent);
+                const isFb = /FBAN|FBAV|Instagram/.test(navigator.userAgent);
+                
+                if (isLine || isFb) {
+                    statusText.innerHTML = `❌ 載入被阻擋。<br><span class="text-sm text-red-600 font-bold bg-red-50 px-2 py-1 rounded inline-block mt-2">⚠️ 偵測到您正使用 APP 內建瀏覽器，這會阻擋資料載入。<br>👉 請點擊右上角（或右下角）選單，選擇「使用預設瀏覽器開啟」（Safari/Chrome）。</span>`;
+                } else {
+                    statusText.innerHTML = `❌ 載入失敗。<br><span class="text-sm text-red-500">發生錯誤：${error.message}。請確認所有必要的 CSV 檔案皆已上傳。</span>`;
+                }
             }
         }
 
