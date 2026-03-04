@@ -484,13 +484,13 @@
             if (synth.speaking) handleStop();
         }
 
-        // 影片區塊更新函式
+        // 影片區塊更新函式 (加入 rel=0 參數，限制只推薦同頻道的影片)
         function updateVideoDisplay(vData, lang) {
             if (lang === 'ch' && vData.chLink) {
-                youtubePlayer.src = `https://www.youtube.com/embed/${cleanString(vData.chLink)}`;
+                youtubePlayer.src = `https://www.youtube.com/embed/${cleanString(vData.chLink)}?rel=0`;
                 videoTitle.textContent = vData.chTitle || "輔助影片 (中文)";
             } else if (lang === 'en' && vData.enLink) {
-                youtubePlayer.src = `https://www.youtube.com/embed/${cleanString(vData.enLink)}?cc_load_policy=1&hl=zh-TW&cc_lang_pref=zh-TW`;
+                youtubePlayer.src = `https://www.youtube.com/embed/${cleanString(vData.enLink)}?cc_load_policy=1&hl=zh-TW&cc_lang_pref=zh-TW&rel=0`;
                 videoTitle.textContent = vData.enTitle || "輔助影片 (英文附中文字幕)";
             }
         }
