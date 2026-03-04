@@ -10,10 +10,15 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- 引入 PapaParse (用於解析 CSV) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <!-- 引入 Driver.js (用於新手導覽) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/driver.js@1.3.1/dist/driver.css"/>
+    <script src="https://cdn.jsdelivr.net/npm/driver.js@1.3.1/dist/driver.js.iife.js"></script>
     <style>
         body { font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        /* 微調 Driver.js 的按鈕樣式以符合整體質感 */
+        .driver-popover-footer button { border-radius: 6px !important; text-shadow: none !important; }
     </style>
 </head>
 <body class="bg-stone-100 text-stone-800 min-h-screen pb-10">
@@ -26,12 +31,17 @@
                 <p class="text-stone-500" id="statusText">正在初始化系統...</p>
             </div>
             
-            <!-- 進階設定按鈕 (匯出/匯入/重置) -->
+            <!-- 進階設定按鈕 (匯出/匯入/重置/導覽) -->
             <div class="absolute right-0 top-0">
                 <button id="settingsBtn" class="p-2 text-stone-400 hover:text-stone-600 transition rounded-full hover:bg-stone-200 focus:outline-none" title="進階設定">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                 </button>
                 <div id="settingsMenu" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-stone-200 z-50 py-2">
+                    <button id="startTourBtn" class="w-full text-left px-4 py-2 text-sm text-stone-700 hover:bg-stone-50 transition flex items-center">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        重新導覽
+                    </button>
+                    <div class="border-t border-stone-100 my-1"></div>
                     <button id="exportBtn" class="w-full text-left px-4 py-2 text-sm text-stone-700 hover:bg-stone-50 transition flex items-center">
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                         匯出進度與設定
@@ -53,7 +63,7 @@
         <!-- 設定區 -->
         <section class="bg-white rounded-2xl shadow-sm p-6 mb-8 border border-stone-200">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
-                <div class="w-full">
+                <div class="w-full" id="tour-start-date">
                     <label class="block text-sm font-medium text-stone-600 mb-2">📅 Day 1 開始日期</label>
                     <div class="flex gap-2">
                         <input type="date" id="startDateInput" class="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none transition bg-white text-sm text-stone-700">
@@ -62,7 +72,7 @@
                         </button>
                     </div>
                 </div>
-                <div class="w-full">
+                <div class="w-full" id="tour-voice-settings">
                     <label class="block text-sm font-medium text-stone-600 mb-2">🗣️ 系統語音與語速</label>
                     <div class="flex gap-2">
                         <select id="voiceSelector" class="w-2/3 px-2 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none transition bg-white text-sm text-stone-700 truncate">
@@ -158,7 +168,7 @@
             </div>
 
             <!-- 內容顯示卡片 (經文內容) -->
-            <div class="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden flex flex-col">
+            <div class="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden flex flex-col" id="tour-scripture">
                 <div class="bg-stone-50 border-b border-stone-200 p-5 flex justify-between items-center">
                     <h4 class="font-bold text-stone-700 flex items-center text-lg tracking-wide">
                         📖 今日經文 (和合本 2010 RCUV)
@@ -233,7 +243,7 @@
     <script>
         // --- 變數與狀態 ---
         let bibleData = {}; 
-        let rcuvIndex = {}; // 🚀 效能優化：改用索引制儲存經文
+        let rcuvIndex = {}; 
         let videoData = {}; 
         
         let currentDay = 1;
@@ -298,6 +308,7 @@
         const exportBtn = document.getElementById('exportBtn');
         const importBtn = document.getElementById('importBtn');
         const importFileInput = document.getElementById('importFileInput');
+        const startTourBtn = document.getElementById('startTourBtn'); // 重新導覽按鈕
         
         const resetMenuBtn = document.getElementById('resetMenuBtn');
         const resetConfirmModal = document.getElementById('resetConfirmModal');
@@ -486,6 +497,46 @@
             alert('🔄 進度已成功重置！');
         }
 
+        // --- 🚀 新手導覽邏輯 (基於 Driver.js) ---
+        function startTour() {
+            const driver = window.driver.js.driver;
+            
+            const steps = [
+                { popover: { title: '👋 歡迎', description: '歡迎加入一年讀完整本聖經的行列！<br><br>讓我們一起探索這個指向耶穌的大故事！' } },
+                { element: '#tour-start-date', popover: { title: '開始日期', description: '在這裡你可以設定你開始讀經的日期。' } },
+                { element: '#tour-voice-settings', popover: { title: '系統語音與語速', description: '在這裡你可以設定順耳的朗讀人聲。' } },
+                { element: '#titleHeaderBox', popover: { title: '每日讀經進度', description: '這裡會顯示每天的讀經進度，完成記得打勾唷。' } },
+                { element: '#readingGrid', popover: { title: '靈修內容', description: '每天都會有一篇簡單的靈修文章，幫助你把每天的經文對齊整本聖經的大故事。' } }
+            ];
+
+            // 只有當影片區塊顯示時，才將其加入導覽步驟
+            if (!document.getElementById('videoSection').classList.contains('hidden')) {
+                steps.push({ element: '#videoSection', popover: { title: '輔助影片', description: '搭配短片的解說，更能幫助你深入理解經文的精巧美妙。' } });
+            }
+
+            steps.push(
+                { element: '#tour-scripture', popover: { title: '今日經文', description: '推荐使用和合本2010，保留熟悉譯文的同時，不讓過時生澀的古言古語成為理解真道的阻礙。' } },
+                { element: '#settingsBtn', popover: { title: '進階設定', description: '需要匯出匯入或重置進度，都可以在這裡操作。' } },
+                { popover: { title: '🎉 準備出發', description: '導覽告一段落，祝你享受這個指向耶穌的大故事。<br><br>若需要再看一次導覽，請按右上角的齒輪按鈕。' } }
+            );
+
+            const driverObj = driver({
+                showProgress: true,
+                animate: true,
+                doneBtnText: '完成',
+                nextBtnText: '下一步',
+                prevBtnText: '上一步',
+                onDestroyStarted: () => {
+                    // 記錄已完成導覽
+                    localStorage.setItem('tour_completed', 'true');
+                    driverObj.destroy();
+                }
+            });
+
+            driverObj.setSteps(steps);
+            driverObj.drive();
+        }
+
         // --- 初始化邏輯 ---
         async function init() {
             // 清理舊版廢棄的 LocalStorage，確保無殘留
@@ -567,6 +618,13 @@
                 if (!settingsBtn.contains(e.target) && !settingsMenu.contains(e.target)) {
                     settingsMenu.classList.add('hidden');
                 }
+            });
+
+            // 綁定重新導覽按鈕
+            startTourBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                settingsMenu.classList.add('hidden');
+                startTour();
             });
 
             exportBtn.addEventListener('click', handleExport);
@@ -676,14 +734,12 @@
 
                 if (!metaCsvStr || !contentCsvStr || !translatedCsvStr) throw new Error("主要檔案讀取失敗 (可能缺少 bible_reading_plan_translated.csv)");
 
-                // 🚀 效能優化：使用 PapaParse 內建的 transformHeader 瞬間完成所有欄位正規化，捨棄低效的 getCol()
                 const parseOpts = { header: true, skipEmptyLines: true, transformHeader: h => cleanString(h).toLowerCase() };
                 
                 const metaParsed = Papa.parse(metaCsvStr, parseOpts).data;
                 const contentParsed = Papa.parse(contentCsvStr, parseOpts).data;
                 const translatedParsed = Papa.parse(translatedCsvStr, parseOpts).data;
                 
-                // 1. 解析並建立 RCUV 聖經索引 (🚀 效能優化：分書卷建立目錄)
                 rcuvIndex = {};
                 if (rcuvCsvStr) {
                     const rawRcuvData = Papa.parse(rcuvCsvStr, parseOpts).data;
@@ -707,7 +763,6 @@
                     });
                 }
 
-                // 2. 解析 YouTube 影片資料
                 videoData = {};
                 if (videoCsvStr) {
                     const rawVideoData = Papa.parse(videoCsvStr, parseOpts).data;
@@ -726,7 +781,6 @@
                 let currentBook = "";
                 bibleData = {};
 
-                // 3. 組合靈修內容 Metadata
                 metaParsed.forEach(row => {
                     const day = parseInt(row.day);
                     if (isNaN(day)) return;
@@ -743,7 +797,6 @@
                     };
                 });
 
-                // 4. 合併英文靈修內文
                 contentParsed.forEach(row => {
                     const day = parseInt(row.day);
                     if (!isNaN(day) && bibleData[day]) {
@@ -751,7 +804,6 @@
                     }
                 });
 
-                // 5. 合併中文靈修內文
                 translatedParsed.forEach(row => {
                     const day = parseInt(row.day);
                     if (!isNaN(day) && bibleData[day]) {
@@ -762,7 +814,6 @@
                 statusText.textContent = "✅ 資料載入成功！";
                 readingSection.classList.remove('opacity-50', 'pointer-events-none');
                 
-                // 尋找第一個未完成的天數作為預設顯示頁面
                 let firstUnreadDay = null;
                 for (let i = 1; i <= 358; i++) {
                     if (!readProgress[i]) {
@@ -772,6 +823,12 @@
                 }
                 const initialDay = firstUnreadDay !== null ? firstUnreadDay : 358; 
                 changeDay(initialDay);
+
+                // 🔥 判斷是否為初次載入，並啟動導覽 🔥
+                if (!localStorage.getItem('tour_completed')) {
+                    // 給予一點延遲，確保畫面元素都已渲染完畢再啟動聚焦導覽
+                    setTimeout(startTour, 800);
+                }
 
             } catch (error) {
                 console.error("CSV 載入錯誤:", error);
@@ -842,7 +899,6 @@
                 videoSection.classList.add('hidden');
             }
             
-            // --- 🚀 極速版：更新經文顯示 ---
             let scriptureHtml = '';
             if (Object.keys(rcuvIndex).length > 0) {
                 const targetBookClean = cleanString(data.book);
@@ -852,7 +908,6 @@
                 let mainVerses = [];
                 let psalmVerses = [];
 
-                // O(1) 直接從索引中提取該卷書，瞬間完成過濾
                 if (targetBookClean !== '' && rcuvIndex[targetBookClean]) {
                     mainVerses = rcuvIndex[targetBookClean].filter(row => {
                         const matchCh = targetChapters.find(tc => tc.ch === row._cleanChap);
