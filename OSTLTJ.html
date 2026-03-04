@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>指向耶穌的大故事：一年讀完整本聖經</title>
-    <!-- 新增：使用書本 Emoji 作為網站圖示 (Favicon) -->
+    <!-- 使用書本 Emoji 作為網站圖示 (Favicon) -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📖</text></svg>">
     <!-- 引入 Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -19,19 +19,18 @@
 <body class="bg-stone-100 text-stone-800 min-h-screen pb-10">
 
     <div class="max-w-5xl mx-auto p-4 sm:p-6 lg:p-8">
-        <!-- 標題區 (加入右上角設定齒輪) -->
+        <!-- 標題區 -->
         <header class="relative flex justify-center items-start mb-8">
             <div class="text-center mt-2">
                 <h1 class="text-3xl sm:text-4xl font-bold text-stone-700 mb-2">📖 指向耶穌的大故事：一年讀完整本聖經</h1>
                 <p class="text-stone-500" id="statusText">正在初始化系統...</p>
             </div>
             
-            <!-- 進階設定按鈕 (匯出/匯入) -->
+            <!-- 進階設定按鈕 (匯出/匯入/重置) -->
             <div class="absolute right-0 top-0">
-                <button id="settingsBtn" class="p-2 text-stone-400 hover:text-stone-600 transition rounded-full hover:bg-stone-200 focus:outline-none" title="進階設定 (匯出/匯入進度)">
+                <button id="settingsBtn" class="p-2 text-stone-400 hover:text-stone-600 transition rounded-full hover:bg-stone-200 focus:outline-none" title="進階設定">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                 </button>
-                <!-- 下拉選單 -->
                 <div id="settingsMenu" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-stone-200 z-50 py-2">
                     <button id="exportBtn" class="w-full text-left px-4 py-2 text-sm text-stone-700 hover:bg-stone-50 transition flex items-center">
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
@@ -51,7 +50,7 @@
             </div>
         </header>
 
-        <!-- 設定區 (進度與語音) -->
+        <!-- 設定區 -->
         <section class="bg-white rounded-2xl shadow-sm p-6 mb-8 border border-stone-200">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
                 <div class="w-full">
@@ -234,7 +233,7 @@
     <script>
         // --- 變數與狀態 ---
         let bibleData = {}; 
-        let rcuvData = [];  
+        let rcuvIndex = {}; // 🚀 效能優化：改用索引制儲存經文
         let videoData = {}; 
         
         let currentDay = 1;
@@ -242,6 +241,19 @@
         let voices = []; 
         let readProgress = JSON.parse(localStorage.getItem('gemini_read_progress') || '{}');
         let currentViewMode = 'chinese'; 
+
+        // --- 網頁載入時間戳記 (用於 24 小時強制重整) ---
+        const APP_LOAD_TIME = Date.now();
+        const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000; 
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                if (Date.now() - APP_LOAD_TIME > TWENTY_FOUR_HOURS) {
+                    console.log('網頁已閒置超過 24 小時，執行自動重新整理...');
+                    window.location.reload();
+                }
+            }
+        });
 
         // --- DOM 元素 ---
         const statusText = document.getElementById('statusText');
@@ -256,7 +268,6 @@
         const nextDayBtn = document.getElementById('nextDayBtn');
         const absoluteDateDisplay = document.getElementById('absoluteDateDisplay');
         
-        // 標題與視覺回饋 DOM
         const titleHeaderBox = document.getElementById('titleHeaderBox');
         const displayTitle = document.getElementById('displayTitle');
         const readProgressLabel = document.getElementById('readProgressLabel');
@@ -276,7 +287,6 @@
         const playBtn = document.getElementById('playBtn');
         const stopBtn = document.getElementById('stopBtn');
         
-        // 經文專屬按鈕
         const playScriptureBtn = document.getElementById('playScriptureBtn');
         const stopScriptureBtn = document.getElementById('stopScriptureBtn');
         
@@ -289,28 +299,18 @@
         const importBtn = document.getElementById('importBtn');
         const importFileInput = document.getElementById('importFileInput');
         
-        // 新增的重置相關 DOM 元素
         const resetMenuBtn = document.getElementById('resetMenuBtn');
         const resetConfirmModal = document.getElementById('resetConfirmModal');
         const exportAndResetBtn = document.getElementById('exportAndResetBtn');
         const confirmResetBtn = document.getElementById('confirmResetBtn');
         const cancelResetBtn = document.getElementById('cancelResetBtn');
 
-        // --- 效能優化：徹底清除不可見字元 ---
+        // --- 核心工具函數 ---
         function cleanString(str) {
             if (str === null || str === undefined) return '';
             return String(str).replace(/[\s\uFEFF\u200B-\u200D\r\n]/g, '');
         }
 
-        // --- 輔助函數：無視大小寫與空白獲取 CSV 欄位值 ---
-        function getCol(row, colName) {
-            if (!row || typeof row !== 'object') return null;
-            const targetCol = cleanString(colName).toLowerCase();
-            const key = Object.keys(row).find(k => cleanString(k).toLowerCase() === targetCol);
-            return key ? row[key] : null;
-        }
-
-        // --- 輔助函數：解析章節與節數 ---
         function parseChaptersWithVerses(chaptersStr) {
             if (!chaptersStr) return [];
             const cleanStr = cleanString(chaptersStr).replace(/到/g, '-');
@@ -354,15 +354,13 @@
             return results;
         }
 
-        // --- 動態更新標題顏色回饋 ---
         function updateHeaderVisuals(day, isRead) {
             const savedStartDate = localStorage.getItem('gemini_start_date');
             let actualDay = calculateCurrentDay(savedStartDate);
-            if (actualDay === null) actualDay = 358; // 尚未設定開始日期時，當作已全開放
+            if (actualDay === null) actualDay = 358; 
 
             const isFuture = day > actualDay;
 
-            // 清除所有的顏色 class
             titleHeaderBox.classList.remove('bg-amber-50', 'bg-green-50', 'bg-red-50', 'bg-stone-100', 'border-amber-100', 'border-green-200', 'border-red-200', 'border-stone-200');
             displayTitle.classList.remove('text-stone-800', 'text-green-800', 'text-red-800', 'text-stone-500');
             readProgressLabel.classList.remove('text-stone-600', 'text-green-700', 'text-red-600', 'text-stone-500', 'hover:text-amber-700', 'hover:text-green-800', 'hover:text-red-700', 'hover:text-stone-600', 'border-amber-200', 'border-green-300', 'border-red-300', 'border-stone-300', 'bg-white', 'hover:bg-green-50', 'hover:bg-red-50', 'hover:bg-stone-100');
@@ -370,7 +368,6 @@
             readProgressText.classList.remove('text-stone-600', 'text-green-700', 'text-red-600', 'text-stone-500');
 
             if (isRead) {
-                // 已讀 (綠色)
                 titleHeaderBox.classList.add('bg-green-50', 'border-green-200');
                 displayTitle.classList.add('text-green-800');
                 readProgressLabel.classList.add('border-green-300', 'hover:bg-green-50', 'bg-white');
@@ -378,7 +375,6 @@
                 readProgressText.classList.add('text-green-700');
                 readProgressText.textContent = "✅ 已完成閱讀";
             } else if (isFuture) {
-                // 未來未讀 (灰色)
                 titleHeaderBox.classList.add('bg-stone-100', 'border-stone-200');
                 displayTitle.classList.add('text-stone-500');
                 readProgressLabel.classList.add('border-stone-300', 'hover:bg-stone-100', 'bg-white');
@@ -386,7 +382,6 @@
                 readProgressText.classList.add('text-stone-500');
                 readProgressText.textContent = "標記為已讀";
             } else {
-                // 已到期但未讀 (紅色)
                 titleHeaderBox.classList.add('bg-red-50', 'border-red-200');
                 displayTitle.classList.add('text-red-800');
                 readProgressLabel.classList.add('border-red-300', 'hover:bg-red-50', 'bg-white');
@@ -396,7 +391,6 @@
             }
         }
 
-        // --- Modal 註釋控制函數 ---
         function showFootnoteModal(content) {
             document.getElementById('footnoteContent').textContent = content;
             document.getElementById('footnoteModal').classList.remove('hidden');
@@ -406,7 +400,6 @@
             document.getElementById('footnoteModal').classList.add('hidden');
         }
 
-        // --- 控制畫面顯示模式 (中英切換) ---
         function setViewMode(mode) {
             currentViewMode = mode;
 
@@ -422,12 +415,9 @@
                 toggleOriginalText.textContent = "顯示英文原文";
             }
             
-            if (synth.speaking) {
-                handleStop();
-            }
+            if (synth.speaking) handleStop();
         }
 
-        // --- 匯出 / 匯入設定功能 (移除 AI 包袱) ---
         function handleExport() {
             const dataToExport = {
                 gemini_start_date: localStorage.getItem('gemini_start_date') || "",
@@ -477,17 +467,14 @@
             event.target.value = '';
         }
 
-        // --- 重置進度功能 ---
         function closeResetModal() {
             resetConfirmModal.classList.add('hidden');
         }
 
         function performReset() {
-            // 1. 清空已讀進度
             readProgress = {};
             localStorage.setItem('gemini_read_progress', JSON.stringify(readProgress));
             
-            // 2. 將開始日期設為今日
             const today = new Date();
             const offset = today.getTimezoneOffset();
             const todayStr = new Date(today.getTime() - (offset*60*1000)).toISOString().split('T')[0];
@@ -495,15 +482,13 @@
             startDateInput.value = todayStr;
             localStorage.setItem('gemini_start_date', todayStr);
             
-            // 3. 切換回第一天
             changeDay(1);
-            
             alert('🔄 進度已成功重置！');
         }
 
-        // --- 初始化 ---
+        // --- 初始化邏輯 ---
         async function init() {
-            // 清理舊版廢棄的 LocalStorage
+            // 清理舊版廢棄的 LocalStorage，確保無殘留
             localStorage.removeItem('gemini_api_key');
             localStorage.removeItem('gemini_model');
             localStorage.removeItem('gemini_translations_cache');
@@ -514,7 +499,6 @@
             if (savedStartDate) startDateInput.value = savedStartDate;
             if (savedRate) rateSelector.value = savedRate;
 
-            // --- 自動儲存邏輯 ---
             startDateInput.addEventListener('change', (e) => {
                 const startDate = e.target.value;
                 if (startDate) {
@@ -547,7 +531,6 @@
                 }
             });
 
-            // --- 介面控制事件 ---
             daySelector.addEventListener('change', (e) => {
                 let day = parseInt(e.target.value);
                 if (day < 1) day = 1;
@@ -568,7 +551,6 @@
                 setViewMode(currentViewMode === 'chinese' ? 'english' : 'chinese');
             });
 
-            // 🔥 核取方塊點擊時，除了存進度，也要即時觸發視覺更新
             readProgressCheckbox.addEventListener('change', (e) => {
                 const isRead = e.target.checked;
                 readProgress[currentDay] = isRead;
@@ -591,11 +573,10 @@
             importBtn.addEventListener('click', () => importFileInput.click());
             importFileInput.addEventListener('change', handleImport);
 
-            // --- 重置功能事件綁定 ---
             resetMenuBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                settingsMenu.classList.add('hidden'); // 關閉下拉選單
-                resetConfirmModal.classList.remove('hidden'); // 顯示確認視窗
+                settingsMenu.classList.add('hidden'); 
+                resetConfirmModal.classList.remove('hidden'); 
             });
             
             cancelResetBtn.addEventListener('click', closeResetModal);
@@ -606,11 +587,11 @@
             });
 
             exportAndResetBtn.addEventListener('click', () => {
-                handleExport(); // 呼叫既有的匯出功能
+                handleExport(); 
                 setTimeout(() => {
                     performReset();
                     closeResetModal();
-                }, 500); // 稍微延遲，確保匯出下載已順利觸發
+                }, 500); 
             });
 
             populateVoiceList();
@@ -695,52 +676,51 @@
 
                 if (!metaCsvStr || !contentCsvStr || !translatedCsvStr) throw new Error("主要檔案讀取失敗 (可能缺少 bible_reading_plan_translated.csv)");
 
-                const metaParsed = Papa.parse(metaCsvStr, { header: true, skipEmptyLines: true }).data;
-                const contentParsed = Papa.parse(contentCsvStr, { header: true, skipEmptyLines: true }).data;
-                const translatedParsed = Papa.parse(translatedCsvStr, { header: true, skipEmptyLines: true }).data;
+                // 🚀 效能優化：使用 PapaParse 內建的 transformHeader 瞬間完成所有欄位正規化，捨棄低效的 getCol()
+                const parseOpts = { header: true, skipEmptyLines: true, transformHeader: h => cleanString(h).toLowerCase() };
                 
-                // 1. 解析並全域儲存 RCUV 聖經資料 
+                const metaParsed = Papa.parse(metaCsvStr, parseOpts).data;
+                const contentParsed = Papa.parse(contentCsvStr, parseOpts).data;
+                const translatedParsed = Papa.parse(translatedCsvStr, parseOpts).data;
+                
+                // 1. 解析並建立 RCUV 聖經索引 (🚀 效能優化：分書卷建立目錄)
+                rcuvIndex = {};
                 if (rcuvCsvStr) {
-                    const rawRcuvData = Papa.parse(rcuvCsvStr, { header: true, skipEmptyLines: true }).data;
-                    if (rawRcuvData.length > 0) {
-                        rcuvData = rawRcuvData.map(row => {
-                            const vals = Object.values(row);
-                            const rawBook = getCol(row, 'book') || vals[0] || '';
-                            const rawChap = (getCol(row, 'chapter') || vals[1] || '').toString();
-                            const rawVerse = (getCol(row, 'verse') || vals[2] || '').toString();
-                            
-                            return {
-                                book: rawBook,
-                                chapter: rawChap,
-                                verse: rawVerse,
-                                text: getCol(row, 'text') || vals[3] || '',
-                                _cleanBook: cleanString(rawBook),
-                                _cleanChap: cleanString(rawChap),
-                                _vNum: parseInt(rawVerse) || 0
-                            };
+                    const rawRcuvData = Papa.parse(rcuvCsvStr, parseOpts).data;
+                    rawRcuvData.forEach(row => {
+                        const rawBook = row.book || '';
+                        const rawChap = (row.chapter || '').toString();
+                        const rawVerse = (row.verse || '').toString();
+                        const cBook = cleanString(rawBook);
+                        
+                        if (!cBook) return;
+                        if (!rcuvIndex[cBook]) rcuvIndex[cBook] = [];
+                        
+                        rcuvIndex[cBook].push({
+                            book: rawBook,
+                            chapter: rawChap,
+                            verse: rawVerse,
+                            text: row.text || '',
+                            _cleanChap: cleanString(rawChap),
+                            _vNum: parseInt(rawVerse) || 0
                         });
-                    }
+                    });
                 }
 
                 // 2. 解析 YouTube 影片資料
                 videoData = {};
                 if (videoCsvStr) {
-                    const rawVideoData = Papa.parse(videoCsvStr, { header: true, skipEmptyLines: true }).data;
-                    if (rawVideoData.length > 0) {
-                        rawVideoData.forEach(row => {
-                            const vals = Object.values(row);
-                            const dayStr = getCol(row, 'Day') || getCol(row, 'day') || vals[0];
-                            const day = parseInt(dayStr);
-                            if (isNaN(day)) return;
-
-                            videoData[day] = {
-                                enTitle: getCol(row, 'En_Title') || vals[1] || '',
-                                enLink: getCol(row, 'En_YouTubeLink') || vals[2] || '',
-                                chTitle: getCol(row, 'Ch_Title') || vals[3] || '',
-                                chLink: getCol(row, 'Ch_YouTubeLink') || vals[4] || ''
-                            };
-                        });
-                    }
+                    const rawVideoData = Papa.parse(videoCsvStr, parseOpts).data;
+                    rawVideoData.forEach(row => {
+                        const day = parseInt(row.day);
+                        if (isNaN(day)) return;
+                        videoData[day] = {
+                            enTitle: row.en_title || '',
+                            enLink: row.en_youtubelink || '',
+                            chTitle: row.ch_title || '',
+                            chLink: row.ch_youtubelink || ''
+                        };
+                    });
                 }
 
                 let currentBook = "";
@@ -748,18 +728,16 @@
 
                 // 3. 組合靈修內容 Metadata
                 metaParsed.forEach(row => {
-                    const vals = Object.values(row);
-                    const dayStr = getCol(row, 'day') || getCol(row, 'Day') || vals[0];
-                    const day = parseInt(dayStr);
+                    const day = parseInt(row.day);
                     if (isNaN(day)) return;
                     
-                    const bookRaw = getCol(row, 'book') || getCol(row, 'Book') || vals[1] || "";
+                    const bookRaw = row.book || "";
                     if (cleanString(bookRaw) !== "") currentBook = bookRaw.trim();
                     
                     bibleData[day] = {
                         book: currentBook,
-                        chapters: getCol(row, 'chapters') || getCol(row, 'Chapters') || vals[2] || "",
-                        psalms: getCol(row, 'psalms') || getCol(row, 'Psalms') || vals[3] || "",
+                        chapters: row.chapters || "",
+                        psalms: row.psalms || "",
                         contentEn: "",
                         contentCh: ""
                     };
@@ -767,31 +745,32 @@
 
                 // 4. 合併英文靈修內文
                 contentParsed.forEach(row => {
-                    const vals = Object.values(row);
-                    const dayStr = getCol(row, 'day') || getCol(row, 'Day') || vals[0];
-                    const day = parseInt(dayStr);
-                    if (isNaN(day)) return;
-                    if (bibleData[day]) {
-                        bibleData[day].contentEn = getCol(row, 'content') || getCol(row, 'Content') || vals[1] || vals[2] || "";
+                    const day = parseInt(row.day);
+                    if (!isNaN(day) && bibleData[day]) {
+                        bibleData[day].contentEn = row.content || "";
                     }
                 });
 
                 // 5. 合併中文靈修內文
                 translatedParsed.forEach(row => {
-                    const vals = Object.values(row);
-                    const dayStr = getCol(row, 'Day') || getCol(row, 'day') || vals[0];
-                    const day = parseInt(dayStr);
-                    if (isNaN(day)) return;
-                    if (bibleData[day]) {
-                        bibleData[day].contentCh = getCol(row, 'Chinese_Translation') || getCol(row, 'chinese_translation') || vals[1] || "";
+                    const day = parseInt(row.day);
+                    if (!isNaN(day) && bibleData[day]) {
+                        bibleData[day].contentCh = row.chinese_translation || "";
                     }
                 });
 
                 statusText.textContent = "✅ 資料載入成功！";
                 readingSection.classList.remove('opacity-50', 'pointer-events-none');
                 
-                const savedStartDate = localStorage.getItem('gemini_start_date');
-                const initialDay = calculateCurrentDay(savedStartDate) || 1;
+                // 尋找第一個未完成的天數作為預設顯示頁面
+                let firstUnreadDay = null;
+                for (let i = 1; i <= 358; i++) {
+                    if (!readProgress[i]) {
+                        firstUnreadDay = i;
+                        break;
+                    }
+                }
+                const initialDay = firstUnreadDay !== null ? firstUnreadDay : 358; 
                 changeDay(initialDay);
 
             } catch (error) {
@@ -821,10 +800,8 @@
             const visualChapters = data.chapters ? data.chapters.toString().replace("-", "到") : "";
             displayTitle.textContent = `全年讀經第${dayStr}天 ${data.book}第${visualChapters}章、詩篇第${data.psalms}篇`;
             
-            // 觸發視覺回饋更新
             updateHeaderVisuals(day, isRead);
 
-            // 更新絕對日期顯示
             const savedStartDate = localStorage.getItem('gemini_start_date');
             if (savedStartDate) {
                 const date = new Date(savedStartDate);
@@ -838,7 +815,6 @@
                 absoluteDateDisplay.classList.add('hidden');
             }
             
-            // 載入中英文靈修資料
             originalText.textContent = data.contentEn || "此天無英文靈修資料。";
             translatedText.textContent = data.contentCh || "此天無中文靈修資料。";
             setViewMode('chinese');
@@ -868,7 +844,7 @@
             
             // --- 🚀 極速版：更新經文顯示 ---
             let scriptureHtml = '';
-            if (rcuvData.length > 0) {
+            if (Object.keys(rcuvIndex).length > 0) {
                 const targetBookClean = cleanString(data.book);
                 const targetChapters = parseChaptersWithVerses(data.chapters);
                 const targetPsalms = parseChaptersWithVerses(data.psalms);
@@ -876,10 +852,9 @@
                 let mainVerses = [];
                 let psalmVerses = [];
 
-                if (targetBookClean !== '') {
-                    mainVerses = rcuvData.filter(row => {
-                        if (row._cleanBook !== targetBookClean) return false;
-                        
+                // O(1) 直接從索引中提取該卷書，瞬間完成過濾
+                if (targetBookClean !== '' && rcuvIndex[targetBookClean]) {
+                    mainVerses = rcuvIndex[targetBookClean].filter(row => {
                         const matchCh = targetChapters.find(tc => tc.ch === row._cleanChap);
                         if (matchCh) {
                             if (matchCh.vStart !== null && matchCh.vEnd !== null) {
@@ -891,10 +866,8 @@
                     });
                 }
 
-                if (targetPsalms.length > 0) {
-                    psalmVerses = rcuvData.filter(row => {
-                        if (row._cleanBook !== '詩篇') return false;
-
+                if (targetPsalms.length > 0 && rcuvIndex['詩篇']) {
+                    psalmVerses = rcuvIndex['詩篇'].filter(row => {
                         const matchPs = targetPsalms.find(tp => tp.ch === row._cleanChap);
                         if (matchPs) {
                             if (matchPs.vStart !== null && matchPs.vEnd !== null) {
@@ -975,7 +948,6 @@
                 playBtn.classList.add('hidden'); 
                 stopBtn.classList.remove('hidden'); 
                 
-                // 確保切換時，經文的朗讀按鈕被重置
                 playScriptureBtn.classList.remove('hidden');
                 stopScriptureBtn.classList.add('hidden');
             };
@@ -985,21 +957,16 @@
             synth.speak(utterance);
         }
 
-        // --- 經文專屬語音朗讀邏輯 ---
         function handlePlayScripture() {
-            // 檢查是否為空或錯誤狀態
             if (!scriptureText.innerText || scriptureText.innerText === "載入中..." || scriptureText.innerText.includes("找不到符合今日進度")) return;
 
             let contentToRead = '';
             
-            // 智慧過濾：只抓取章節標題 (H5) 和經文內容 (SPAN)，刻意略過節號 (STRONG)
             const elements = scriptureText.querySelectorAll('h5, span.text-stone-800');
             elements.forEach(el => {
                 if (el.tagName === 'H5') {
-                    // 章節標題後加句號停頓
                     contentToRead += el.innerText + '。\n'; 
                 } else if (el.tagName === 'SPAN') {
-                    // 經文內容，利用 Regex 移除「📝」註釋圖示
                     contentToRead += el.innerText.replace(/📝/g, '') + ' '; 
                 }
             });
@@ -1020,7 +987,6 @@
                 playScriptureBtn.classList.add('hidden'); 
                 stopScriptureBtn.classList.remove('hidden'); 
                 
-                // 確保切換時，靈修內容的朗讀按鈕被重置
                 playBtn.classList.remove('hidden');
                 stopBtn.classList.add('hidden');
             };
@@ -1030,11 +996,9 @@
             synth.speak(utterance);
         }
 
-        // --- 統一停止語音 ---
         function handleStop() {
             if (synth.speaking) synth.cancel();
             
-            // 重置所有播放按鈕狀態
             stopBtn.classList.add('hidden');
             playBtn.classList.remove('hidden');
             stopScriptureBtn.classList.add('hidden');
