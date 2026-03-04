@@ -284,6 +284,21 @@
             }
         });
 
+        // --- 複製網址工具 (防範 APP 內建瀏覽器無法跳轉的情況) ---
+        window.copyAppUrl = function() {
+            var dummy = document.createElement('input');
+            document.body.appendChild(dummy);
+            dummy.value = window.location.href;
+            dummy.select();
+            try {
+                document.execCommand('copy');
+                alert('✅ 網址已成功複製！\\n\\n請切換到 Safari 或 Chrome 瀏覽器，貼上網址即可正常使用。');
+            } catch (err) {
+                alert('❌ 複製失敗，請手動點擊上方網址列進行複製。');
+            }
+            document.body.removeChild(dummy);
+        };
+
         // --- DOM 元素 ---
         const statusText = document.getElementById('statusText');
         const startDateInput = document.getElementById('startDateInput');
@@ -883,12 +898,21 @@
             } catch (error) {
                 console.error("CSV 載入錯誤:", error);
                 
-                // 💡 加入針對 APP 內建瀏覽器的被動防呆提示
+                // 💡 加入針對 APP 內建瀏覽器的被動防呆提示與一鍵複製按鈕
                 const isLine = /Line|LINE/.test(navigator.userAgent);
                 const isFb = /FBAN|FBAV|Instagram/.test(navigator.userAgent);
                 
                 if (isLine || isFb) {
-                    statusText.innerHTML = `❌ 載入被阻擋。<br><span class="text-sm text-red-600 font-bold bg-red-50 px-2 py-1 rounded inline-block mt-2">⚠️ 偵測到您正使用 APP 內建瀏覽器，這會阻擋資料載入。<br>👉 請點擊右上角（或右下角）選單，選擇「使用預設瀏覽器開啟」（Safari/Chrome）。</span>`;
+                    statusText.innerHTML = `❌ 載入被阻擋。<br>
+                        <span class="text-sm text-red-600 font-bold bg-red-50 px-4 py-3 rounded-xl inline-block mt-3 text-left shadow-sm">
+                            ⚠️ 偵測到您正使用 APP 內建瀏覽器，這會阻擋資料載入。<br><br>
+                            👉 建議解法一：請點擊角落選單，選擇「使用預設瀏覽器開啟」<br>
+                            👉 建議解法二：直接點擊下方按鈕複製網址<br>
+                            <button onclick="window.copyAppUrl()" class="mt-4 w-full bg-amber-100 text-amber-800 hover:bg-amber-200 px-4 py-2.5 rounded-lg text-sm font-bold shadow-sm transition flex items-center justify-center">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                                一鍵複製網址
+                            </button>
+                        </span>`;
                 } else {
                     statusText.innerHTML = `❌ 載入失敗。<br><span class="text-sm text-red-500">發生錯誤：${error.message}。請確認所有必要的 CSV 檔案皆已上傳。</span>`;
                 }
