@@ -761,7 +761,8 @@
                             book: rawBook,
                             chapter: rawChap,
                             verse: rawVerse,
-                            text: row.text || '',
+                            // 過濾掉【】包圍的段落標題，避免畫面顯示與語音朗讀
+                            text: (row.text || '').replace(/【.*?】/g, ''),
                             _cleanChap: cleanString(rawChap),
                             _vNum: parseInt(rawVerse) || 0
                         });
