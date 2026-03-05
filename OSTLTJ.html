@@ -269,15 +269,39 @@
         let readProgress = JSON.parse(localStorage.getItem('gemini_read_progress') || '{}');
         let currentViewMode = 'chinese'; 
         let activeVideoLang = 'ch';
+        let wakeLock = null; // 新增：用於記錄螢幕喚醒鎖狀態
 
         // --- 網頁載入時間戳記 (用於 24 小時強制重整) ---
         const APP_LOAD_TIME = Date.now();
         const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000; 
 
+        // --- 新增：螢幕喚醒鎖 (Wake Lock API) 控制機制 ---
+        async function requestWakeLock() {
+            if ('wakeLock' in navigator) {
+                try {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                } catch (err) {
+                    console.error(`Wake Lock 錯誤: ${err.name}, ${err.message}`);
+                }
+            }
+        }
+
+        function releaseWakeLock() {
+            if (wakeLock !== null) {
+                wakeLock.release().then(() => {
+                    wakeLock = null;
+                });
+            }
+        }
+
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible') {
                 if (Date.now() - APP_LOAD_TIME > TWENTY_FOUR_HOURS) {
                     window.location.reload();
+                }
+                // 若使用者將網頁縮小再切換回來，且正在朗讀中，則重新取得喚醒鎖
+                if (window._currentSpeechCancel || synth.speaking) {
+                    requestWakeLock();
                 }
             }
         });
@@ -793,7 +817,7 @@
         function speakTextChunks(text, langMode, onStart, onEnd) {
             if (!text) return;
             const rawChunks = text.match(/[^。！？；.!?;\n]+[。！？；.!?;\n]*/g) || [text];
-            const chunks = []; let curr = ""; const MAX = 150;
+            const chunks = []; let curr = ""; const MAX = 250; // 🔥 將上限從 150 提高到 250，達到流暢與安全的完美平衡
             rawChunks.forEach(p => {
                 let part = p.trim();
                 if (!part) return;
@@ -842,7 +866,7 @@
             if (!txt || txt.trim() === "") return;
             if (synth.speaking) synth.cancel();
             speakTextChunks(`${dom.displayTitle.textContent}。 ${isEn ? 'Devotional Content' : '靈修內容'}。\n\n${txt}`, isEn ? 'en' : 'zh',
-                () => { dom.playBtn.classList.add('hidden'); dom.stopBtn.classList.remove('hidden'); dom.playScriptureBtn.classList.remove('hidden'); dom.stopScriptureBtn.classList.add('hidden'); },
+                () => { requestWakeLock(); dom.playBtn.classList.add('hidden'); dom.stopBtn.classList.remove('hidden'); dom.playScriptureBtn.classList.remove('hidden'); dom.stopScriptureBtn.classList.add('hidden'); },
                 handleStop
             );
         }
@@ -855,12 +879,13 @@
             });
             if (synth.speaking) synth.cancel();
             speakTextChunks(`今日經文。\n\n${txt.trim()}`, 'zh',
-                () => { dom.playScriptureBtn.classList.add('hidden'); dom.stopScriptureBtn.classList.remove('hidden'); dom.playBtn.classList.remove('hidden'); dom.stopBtn.classList.add('hidden'); },
+                () => { requestWakeLock(); dom.playScriptureBtn.classList.add('hidden'); dom.stopScriptureBtn.classList.remove('hidden'); dom.playBtn.classList.remove('hidden'); dom.stopBtn.classList.add('hidden'); },
                 handleStop
             );
         }
 
         function handleStop() {
+            releaseWakeLock(); // 新增：停止播放或播放完畢時，釋放螢幕鎖以節省手機電量
             const cancelFn = window._currentSpeechCancel;
             window._currentSpeechCancel = null; 
             if (cancelFn) cancelFn(); else synth.cancel();
