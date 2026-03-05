@@ -39,7 +39,8 @@
         <header class="relative flex justify-center items-start mb-8">
             <div class="text-center mt-2">
                 <h1 class="text-3xl sm:text-4xl font-bold text-stone-700 mb-2">📖 指向耶穌的大故事：一年讀完整本聖經</h1>
-                <p class="text-stone-500" id="statusText">正在初始化系統...</p>
+                <!-- 初始化文字，成功後會隱藏 -->
+                <p class="text-stone-500 transition-opacity duration-300" id="statusText">正在初始化系統...</p>
             </div>
             
             <!-- 進階設定按鈕 -->
@@ -269,40 +270,27 @@
         let readProgress = JSON.parse(localStorage.getItem('gemini_read_progress') || '{}');
         let currentViewMode = 'chinese'; 
         let activeVideoLang = 'ch';
-        let wakeLock = null; // 新增：用於記錄螢幕喚醒鎖狀態
+        let wakeLock = null;
 
         // --- 網頁載入時間戳記 (用於 24 小時強制重整) ---
         const APP_LOAD_TIME = Date.now();
         const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000; 
 
-        // --- 新增：螢幕喚醒鎖 (Wake Lock API) 控制機制 ---
+        // --- 螢幕喚醒鎖 (Wake Lock API) 控制機制 ---
         async function requestWakeLock() {
             if ('wakeLock' in navigator) {
-                try {
-                    wakeLock = await navigator.wakeLock.request('screen');
-                } catch (err) {
-                    console.error(`Wake Lock 錯誤: ${err.name}, ${err.message}`);
-                }
+                try { wakeLock = await navigator.wakeLock.request('screen'); } 
+                catch (err) { console.error(`Wake Lock 錯誤: ${err.name}, ${err.message}`); }
             }
         }
-
         function releaseWakeLock() {
-            if (wakeLock !== null) {
-                wakeLock.release().then(() => {
-                    wakeLock = null;
-                });
-            }
+            if (wakeLock !== null) wakeLock.release().then(() => { wakeLock = null; });
         }
 
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible') {
-                if (Date.now() - APP_LOAD_TIME > TWENTY_FOUR_HOURS) {
-                    window.location.reload();
-                }
-                // 若使用者將網頁縮小再切換回來，且正在朗讀中，則重新取得喚醒鎖
-                if (window._currentSpeechCancel || synth.speaking) {
-                    requestWakeLock();
-                }
+                if (Date.now() - APP_LOAD_TIME > TWENTY_FOUR_HOURS) window.location.reload();
+                if (window._currentSpeechCancel || synth.speaking) requestWakeLock();
             }
         });
 
@@ -371,7 +359,7 @@
             return String(str).replace(/[\s\uFEFF\u200B-\u200D\r\n]/g, '');
         }
 
-        // 預先解析經文章節 (加速日後切換時的效能)
+        // 預先解析經文章節
         function parseChaptersWithVerses(chaptersStr) {
             if (!chaptersStr) return [];
             const cleanStr = cleanString(chaptersStr).replace(/到/g, '-');
@@ -661,6 +649,8 @@
 
         async function loadCSVs() {
             dom.statusText.textContent = "正在從伺服器下載 CSV 資料...";
+            dom.statusText.classList.remove('hidden'); // 確保開始載入時顯示
+
             const fetchCsv = async url => {
                 try {
                     const res = await fetch(url);
@@ -681,7 +671,6 @@
                 const parseOpts = { header: true, skipEmptyLines: true, transformHeader: h => cleanString(h).toLowerCase() };
                 const [meta, content, trans] = [Papa.parse(metaStr, parseOpts).data, Papa.parse(contentStr, parseOpts).data, Papa.parse(transStr, parseOpts).data];
                 
-                // 🚀 記憶體瘦身：將書卷名存入外層 Key，減少 31,000 次字串存儲
                 rcuvIndex = {};
                 if (rcuvStr) {
                     Papa.parse(rcuvStr, parseOpts).data.forEach(row => {
@@ -716,7 +705,6 @@
                         book: currentBook,
                         chapters: row.chapters || "",
                         psalms: row.psalms || "",
-                        // 🚀 效能優化：載入時預先解析，避免點擊時重複運算
                         parsedChapters: parseChaptersWithVerses(row.chapters),
                         parsedPsalms: parseChaptersWithVerses(row.psalms),
                         contentEn: "", contentCh: ""
@@ -725,7 +713,8 @@
                 content.forEach(row => { const d = parseInt(row.day); if (!isNaN(d) && bibleData[d]) bibleData[d].contentEn = row.content || ""; });
                 trans.forEach(row => { const d = parseInt(row.day); if (!isNaN(d) && bibleData[d]) bibleData[d].contentCh = row.chinese_translation || ""; });
 
-                dom.statusText.textContent = "✅ 資料載入成功！";
+                // 💡 核心修改：資料載入成功後，直接隱藏狀態文字
+                dom.statusText.classList.add('hidden');
                 dom.readingSection.classList.remove('opacity-50', 'pointer-events-none');
                 
                 let firstUnreadDay = 358;
@@ -735,9 +724,13 @@
                 if (!localStorage.getItem('tour_completed')) setTimeout(startTour, 800);
             } catch (error) {
                 console.error("CSV 載入錯誤:", error);
+                dom.statusText.classList.remove('hidden'); // 發生錯誤時確保顯示出來
+                
                 if (/Line|LINE|FBAV|FBAN|Instagram/.test(navigator.userAgent)) {
                     dom.statusText.innerHTML = `❌ 載入被阻擋。<br><span class="text-sm text-red-600 font-bold bg-red-50 px-4 py-3 rounded-xl inline-block mt-3 text-left shadow-sm">⚠️ 偵測到您正使用 APP 內建瀏覽器，這會阻擋資料載入。<br><br>👉 建議解法一：請點擊角落選單，選擇「使用預設瀏覽器開啟」<br>👉 建議解法二：直接點擊下方按鈕複製網址<br><button onclick="window.copyAppUrl()" class="mt-4 w-full bg-amber-100 text-amber-800 hover:bg-amber-200 px-4 py-2.5 rounded-lg text-sm font-bold shadow-sm transition flex items-center justify-center"><svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>一鍵複製網址</button></span>`;
-                } else dom.statusText.innerHTML = `❌ 載入失敗。<br><span class="text-sm text-red-500">發生錯誤：${error.message}。</span>`;
+                } else {
+                    dom.statusText.innerHTML = `❌ 載入失敗。<br><span class="text-sm text-red-500">發生錯誤：${error.message}。請確認所有必要的 CSV 檔案皆已上傳。</span>`;
+                }
             }
         }
 
@@ -783,7 +776,6 @@
                 dom.toggleVideoBtn.classList.add('hidden');
             }
             
-            // 🚀 採用 O(1) 索引預先比對與 Array 渲染，達極致效能
             let htmlChunks = [];
             if (Object.keys(rcuvIndex).length > 0) {
                 const tBookClean = cleanString(data.book);
@@ -817,7 +809,7 @@
         function speakTextChunks(text, langMode, onStart, onEnd) {
             if (!text) return;
             const rawChunks = text.match(/[^。！？；.!?;\n]+[。！？；.!?;\n]*/g) || [text];
-            const chunks = []; let curr = ""; const MAX = 250; // 🔥 將上限從 150 提高到 250，達到流暢與安全的完美平衡
+            const chunks = []; let curr = ""; const MAX = 250;
             rawChunks.forEach(p => {
                 let part = p.trim();
                 if (!part) return;
@@ -854,7 +846,6 @@
                     console.error("語音播放錯誤:", e); idx++; next(); 
                 };
                 
-                // 🚀 防當機保險
                 try { synth.speak(utterance); } catch (e) { console.error("TTS 引擎拒絕發聲:", e); idx++; next(); }
             }
             next();
@@ -885,7 +876,7 @@
         }
 
         function handleStop() {
-            releaseWakeLock(); // 新增：停止播放或播放完畢時，釋放螢幕鎖以節省手機電量
+            releaseWakeLock();
             const cancelFn = window._currentSpeechCancel;
             window._currentSpeechCancel = null; 
             if (cancelFn) cancelFn(); else synth.cancel();
