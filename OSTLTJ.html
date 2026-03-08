@@ -212,14 +212,14 @@
             <!-- 🔥 新增：內容顯示卡片 (反思問題) 🔥 -->
             <div id="reflectionSection" class="bg-amber-50 rounded-2xl shadow-sm border border-amber-200 overflow-hidden flex flex-col hidden mt-6">
                 <div class="bg-amber-100/50 border-b border-amber-200 p-5 flex justify-between items-center">
-                    <h4 class="font-bold text-amber-800 flex items-center text-lg tracking-wide">
+                    <h4 id="reflectionTitle" class="font-bold text-amber-800 flex items-center text-lg tracking-wide">
                         🤔 反思問題
                     </h4>
                     <!-- 朗讀按鈕 -->
                     <div class="flex gap-2">
                         <button id="playReflectionBtn" class="bg-amber-700 text-white hover:bg-amber-800 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center shadow-sm">
                             <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
-                            朗讀問題
+                            <span id="playReflectionText">朗讀問題</span>
                         </button>
                         <button id="stopReflectionBtn" class="bg-red-100 text-red-700 hover:bg-red-200 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center shadow-sm hidden">
                             <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clip-rule="evenodd"></path></svg>
@@ -356,12 +356,14 @@
             toggleVideoBtn: document.getElementById('toggleVideoBtn'),
             scriptureText: document.getElementById('scriptureText'),
             reflectionSection: document.getElementById('reflectionSection'),
+            reflectionTitle: document.getElementById('reflectionTitle'),
             reflectionText: document.getElementById('reflectionText'),
             playBtn: document.getElementById('playBtn'),
             stopBtn: document.getElementById('stopBtn'),
             playScriptureBtn: document.getElementById('playScriptureBtn'),
             stopScriptureBtn: document.getElementById('stopScriptureBtn'),
             playReflectionBtn: document.getElementById('playReflectionBtn'),
+            playReflectionText: document.getElementById('playReflectionText'),
             stopReflectionBtn: document.getElementById('stopReflectionBtn'),
             toggleOriginalBtn: document.getElementById('toggleOriginalBtn'),
             toggleOriginalText: document.getElementById('toggleOriginalText'),
@@ -384,30 +386,29 @@
             return String(str).replace(/[\s\uFEFF\u200B-\u200D\r\n]/g, '');
         }
 
-        // 🔥 新增：智慧分離主文與反思問題 🔥
+        // 🔥 更新：單純依賴標題的智慧分離演算法 🔥
         function splitContentAndQuestions(text) {
             if (!text) return { main: "", questions: "" };
             const lines = text.split('\n');
-            let qIdx = -1;
-            // 從底部往上找，尋找最後一次出現「1. 」「1、」的位置
+            let headerIdx = -1;
+            
+            // 從底部往上找，尋找「反思問題」或「Reflection Questions」等關鍵字
             for (let i = lines.length - 1; i >= 0; i--) {
-                if (/^(1\.|1、|1\)|1\s)/.test(lines[i].trim())) {
-                    qIdx = i;
-                    // 往上檢查是否有類似「反思問題」的標題
-                    let j = i - 1;
-                    while (j >= 0 && lines[j].trim() === "") j--; // 跳過空白行
-                    if (j >= 0 && /^(反思問題|反思|問題|Reflection|Questions)/i.test(lines[j].trim())) {
-                        qIdx = j;
-                    }
+                const line = lines[i].trim();
+                // 條件：開頭符合關鍵字，且該行字數小於 30 字 (防呆：避免剛好以這些字開頭的長段落被誤認)
+                if (/^(反思問題|反思|問題|Reflection Questions|Reflection|Questions)/i.test(line) && line.length < 30) {
+                    headerIdx = i;
                     break;
                 }
             }
             
-            // 如果找到了，且不是在文章的最開頭，就進行分離
-            if (qIdx > 0) {
+            // 如果找到了，就進行分離
+            if (headerIdx !== -1) {
                 return {
-                    main: lines.slice(0, qIdx).join('\n').trim(),
-                    questions: lines.slice(qIdx).join('\n').trim()
+                    // 主文：標題之前的所有內容
+                    main: lines.slice(0, headerIdx).join('\n').trim(),
+                    // 問題：刻意從 headerIdx + 1 開始，直接拋棄掉原本寫在內文的「反思問題」標題
+                    questions: lines.slice(headerIdx + 1).join('\n').trim()
                 };
             }
             return { main: text.trim(), questions: "" };
@@ -524,7 +525,7 @@
                 dom.toggleOriginalText.textContent = "顯示英文原文";
             }
             
-            // 根據語言顯示對應的反思問題
+            // 根據語言顯示對應的反思問題與標題文字
             if (data) {
                 const qText = isEn ? data.contentEn.questions : data.contentCh.questions;
                 if (qText) {
@@ -533,6 +534,14 @@
                 } else {
                     dom.reflectionSection.classList.add('hidden');
                 }
+            }
+
+            // 更新 UI 介面語言
+            if (dom.reflectionTitle) {
+                dom.reflectionTitle.innerHTML = isEn ? '🤔 Reflection Questions' : '🤔 反思問題';
+            }
+            if (dom.playReflectionText) {
+                dom.playReflectionText.textContent = isEn ? 'Read Questions' : '朗讀問題';
             }
 
             if (synth.speaking) handleStop();
