@@ -209,6 +209,27 @@
                 </div>
             </div>
 
+            <!-- 🔥 新增：內容顯示卡片 (反思問題) 🔥 -->
+            <div id="reflectionSection" class="bg-amber-50 rounded-2xl shadow-sm border border-amber-200 overflow-hidden flex flex-col hidden mt-6">
+                <div class="bg-amber-100/50 border-b border-amber-200 p-5 flex justify-between items-center">
+                    <h4 class="font-bold text-amber-800 flex items-center text-lg tracking-wide">
+                        🤔 反思問題
+                    </h4>
+                    <!-- 朗讀按鈕 -->
+                    <div class="flex gap-2">
+                        <button id="playReflectionBtn" class="bg-amber-700 text-white hover:bg-amber-800 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center shadow-sm">
+                            <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
+                            朗讀問題
+                        </button>
+                        <button id="stopReflectionBtn" class="bg-red-100 text-red-700 hover:bg-red-200 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center shadow-sm hidden">
+                            <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clip-rule="evenodd"></path></svg>
+                            停止
+                        </button>
+                    </div>
+                </div>
+                <div id="reflectionText" class="p-6 text-stone-800 leading-relaxed text-lg whitespace-pre-wrap font-medium"></div>
+            </div>
+
         </section>
 
         <!-- 版權聲明區 -->
@@ -334,10 +355,14 @@
             youtubePlayer: document.getElementById('youtubePlayer'),
             toggleVideoBtn: document.getElementById('toggleVideoBtn'),
             scriptureText: document.getElementById('scriptureText'),
+            reflectionSection: document.getElementById('reflectionSection'),
+            reflectionText: document.getElementById('reflectionText'),
             playBtn: document.getElementById('playBtn'),
             stopBtn: document.getElementById('stopBtn'),
             playScriptureBtn: document.getElementById('playScriptureBtn'),
             stopScriptureBtn: document.getElementById('stopScriptureBtn'),
+            playReflectionBtn: document.getElementById('playReflectionBtn'),
+            stopReflectionBtn: document.getElementById('stopReflectionBtn'),
             toggleOriginalBtn: document.getElementById('toggleOriginalBtn'),
             toggleOriginalText: document.getElementById('toggleOriginalText'),
             settingsBtn: document.getElementById('settingsBtn'),
@@ -357,6 +382,35 @@
         function cleanString(str) {
             if (str === null || str === undefined) return '';
             return String(str).replace(/[\s\uFEFF\u200B-\u200D\r\n]/g, '');
+        }
+
+        // 🔥 新增：智慧分離主文與反思問題 🔥
+        function splitContentAndQuestions(text) {
+            if (!text) return { main: "", questions: "" };
+            const lines = text.split('\n');
+            let qIdx = -1;
+            // 從底部往上找，尋找最後一次出現「1. 」「1、」的位置
+            for (let i = lines.length - 1; i >= 0; i--) {
+                if (/^(1\.|1、|1\)|1\s)/.test(lines[i].trim())) {
+                    qIdx = i;
+                    // 往上檢查是否有類似「反思問題」的標題
+                    let j = i - 1;
+                    while (j >= 0 && lines[j].trim() === "") j--; // 跳過空白行
+                    if (j >= 0 && /^(反思問題|反思|問題|Reflection|Questions)/i.test(lines[j].trim())) {
+                        qIdx = j;
+                    }
+                    break;
+                }
+            }
+            
+            // 如果找到了，且不是在文章的最開頭，就進行分離
+            if (qIdx > 0) {
+                return {
+                    main: lines.slice(0, qIdx).join('\n').trim(),
+                    questions: lines.slice(qIdx).join('\n').trim()
+                };
+            }
+            return { main: text.trim(), questions: "" };
         }
 
         // 預先解析經文章節
@@ -455,7 +509,10 @@
 
         function setViewMode(mode) {
             currentViewMode = mode;
-            if (mode === 'english') {
+            const data = bibleData[currentDay];
+            const isEn = mode === 'english';
+            
+            if (isEn) {
                 dom.originalText.classList.remove('hidden');
                 dom.translatedText.classList.add('hidden');
                 dom.contentTitle.innerHTML = '📝 原始英文靈修內容';
@@ -466,6 +523,18 @@
                 dom.contentTitle.innerHTML = '📝 靈修內容';
                 dom.toggleOriginalText.textContent = "顯示英文原文";
             }
+            
+            // 根據語言顯示對應的反思問題
+            if (data) {
+                const qText = isEn ? data.contentEn.questions : data.contentCh.questions;
+                if (qText) {
+                    dom.reflectionText.textContent = qText;
+                    dom.reflectionSection.classList.remove('hidden');
+                } else {
+                    dom.reflectionSection.classList.add('hidden');
+                }
+            }
+
             if (synth.speaking) handleStop();
         }
 
@@ -595,6 +664,8 @@
             dom.stopBtn.addEventListener('click', handleStop);
             dom.playScriptureBtn.addEventListener('click', handlePlayScripture);
             dom.stopScriptureBtn.addEventListener('click', handleStop);
+            dom.playReflectionBtn.addEventListener('click', handlePlayReflection);
+            dom.stopReflectionBtn.addEventListener('click', handleStop);
             dom.toggleOriginalBtn.addEventListener('click', () => setViewMode(currentViewMode === 'chinese' ? 'english' : 'chinese'));
 
             dom.toggleVideoBtn.addEventListener('click', () => {
@@ -707,11 +778,20 @@
                         psalms: row.psalms || "",
                         parsedChapters: parseChaptersWithVerses(row.chapters),
                         parsedPsalms: parseChaptersWithVerses(row.psalms),
-                        contentEn: "", contentCh: ""
+                        contentEn: { main: "", questions: "" }, 
+                        contentCh: { main: "", questions: "" }
                     };
                 });
-                content.forEach(row => { const d = parseInt(row.day); if (!isNaN(d) && bibleData[d]) bibleData[d].contentEn = row.content || ""; });
-                trans.forEach(row => { const d = parseInt(row.day); if (!isNaN(d) && bibleData[d]) bibleData[d].contentCh = row.chinese_translation || ""; });
+                
+                // 載入時直接將內文分離為 main 和 questions
+                content.forEach(row => { 
+                    const d = parseInt(row.day); 
+                    if (!isNaN(d) && bibleData[d]) bibleData[d].contentEn = splitContentAndQuestions(row.content || ""); 
+                });
+                trans.forEach(row => { 
+                    const d = parseInt(row.day); 
+                    if (!isNaN(d) && bibleData[d]) bibleData[d].contentCh = splitContentAndQuestions(row.chinese_translation || ""); 
+                });
 
                 // 💡 核心修改：資料載入成功後，直接隱藏狀態文字
                 dom.statusText.classList.add('hidden');
@@ -757,9 +837,10 @@
                 dom.absoluteDateDisplay.classList.remove('hidden');
             } else dom.absoluteDateDisplay.classList.add('hidden');
             
-            dom.originalText.textContent = data.contentEn || "此天無英文靈修資料。";
-            dom.translatedText.textContent = data.contentCh || "此天無中文靈修資料。";
-            setViewMode('chinese');
+            // 指派分離後的純主文到靈修區塊
+            dom.originalText.textContent = data.contentEn.main || "此天無英文靈修資料。";
+            dom.translatedText.textContent = data.contentCh.main || "此天無中文靈修資料。";
+            setViewMode('chinese'); // setViewMode 會一併處理 reflectionText 的顯示與隱藏
 
             const vData = videoData[day];
             activeVideoLang = (vData && vData.chLink) ? 'ch' : 'en';
@@ -853,11 +934,17 @@
 
         function handlePlayContent() {
             const isEn = currentViewMode === 'english';
-            const txt = isEn ? dom.originalText.textContent : dom.translatedText.textContent;
+            // 取用抽離反思問題後的純主文
+            const txt = isEn ? bibleData[currentDay].contentEn.main : bibleData[currentDay].contentCh.main;
             if (!txt || txt.trim() === "") return;
             if (synth.speaking) synth.cancel();
             speakTextChunks(`${dom.displayTitle.textContent}。 ${isEn ? 'Devotional Content' : '靈修內容'}。\n\n${txt}`, isEn ? 'en' : 'zh',
-                () => { requestWakeLock(); dom.playBtn.classList.add('hidden'); dom.stopBtn.classList.remove('hidden'); dom.playScriptureBtn.classList.remove('hidden'); dom.stopScriptureBtn.classList.add('hidden'); },
+                () => { 
+                    requestWakeLock(); 
+                    dom.playBtn.classList.add('hidden'); dom.stopBtn.classList.remove('hidden'); 
+                    dom.playScriptureBtn.classList.remove('hidden'); dom.stopScriptureBtn.classList.add('hidden'); 
+                    dom.playReflectionBtn.classList.remove('hidden'); dom.stopReflectionBtn.classList.add('hidden');
+                },
                 handleStop
             );
         }
@@ -870,7 +957,29 @@
             });
             if (synth.speaking) synth.cancel();
             speakTextChunks(`今日經文。\n\n${txt.trim()}`, 'zh',
-                () => { requestWakeLock(); dom.playScriptureBtn.classList.add('hidden'); dom.stopScriptureBtn.classList.remove('hidden'); dom.playBtn.classList.remove('hidden'); dom.stopBtn.classList.add('hidden'); },
+                () => { 
+                    requestWakeLock(); 
+                    dom.playScriptureBtn.classList.add('hidden'); dom.stopScriptureBtn.classList.remove('hidden'); 
+                    dom.playBtn.classList.remove('hidden'); dom.stopBtn.classList.add('hidden'); 
+                    dom.playReflectionBtn.classList.remove('hidden'); dom.stopReflectionBtn.classList.add('hidden');
+                },
+                handleStop
+            );
+        }
+
+        // 🔥 新增：朗讀反思問題邏輯
+        function handlePlayReflection() {
+            const isEn = currentViewMode === 'english';
+            const txt = isEn ? bibleData[currentDay].contentEn.questions : bibleData[currentDay].contentCh.questions;
+            if (!txt || txt.trim() === "") return;
+            if (synth.speaking) synth.cancel();
+            speakTextChunks(`${isEn ? 'Reflection Questions' : '反思問題'}。\n\n${txt}`, isEn ? 'en' : 'zh',
+                () => { 
+                    requestWakeLock(); 
+                    dom.playReflectionBtn.classList.add('hidden'); dom.stopReflectionBtn.classList.remove('hidden'); 
+                    dom.playBtn.classList.remove('hidden'); dom.stopBtn.classList.add('hidden');
+                    dom.playScriptureBtn.classList.remove('hidden'); dom.stopScriptureBtn.classList.add('hidden');
+                },
                 handleStop
             );
         }
@@ -882,6 +991,7 @@
             if (cancelFn) cancelFn(); else synth.cancel();
             dom.stopBtn.classList.add('hidden'); dom.playBtn.classList.remove('hidden');
             dom.stopScriptureBtn.classList.add('hidden'); dom.playScriptureBtn.classList.remove('hidden');
+            dom.stopReflectionBtn.classList.add('hidden'); dom.playReflectionBtn.classList.remove('hidden');
         }
 
         window.addEventListener('DOMContentLoaded', init);
