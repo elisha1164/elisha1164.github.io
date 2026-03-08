@@ -27,8 +27,6 @@
     <script src="https://cdn.jsdelivr.net/npm/driver.js@1.3.1/dist/driver.js.iife.js"></script>
     <style>
         body { font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .driver-popover-footer button { border-radius: 6px !important; text-shadow: none !important; }
     </style>
 </head>
@@ -159,8 +157,8 @@
                     </div>
 
                     <!-- 內容顯示區 -->
-                    <div id="translatedText" class="w-full flex-grow h-[400px] overflow-y-auto no-scrollbar p-5 bg-amber-50/30 border border-amber-200 rounded-xl text-stone-800 leading-relaxed text-lg whitespace-pre-wrap"></div>
-                    <div id="originalText" class="w-full flex-grow h-[400px] overflow-y-auto no-scrollbar p-5 bg-stone-50 border border-stone-200 rounded-xl text-stone-600 leading-relaxed text-lg whitespace-pre-wrap font-serif hidden"></div>
+                    <div id="translatedText" class="w-full flex-grow h-[400px] overflow-y-auto p-5 bg-amber-50/30 border border-amber-200 rounded-xl text-stone-800 leading-relaxed text-lg whitespace-pre-wrap"></div>
+                    <div id="originalText" class="w-full flex-grow h-[400px] overflow-y-auto p-5 bg-stone-50 border border-stone-200 rounded-xl text-stone-600 leading-relaxed text-lg whitespace-pre-wrap font-serif hidden"></div>
                 </div>
             </div>
 
@@ -204,12 +202,12 @@
                     </div>
                 </div>
                 <!-- 經文列表將在此處生成 -->
-                <div id="scriptureText" class="p-6 text-stone-800 leading-loose font-serif min-h-[150px] max-h-[600px] overflow-y-auto no-scrollbar">
+                <div id="scriptureText" class="p-6 text-stone-800 leading-loose font-serif min-h-[150px] max-h-[600px] overflow-y-auto">
                     載入中...
                 </div>
             </div>
 
-            <!-- 🔥 新增：內容顯示卡片 (反思問題) 🔥 -->
+            <!-- 內容顯示卡片 (反思問題) -->
             <div id="reflectionSection" class="bg-amber-50 rounded-2xl shadow-sm border border-amber-200 overflow-hidden flex flex-col hidden mt-6">
                 <div class="bg-amber-100/50 border-b border-amber-200 p-5 flex justify-between items-center">
                     <h4 id="reflectionTitle" class="font-bold text-amber-800 flex items-center text-lg tracking-wide">
@@ -628,7 +626,12 @@
                 steps.push({ element: '#videoSection', popover: { title: '輔助影片', description: '短短的輔助影片，幫助你抓住經文的重點。' } });
             }
             steps.push(
-                { element: '#tour-scripture', popover: { title: '今日經文', description: '當天的讀經進度，加上一篇詩篇，都會顯示在這裡。' } },
+                { element: '#tour-scripture', popover: { title: '今日經文', description: '當天的讀經進度，加上一篇詩篇，都會顯示在這裡。' } }
+            );
+            if (!dom.reflectionSection.classList.contains('hidden')) {
+                steps.push({ element: '#reflectionSection', popover: { title: '反思問題', description: '幾題反思問題，幫助自己檢查是否明白今天所讀的內容。' } });
+            }
+            steps.push(
                 { element: '#settingsBtn', popover: { title: '進階設定', description: '需要匯出、匯入、或重置進度，或想再看一次導覽，都可以在這裡操作。' } },
                 { popover: { title: '🎉 準備出發', description: '導覽告一段落，願神所啟示的、指向耶穌的大故事，在接下來的一年深深改變你的生命。' } }
             );
