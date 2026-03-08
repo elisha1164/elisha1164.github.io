@@ -618,19 +618,19 @@
                 onDestroyStarted: () => { localStorage.setItem('tour_completed', 'true'); driverObj.destroy(); }
             });
             const steps = [
-                { popover: { title: '👋 歡迎', description: '歡迎加入一年讀完整本聖經的行列！<br><br>讓我們一起探索這個指向耶穌的大故事！' } },
-                { element: '#tour-start-date', popover: { title: '開始日期', description: '在這裡你可以設定你開始讀經的日期。' } },
-                { element: '#tour-voice-settings', popover: { title: '系統語音與語速', description: '在這裡你可以設定順耳的朗讀人聲。' } },
-                { element: '#titleHeaderBox', popover: { title: '每日讀經進度', description: '這裡會顯示每天的讀經進度，完成記得打勾唷。' } },
-                { element: '#readingGrid', popover: { title: '靈修內容', description: '每天都會有一篇簡單的靈修文章，幫助你把每天的經文對齊整本聖經的大故事。' } }
+                { popover: { title: '👋 歡迎', description: '歡迎加入一年讀完整本聖經的行列！<br><br>讓我們用一年的時間，一步一步探索整本聖經這個指向耶穌的大故事！' } },
+                { element: '#tour-start-date', popover: { title: '開始日期', description: '在這裡設定開始讀經的日期。<br><br>與同伴設定相同的進度，就能彼此分享每天的新發現唷！' } },
+                { element: '#tour-voice-settings', popover: { title: '系統語音與語速', description: '若你希望利用每日通勤、家事、或運動的時間聆聽，這裡可以設定喜歡的語音與語速！' } },
+                { element: '#titleHeaderBox', popover: { title: '每日讀經進度', description: '這是每天的讀經進度，完成記得打勾唷！閱讀進度只會儲存在這部裝置上。' } },
+                { element: '#readingGrid', popover: { title: '靈修內容', description: '短短的靈修文章，幫助你把當天讀到的經文，與整本聖經的大故事彼此串聯，見樹也見林。' } }
             ];
             if (!dom.videoSection.classList.contains('hidden')) {
-                steps.push({ element: '#videoSection', popover: { title: '輔助影片', description: '搭配短片的解說，更能幫助你深入理解經文的精巧美妙。' } });
+                steps.push({ element: '#videoSection', popover: { title: '輔助影片', description: '短短的輔助影片，幫助你抓住經文的重點。' } });
             }
             steps.push(
-                { element: '#tour-scripture', popover: { title: '今日經文', description: '推荐使用和合本2010，保留熟悉譯文的同時，不讓過時生澀的古言古語成為理解真道的阻礙。' } },
-                { element: '#settingsBtn', popover: { title: '進階設定', description: '需要匯出匯入或重置進度，都可以在這裡操作。' } },
-                { popover: { title: '🎉 準備出發', description: '導覽告一段落，祝你享受這個指向耶穌的大故事。<br><br>若需要再看一次導覽，請按右上角的齒輪按鈕。' } }
+                { element: '#tour-scripture', popover: { title: '今日經文', description: '當天的讀經進度，加上一篇詩篇，都會顯示在這裡。' } },
+                { element: '#settingsBtn', popover: { title: '進階設定', description: '需要匯出、匯入、或重置進度，或想再看一次導覽，都可以在這裡操作。' } },
+                { popover: { title: '🎉 準備出發', description: '導覽告一段落，願神所啟示的、指向耶穌的大故事，在接下來的一年深深改變你的生命。' } }
             );
             driverObj.setSteps(steps);
             driverObj.drive();
