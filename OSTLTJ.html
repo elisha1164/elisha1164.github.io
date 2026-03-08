@@ -102,7 +102,7 @@
         <!-- 閱讀主體區 -->
         <section id="readingSection" class="opacity-50 pointer-events-none transition-opacity duration-300">
             <!-- 天數切換器 -->
-            <div class="flex items-center justify-between bg-stone-800 text-stone-100 rounded-2xl p-4 shadow-lg mb-6">
+            <div id="tour-day-selector" class="flex items-center justify-between bg-stone-800 text-stone-100 rounded-2xl p-4 shadow-lg mb-6">
                 <button id="prevDayBtn" class="p-2 hover:bg-stone-700 rounded-full transition disabled:opacity-50">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
                 </button>
@@ -619,6 +619,7 @@
                 { popover: { title: '👋 歡迎', description: '歡迎加入一年讀完整本聖經的行列！<br><br>讓我們用一年的時間，一步一步探索整本聖經這個指向耶穌的大故事！' } },
                 { element: '#tour-start-date', popover: { title: '開始日期', description: '在這裡設定開始讀經的日期。<br><br>與同伴設定相同的進度，就能彼此分享每天的新發現唷！' } },
                 { element: '#tour-voice-settings', popover: { title: '系統語音與語速', description: '若你希望利用每日通勤、家事、或運動的時間聆聽，這裡可以設定喜歡的語音與語速！' } },
+                { element: '#tour-day-selector', popover: { title: '日期切換', description: '用左右按鈕切換到前一天、後一天的內容，也可以直接輸入你想跳去第幾天。' } },
                 { element: '#titleHeaderBox', popover: { title: '每日讀經進度', description: '這是每天的讀經進度，完成記得打勾唷！閱讀進度只會儲存在這部裝置上。' } },
                 { element: '#readingGrid', popover: { title: '靈修內容', description: '短短的靈修文章，幫助你把當天讀到的經文，與整本聖經的大故事彼此串聯，見樹也見林。' } }
             ];
