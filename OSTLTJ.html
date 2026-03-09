@@ -148,31 +148,33 @@
                 </div>
 
                 <!-- 單一視圖切換區塊 -->
-                <div id="readingGrid" class="p-6 flex flex-col flex-grow transition-all duration-300">
+                <div id="readingGrid" class="py-6 flex flex-col flex-grow transition-all duration-300">
                     <!-- 頂部工具列 -->
-                    <div class="flex flex-wrap gap-3 justify-between items-center mb-4 border-b border-stone-100 pb-4">
-                        <h4 id="contentTitle" class="font-semibold text-stone-700 flex items-center text-lg">
-                            📝 靈修內容
-                        </h4>
-                        <div class="flex gap-2">
-                            <button id="toggleOriginalBtn" class="bg-stone-200 text-stone-700 hover:bg-stone-300 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center shadow-sm">
-                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path></svg>
-                                <span id="toggleOriginalText">顯示英文原文</span>
-                            </button>
-                            <button id="playBtn" class="bg-stone-800 text-white hover:bg-stone-700 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center shadow-sm">
-                                <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
-                                朗讀
-                            </button>
-                            <button id="stopBtn" class="bg-red-100 text-red-700 hover:bg-red-200 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center shadow-sm hidden">
-                                <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clip-rule="evenodd"></path></svg>
-                                停止
-                            </button>
+                    <div class="px-6">
+                        <div class="flex flex-wrap gap-3 justify-between items-center mb-4 border-b border-stone-100 pb-4">
+                            <h4 id="contentTitle" class="font-semibold text-stone-700 flex items-center text-lg">
+                                📝 靈修內容
+                            </h4>
+                            <div class="flex gap-2">
+                                <button id="toggleOriginalBtn" class="bg-stone-200 text-stone-700 hover:bg-stone-300 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center shadow-sm">
+                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path></svg>
+                                    <span id="toggleOriginalText">顯示英文原文</span>
+                                </button>
+                                <button id="playBtn" class="bg-stone-800 text-white hover:bg-stone-700 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center shadow-sm">
+                                    <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
+                                    朗讀
+                                </button>
+                                <button id="stopBtn" class="bg-red-100 text-red-700 hover:bg-red-200 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center shadow-sm hidden">
+                                    <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clip-rule="evenodd"></path></svg>
+                                    停止
+                                </button>
+                            </div>
                         </div>
                     </div>
 
                     <!-- 內容顯示區 -->
-                    <div id="translatedText" class="w-full flex-grow min-h-[150px] max-h-[600px] overflow-y-auto text-stone-800 leading-relaxed text-lg whitespace-pre-wrap"></div>
-                    <div id="originalText" class="w-full flex-grow min-h-[150px] max-h-[600px] overflow-y-auto text-stone-600 leading-relaxed text-lg whitespace-pre-wrap font-serif hidden"></div>
+                    <div id="translatedText" class="px-6 w-full flex-grow min-h-[150px] max-h-[600px] overflow-y-auto text-stone-800 leading-relaxed text-lg whitespace-pre-wrap"></div>
+                    <div id="originalText" class="px-6 w-full flex-grow min-h-[150px] max-h-[600px] overflow-y-auto text-stone-600 leading-relaxed text-lg whitespace-pre-wrap font-serif hidden"></div>
                 </div>
             </div>
 
