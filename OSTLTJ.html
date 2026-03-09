@@ -171,8 +171,8 @@
                     </div>
 
                     <!-- 內容顯示區 -->
-                    <div id="translatedText" class="w-full flex-grow h-[400px] overflow-y-auto p-5 bg-amber-50/30 border border-amber-200 rounded-xl text-stone-800 leading-relaxed text-lg whitespace-pre-wrap"></div>
-                    <div id="originalText" class="w-full flex-grow h-[400px] overflow-y-auto p-5 bg-stone-50 border border-stone-200 rounded-xl text-stone-600 leading-relaxed text-lg whitespace-pre-wrap font-serif hidden"></div>
+                    <div id="translatedText" class="w-full flex-grow min-h-[150px] max-h-[600px] overflow-y-auto text-stone-800 leading-relaxed text-lg whitespace-pre-wrap"></div>
+                    <div id="originalText" class="w-full flex-grow min-h-[150px] max-h-[600px] overflow-y-auto text-stone-600 leading-relaxed text-lg whitespace-pre-wrap font-serif hidden"></div>
                 </div>
             </div>
 
@@ -986,6 +986,9 @@
                 dom.playReflectionBtn.classList.add('hidden'); dom.stopReflectionBtn.classList.remove('hidden'); 
                 targetEl = dom.reflectionSection; // 捲動到反思問題卡片頂部
             }
+            if (section === 'video') {
+                targetEl = dom.videoSection; // 捲動到輔助影片卡片頂部
+            }
 
             // 🔥 新增：當處於「全部朗讀」模式時，自動平滑捲動到對應區塊
             if (isPlayingAll && targetEl) {
@@ -1084,6 +1087,17 @@
                 playAllQueue.push(() => {
                     speakTextChunks(`${isEn ? 'Reflection Questions' : '反思問題'}。\n\n${refTxt}`, isEn ? 'en' : 'zh',
                         () => { requestWakeLock(); setActivePlayingUI('reflection'); },
+                        processPlayAllQueue
+                    );
+                });
+            }
+
+            // 🔥 任務 4: 提示播放影片 (如果有)
+            const vData = videoData[currentDay];
+            if (vData && (vData.chLink || vData.enLink)) {
+                playAllQueue.push(() => {
+                    speakTextChunks(`今日靈修內容中的輔助影片還沒有播放，請手動播放並觀賞影片。`, 'zh',
+                        () => { requestWakeLock(); setActivePlayingUI('video'); },
                         processPlayAllQueue
                     );
                 });
