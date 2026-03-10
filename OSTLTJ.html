@@ -429,15 +429,17 @@
             return String(str).replace(/[\s\uFEFF\u200B-\u200D\r\n]/g, '');
         }
 
-        // 🔥 更新：單純依賴標題的智慧分離演算法 🔥
+        // 🔥 更新：最嚴謹的標題匹配演算法，徹底杜絕「誤吃內文」的 Bug 🔥
         function splitContentAndQuestions(text) {
             if (!text) return { main: "", questions: "" };
             const lines = text.split('\n');
             let headerIdx = -1;
             
+            // 從底部往上找，嚴格尋找「反思問題」等專屬標題 
             for (let i = lines.length - 1; i >= 0; i--) {
                 const line = lines[i].trim();
-                if (/^(反思問題|反思|問題|Reflection Questions|Reflection|Questions)/i.test(line) && line.length < 30) {
+                // 嚴謹正則：允許前方有數字標號、後方有冒號，但整行「必須」只由這些標題關鍵字組成
+                if (/^(\d+[\.、\)]\s*)?(反思問題|反思|Reflection Questions|Reflection|Questions)\s*[:：]?\s*$/i.test(line)) {
                     headerIdx = i;
                     break;
                 }
@@ -908,7 +910,12 @@
 
             const isRead = !!readProgress[day];
             dom.readProgressCheckbox.checked = isRead;
-            dom.displayTitle.textContent = `全年讀經第${day.toString().padStart(3, '0')}天 ${data.book}第${data.chapters ? data.chapters.replace("-", "到") : ""}章、詩篇第${data.psalms}篇`;
+            
+            // 🔥 修正：防呆處理標題的章節與詩篇，支援多重區間 (1-3, 5-7 -> 1到3, 5到7) 並隱藏空值標題
+            const chapStr = data.chapters ? `第${data.chapters.replace(/-/g, "到")}章` : "";
+            const psalmStr = data.psalms ? `、詩篇第${data.psalms.replace(/-/g, "到")}篇` : "";
+            dom.displayTitle.textContent = `全年讀經第${day.toString().padStart(3, '0')}天 ${data.book}${chapStr}${psalmStr}`;
+            
             updateHeaderVisuals(day, isRead);
 
             const savedStartDate = localStorage.getItem('gemini_start_date');
@@ -1067,20 +1074,18 @@
                 });
             }
 
-            // 任務 2: 朗讀今日經文
+            // 任務 2: 朗讀今日經文 (移除容易誤判的 includes 檢查，改為直接判斷抓取結果)
             let scrTxt = '';
-            if (!dom.scriptureText.innerText.includes("載入中") && !dom.scriptureText.innerText.includes("找不到")) {
-                dom.scriptureText.querySelectorAll('h5, span.text-stone-800').forEach(el => {
-                    scrTxt += el.tagName === 'H5' ? el.innerText + '。\n' : el.innerText.replace(/📝/g, '') + ' ';
+            dom.scriptureText.querySelectorAll('h5, span.text-stone-800').forEach(el => {
+                scrTxt += el.tagName === 'H5' ? el.innerText + '。\n' : el.innerText.replace(/📝/g, '') + ' ';
+            });
+            if (scrTxt.trim() !== "") {
+                playAllQueue.push(() => {
+                    speakTextChunks(`今日經文。\n\n${scrTxt.trim()}`, 'zh',
+                        () => { requestWakeLock(); setActivePlayingUI('scripture'); },
+                        processPlayAllQueue
+                    );
                 });
-                if (scrTxt.trim() !== "") {
-                    playAllQueue.push(() => {
-                        speakTextChunks(`今日經文。\n\n${scrTxt.trim()}`, 'zh',
-                            () => { requestWakeLock(); setActivePlayingUI('scripture'); },
-                            processPlayAllQueue
-                        );
-                    });
-                }
             }
 
             // 任務 3: 朗讀反思問題
@@ -1151,11 +1156,15 @@
 
         function handlePlayScripture() {
             isPlayingAll = false; playAllQueue = [];
-            if (!dom.scriptureText.innerText || dom.scriptureText.innerText.includes("載入中") || dom.scriptureText.innerText.includes("找不到")) return;
             let txt = '';
+            // 直接抓取經文專屬標籤，徹底杜絕誤殺
             dom.scriptureText.querySelectorAll('h5, span.text-stone-800').forEach(el => {
                 txt += el.tagName === 'H5' ? el.innerText + '。\n' : el.innerText.replace(/📝/g, '') + ' ';
             });
+            
+            // 如果抓出來是空的，就直接返回
+            if (!txt || txt.trim() === "") return;
+            
             if (synth.speaking) synth.cancel();
             speakTextChunks(`今日經文。\n\n${txt.trim()}`, 'zh',
                 () => { requestWakeLock(); setActivePlayingUI('scripture'); dom.playAllBtn.classList.add('hidden'); dom.stopAllBtn.classList.remove('hidden'); },
