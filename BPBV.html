@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>聖經大故事問答</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: 'Noto Sans TC', 'Microsoft JhengHei', sans-serif;
+            background-color: #f8fafc; /* Tailwind slate-50 */
+            background-image: url('data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%2394a3b8" fill-opacity="0.05"%3E%3Cpath d="M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E');
+        }
+        
+        /* CSS 3D 翻轉效果所需樣式 */
+        .perspective-1000 { perspective: 1000px; }
+        .transform-style-3d { transform-style: preserve-3d; }
+        .backface-hidden { backface-visibility: hidden; }
+        .rotate-y-180 { transform: rotateY(180deg); }
+        
+        #flashcardInner {
+            transition: transform 0.5s cubic-bezier(0.4, 0.2, 0.2, 1);
+        }
+        #flashcardContainer {
+            transition: transform 0.2s ease-in-out;
+            touch-action: manipulation;
+        }
+        #flashcardContainer:hover {
+            transform: translateY(-2px);
+        }
+        
+        /* 避免雙擊放大等預設行為 */
+        .no-select {
+            user-select: none;
+            -webkit-user-select: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4">
+
+    <div class="max-w-2xl w-full flex flex-col items-center space-y-6">
+        
+        <!-- 標題與簡介 -->
+        <div class="text-center w-full mt-4">
+            <h1 class="text-3xl md:text-4xl font-bold text-slate-800 mb-2">📖 聖經大故事問答</h1>
+            <p class="text-slate-600 font-medium mb-1">主線故事一把抓</p>
+            <p class="text-slate-500 text-sm">透過 45 個關鍵問答，建構指向耶穌的宏大故事線</p>
+
+            <!-- 主題按鈕列 -->
+            <div id="topicButtons" class="flex flex-wrap justify-center gap-2 w-full max-w-2xl mt-5">
+                <button data-topic="all" class="topic-btn px-4 py-2 rounded-full text-sm font-medium transition bg-amber-500 text-white shadow border-transparent">全部問答</button>
+                <button data-topic="一、神創造祂的國度" class="topic-btn px-4 py-2 rounded-full text-sm font-medium transition bg-white text-slate-600 border border-slate-200 hover:bg-slate-50">一、神創造祂的國度</button>
+                <button data-topic="二、神展開祂的應許" class="topic-btn px-4 py-2 rounded-full text-sm font-medium transition bg-white text-slate-600 border border-slate-200 hover:bg-slate-50">二、神展開祂的應許</button>
+                <button data-topic="三、神延續祂的應許" class="topic-btn px-4 py-2 rounded-full text-sm font-medium transition bg-white text-slate-600 border border-slate-200 hover:bg-slate-50">三、神延續祂的應許</button>
+                <button data-topic="四、耶穌成全神的應許" class="topic-btn px-4 py-2 rounded-full text-sm font-medium transition bg-white text-slate-600 border border-slate-200 hover:bg-slate-50">四、耶穌成全神的應許</button>
+                <button data-topic="五、神完成祂的應許" class="topic-btn px-4 py-2 rounded-full text-sm font-medium transition bg-white text-slate-600 border border-slate-200 hover:bg-slate-50">五、神完成祂的應許</button>
+            </div>
+        </div>
+
+        <!-- 進度指示器 -->
+        <div class="w-full max-w-[600px] flex justify-center items-end pb-1 px-1 mt-2">
+            <div class="text-sm font-semibold text-slate-500 tracking-wider bg-white px-4 py-1.5 rounded-full shadow-sm border border-slate-200">
+                第 <span id="currentIndexDisplay" class="text-amber-600 font-bold">1</span> / <span id="totalCountDisplay">45</span> 問
+            </div>
+        </div>
+
+        <!-- DOM 閃卡容器 -->
+        <div id="flashcardContainer" class="relative w-full aspect-[4/3] md:aspect-[16/10] max-w-[600px] perspective-1000 cursor-pointer no-select">
+            <div id="flashcardInner" class="w-full h-full relative transform-style-3d">
+                
+                <!-- 正面：問題 -->
+                <div class="absolute inset-0 backface-hidden bg-white rounded-2xl shadow-xl border-t-8 border-amber-500 flex flex-col items-center justify-center p-8 text-center">
+                    <div class="absolute top-6 left-6 text-amber-500 font-black text-6xl opacity-20 italic font-serif">Q</div>
+                    <div id="frontQNumber" class="text-amber-600 font-bold text-sm md:text-base tracking-widest mb-4 uppercase">Question</div>
+                    <div id="frontQuestion" class="text-slate-800 font-bold text-2xl md:text-4xl leading-snug md:leading-tight"></div>
+                    <div class="absolute bottom-6 text-slate-300 text-sm italic pointer-events-none flex items-center">
+                        <i data-lucide="mouse-pointer-click" class="w-4 h-4 mr-1"></i> 點擊查看解答
+                    </div>
+                </div>
+
+                <!-- 反面：解答 -->
+                <div class="absolute inset-0 backface-hidden rotate-y-180 bg-white rounded-2xl shadow-xl border-t-8 border-emerald-500 flex flex-col p-8 overflow-y-auto justify-center">
+                    <div class="absolute top-6 left-6 text-emerald-500 font-black text-6xl opacity-10 italic font-serif">A</div>
+                    <div class="relative z-10 flex flex-col items-center text-center h-full justify-center">
+                        <div id="backRef" class="text-emerald-600 font-bold text-sm md:text-base mb-6 tracking-wide bg-emerald-50 px-3 py-1 rounded-md"></div>
+                        <div id="backZh" class="text-slate-800 font-bold text-xl md:text-3xl leading-relaxed md:leading-relaxed"></div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- 控制按鈕 -->
+        <div class="flex flex-wrap justify-center gap-3 w-full no-select pt-2">
+            <button id="prevBtn" class="px-5 py-2.5 bg-white text-slate-700 font-semibold rounded-full shadow hover:bg-slate-50 transition border border-slate-200 flex items-center">
+                <i data-lucide="chevron-left" class="w-5 h-5 mr-1"></i> 上一問
+            </button>
+            <button id="playAllBtn" class="px-6 py-2.5 bg-purple-100 text-purple-700 font-semibold rounded-full shadow hover:bg-purple-200 transition flex items-center">
+                <i id="playIcon" data-lucide="play" class="w-4 h-4 mr-2"></i> <span id="playText">全部朗讀</span>
+            </button>
+            <button id="nextBtn" class="px-5 py-2.5 bg-amber-500 text-white font-semibold rounded-full shadow hover:bg-amber-600 transition flex items-center">
+                下一問 <i data-lucide="chevron-right" class="w-5 h-5 ml-1"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- 頁尾宣告 -->
+    <a href="index.html" class="mt-12 mb-4 flex flex-col items-center text-slate-400 hover:text-amber-600 transition-colors duration-300 no-underline group cursor-pointer outline-none">
+        <i data-lucide="wrench" class="w-10 h-10 mb-1 group-hover:rotate-12 transition-transform duration-300"></i>
+        <span class="font-bold text-sm tracking-wide">老張工具間</span>
+        <span class="text-[10px] font-medium tracking-widest uppercase mt-0.5">The Remnant Tinkers</span>
+    </a>
+
+    <script>
+        // --- 資料區 (45 個大故事問答，加入分組 Topic) ---
+        const questionsData = [
+            { id: 1, topic: "一、神創造祂的國度", q: "誰創造了天地？", zh: "起初，神創造天地。", ref: "創世記 1 章 1 節" },
+            { id: 2, topic: "一、神創造祂的國度", q: "誰創造了人類？", zh: "神就照著他的形像創造人，照著神的形像創造他們；他創造了他們，有男有女。", ref: "創世記 1 章 27 節" },
+            { id: 3, topic: "一、神創造祂的國度", q: "神滿意祂一切所造的嗎？", zh: "神看一切所造的，看哪，都非常好。", ref: "創世記 1 章 31 節" },
+            { id: 4, topic: "一、神創造祂的國度", q: "神賜下什麼命令給祂的百姓遵守？", zh: "只是知善惡的樹所出的，你不可吃，因為你吃它的日子必定死！", ref: "創世記 2 章 17 節" },
+            { id: 5, topic: "一、神創造祂的國度", q: "神的百姓有順服神的話嗎？", zh: "女人…就摘下果子吃了，又給了與她一起的丈夫，他也吃了。", ref: "創世記 3 章 6 節" },
+            { id: 6, topic: "一、神創造祂的國度", q: "神給蛇的審判是什麼？", zh: "我要使你和女人彼此為仇，你的後裔和女人的後裔也彼此為仇。他要傷你的頭，你要傷他的腳跟。", ref: "創世記 3 章 15 節" },
+            { id: 7, topic: "一、神創造祂的國度", q: "耶和華神給祂百姓的審判是什麼？", zh: "耶和華神就驅逐他出伊甸園。", ref: "創世記 3 章 23 節" },
+            { id: 8, topic: "一、神創造祂的國度", q: "神在地上看到什麼？", zh: "神觀看這地，看哪，它敗壞了，因為凡血肉之軀在地上的行為都敗壞了。", ref: "創世記 6 章 12 節" },
+            { id: 9, topic: "一、神創造祂的國度", q: "神說要如何審判地上的萬物？", zh: "我要使洪水氾濫在地上，毀滅天下凡有生命氣息的血肉之軀。", ref: "創世記 6 章 17 節" },
+            { id: 10, topic: "二、神展開祂的應許", q: "耶和華如何展開祂拯救地上萬族的應許？", zh: "耶和華對亞伯蘭說：「你要…往我所要指示你的地去。我必使你成為大國，我必賜福給你…地上的萬族都必因你得福。」", ref: "創世記 12 章 1-3 節" },
+            { id: 11, topic: "二、神展開祂的應許", q: "亞伯拉罕如何回應耶和華的話？", zh: "亞伯蘭信耶和華，耶和華就以此算他為義。", ref: "創世記 15 章 6 節" },
+            { id: 12, topic: "二、神展開祂的應許", q: "神給亞伯拉罕的家族起了什麼名字？", zh: "神對他說：「…你的名要叫以色列。」", ref: "創世記 35 章 10 節" },
+            { id: 13, topic: "二、神展開祂的應許", q: "以色列人在埃及發生了什麼事？", zh: "埃及人派監工管轄他們…可是越苦待他們，他們就越發增多，更加繁衍。", ref: "出埃及記 1 章 11-12 節" },
+            { id: 14, topic: "二、神展開祂的應許", q: "神用什麼記號來拯救以色列人？", zh: "這血要…作記號；我一見這血，就逾越你們。", ref: "出埃及記 12 章 13 節" },
+            { id: 15, topic: "二、神展開祂的應許", q: "神賜下什麼命令給以色列人遵守？", zh: "除了我以外，你不可有別的神。不可為自己雕刻偶像…。不可妄稱耶和華ーー你神的名…。當記念安息日，守為聖日…。當孝敬父母…。不可殺人。不可姦淫。不可偷盜。不可做假見證陷害你的鄰舍。不可貪戀…。", ref: "出埃及記 20 章 3-17 節" },
+            { id: 16, topic: "二、神展開祂的應許", q: "神呼召以色列人過什麼樣的生活？", zh: "你們要歸我為聖，因為我耶和華是神聖的；我把你們從萬民中分別出來，作我的子民。", ref: "利未記 20 章 26 節" },
+            { id: 17, topic: "二、神展開祂的應許", q: "以色列人有承諾順服耶和華他們的神為王嗎？", zh: "將耶和華ーー我們神對你說的話都傳給我們，我們就聽從遵行。", ref: "申命記 5 章 27 節" },
+            { id: 18, topic: "二、神展開祂的應許", q: "耶和華有守住對以色列的應許嗎？", zh: "耶和華應許賜福給以色列家的話，一句都沒有落空，全都應驗了。", ref: "約書亞記 21 章 45 節" },
+            { id: 19, topic: "三、神延續祂的應許", q: "以色列人有守住對神的承諾嗎？", zh: "耶和華…說：「…他們…厭棄我，不要我作他們的王。」", ref: "撒母耳記上 8 章 7 節" },
+            { id: 20, topic: "三、神延續祂的應許", q: "神對以色列的統治是如何恢復的？", zh: "他們就膏大衛作以色列的王。", ref: "撒母耳記下 5 章 3 節" },
+            { id: 21, topic: "三、神延續祂的應許", q: "大衛作王後，神有說祂的應許應驗了嗎？", zh: "我必使你身所生的後裔接續你；我也必堅定他的國。", ref: "撒母耳記下 7 章 12 節" },
+            { id: 22, topic: "三、神延續祂的應許", q: "聖殿建成後，所羅門有說神的應許應驗了嗎？", zh: "天和天上的天尚且不足容納你，何況我所建的這殿呢？", ref: "列王紀上 8 章 27 節" },
+            { id: 23, topic: "三、神延續祂的應許", q: "對於神的應許，列國的反應是什麼？", zh: "世上的君王都站穩，臣宰一同算計，要對抗耶和華，對抗他的受膏者。", ref: "詩篇 2 章 2 節" },
+            { id: 24, topic: "三、神延續祂的應許", q: "在神眼中，對於祂的應許，以色列的反應是什麼？", zh: "我養育兒女，將他們養大，他們竟悖逆我。", ref: "以賽亞書 1 章 2 節" },
+            { id: 25, topic: "三、神延續祂的應許", q: "這一次，耶和華神給祂百姓的審判是什麼？", zh: "所以，我的百姓…就被擄去。", ref: "以賽亞書 5 章 13 節" },
+            { id: 26, topic: "三、神延續祂的應許", q: "神有應許將祂的百姓從被擄中救回嗎？", zh: "我必將你們…帶回我使你們被擄離開的地方。", ref: "耶利米書 29 章 14 節" },
+            { id: 27, topic: "三、神延續祂的應許", q: "為了使神的百姓能跟隨祂、以祂為王，神要做什麼？", zh: "我…要賜給你們一顆新心，將新靈放在你們裏面。", ref: "以西結書 36 章 26 節" },
+            { id: 28, topic: "四、耶穌成全神的應許", q: "天使怎麼介紹耶穌就是神應許的那位君王？", zh: "我報給你們大喜的信息，是關乎萬民的：因今天在大衛的城裏，為你們生了救主，就是主基督。", ref: "路加福音 2 章 10-11 節" },
+            { id: 29, topic: "四、耶穌成全神的應許", q: "施洗約翰怎麼介紹耶穌？", zh: "看哪，神的羔羊，除去世人的罪的！", ref: "約翰福音 1 章 29 節" },
+            { id: 30, topic: "四、耶穌成全神的應許", q: "耶穌說哪個神蹟能證明祂就是神應許的那位君王？", zh: "你們拆毀這殿，我三日內要把它重建。", ref: "約翰福音 2 章 19 節" },
+            { id: 31, topic: "四、耶穌成全神的應許", q: "人必須如何才能見神的國？", zh: "人若不重生，就不能見神的國。", ref: "約翰福音 3 章 3 節" },
+            { id: 32, topic: "四、耶穌成全神的應許", q: "人如何重生進入神的國？", zh: "耶穌…說：「復活在我，生命也在我。信我的人雖然死了，也必復活。」", ref: "約翰福音 11 章 25 節" },
+            { id: 33, topic: "四、耶穌成全神的應許", q: "誰是通往神的唯一道路？", zh: "耶穌…說：「我就是道路、真理、生命；若不藉著我，沒有人能到父那裏去。」", ref: "約翰福音 14 章 6 節" },
+            { id: 34, topic: "四、耶穌成全神的應許", q: "通往神的道路因耶穌而開，是如何成就的？", zh: "他們…把他釘在十字架上。", ref: "約翰福音 19 章 18 節" },
+            { id: 35, topic: "四、耶穌成全神的應許", q: "耶穌被釘十字架時，祂有說神的應許應驗了嗎？", zh: "耶穌…說：「成了！」", ref: "約翰福音 19 章 30 節" },
+            { id: 36, topic: "四、耶穌成全神的應許", q: "耶穌復活後，多馬對祂說了什麼？", zh: "多馬回答，對他說：「我的主！我的神！」", ref: "約翰福音 20 章 28 節" },
+            { id: 37, topic: "五、神完成祂的應許", q: "耶穌說祂得勝的消息將如何傳揚？", zh: "聖靈降臨在你們身上，你們就必得著能力，並要在耶路撒冷、猶太全地和撒瑪利亞，直到地極，作我的見證。", ref: "使徒行傳 1 章 8 節" },
+            { id: 38, topic: "五、神完成祂的應許", q: "彼得傳揚了什麼消息？", zh: "耶穌…是神所立定，要作審判活人、死人的審判者。眾先知也為這人作見證：凡信他的人，必藉著他的名得蒙赦罪。", ref: "使徒行傳 10 章 42-43 節" },
+            { id: 39, topic: "五、神完成祂的應許", q: "保羅傳揚了什麼消息？", zh: "耶穌被出賣，是為我們的過犯；他復活，是為使我們稱義。", ref: "羅馬書 4 章 25 節" },
+            { id: 40, topic: "五、神完成祂的應許", q: "我們如何回應才是順服神的話？", zh: "你們得救是本乎恩，也因著信；這並不是出於自己，而是神所賜的；也不是出於行為，免得有人自誇。", ref: "以弗所書 2 章 8-9 節" },
+            { id: 41, topic: "五、神完成祂的應許", q: "神呼召我們過什麼樣的生活？", zh: "神召我們本不是要我們沾染污穢，而是要我們聖潔。", ref: "帖撒羅尼迦前書 4 章 7 節" },
+            { id: 42, topic: "五、神完成祂的應許", q: "我們如何知道自己確實在基督裡？", zh: "只要我們將起初確實的信心堅持到底，就在基督裏有份了。", ref: "希伯來書 3 章 14 節" },
+            { id: 43, topic: "五、神完成祂的應許", q: "神百姓完全得救要等候哪一個應許的完成？", zh: "我們等候新天新地，其中有正義常住。", ref: "彼得後書 3 章 13 節" },
+            { id: 44, topic: "五、神完成祂的應許", q: "神的應許完成，使誰得榮耀？", zh: "我們的救主獨一的神，藉著我們的主耶穌基督，得享榮耀、威嚴、能力、權柄，從萬古以前，到現今，直到永永遠遠。阿們！", ref: "猶大書 1 章 25 節" },
+            { id: 45, topic: "五、神完成祂的應許", q: "神的應許完成時，耶穌會說什麼？", zh: "看哪，神的帳幕在人間！他要和他們同住，他們要作他的子民。神要親自與他們同在。", ref: "啟示錄 21 章 3 節" }
+        ];
+
+        // --- 狀態管理 ---
+        let currentList = [...questionsData];
+        let currentIndex = 0;
+        let isFlipped = false;
+        let isPlayingAll = false;
+        let speechId = 0; // 用於追蹤當前語音任務
+
+        // 初始化載入語音
+        if (window.speechSynthesis) {
+            window.speechSynthesis.getVoices();
+            if (speechSynthesis.onvoiceschanged !== undefined) {
+                speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+            }
+        }
+
+        // --- DOM 元素 ---
+        const flashcardContainer = document.getElementById('flashcardContainer');
+        const flashcardInner = document.getElementById('flashcardInner');
+        
+        // 正面元素
+        const frontQNumber = document.getElementById('frontQNumber');
+        const frontQuestion = document.getElementById('frontQuestion');
+        
+        // 反面元素
+        const backRef = document.getElementById('backRef');
+        const backZh = document.getElementById('backZh');
+
+        const topicBtns = document.querySelectorAll('.topic-btn');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const playAllBtn = document.getElementById('playAllBtn');
+        const playIcon = document.getElementById('playIcon');
+        const playText = document.getElementById('playText');
+        const currentIndexDisplay = document.getElementById('currentIndexDisplay');
+        const totalCountDisplay = document.getElementById('totalCountDisplay');
+
+        // --- 語音功能核心 ---
+        function cancelSpeech() {
+            if (window.speechSynthesis) {
+                window.speechSynthesis.cancel();
+            }
+        }
+
+        function speakText(text, lang, onEndCallback) {
+            if (!text || !window.speechSynthesis) {
+                if (onEndCallback) onEndCallback();
+                return;
+            }
+            
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = lang;
+            
+            // 智慧尋找各裝置上最自然語音
+            const voices = window.speechSynthesis.getVoices();
+            let langVoices = voices.filter(v => v.lang.startsWith('zh'));
+
+            if (langVoices.length > 0) {
+                const premiumKeywords = ['HsiaoChen', 'HsiaoYu', 'Yating', 'Mei-Jia', 'Online (Natural)', 'Premium', 'Enhanced', 'Siri', 'Google', 'Neural'];
+                langVoices.sort((a, b) => {
+                    let aScore = premiumKeywords.findIndex(kw => a.name.includes(kw));
+                    let bScore = premiumKeywords.findIndex(kw => b.name.includes(kw));
+                    aScore = aScore === -1 ? 999 : aScore;
+                    bScore = bScore === -1 ? 999 : bScore;
+
+                    if (aScore !== bScore) return aScore - bScore;
+
+                    const preferredLang = 'zh-TW';
+                    if (a.lang === preferredLang && b.lang !== preferredLang) return -1;
+                    if (b.lang === preferredLang && a.lang !== preferredLang) return 1;
+
+                    return 0;
+                });
+                utterance.voice = langVoices[0]; 
+            }
+            
+            utterance.rate = 0.85; 
+
+            utterance.onend = () => {
+                if (onEndCallback) onEndCallback();
+            };
+            
+            utterance.onerror = (e) => {
+                console.error("Speech API error", e);
+                if (onEndCallback) onEndCallback();
+            };
+
+            window.speechSynthesis.speak(utterance);
+        }
+
+        // 處理經文出處念法
+        function formatReferenceForSpeech(ref) {
+            let spokenRef = ref.replace('-', '到'); 
+            const isPsalm = spokenRef.includes('詩篇');
+            spokenRef = spokenRef.replace(/(\d+):(\d+(到\d+)?)/, (match, chapter, verse) => {
+                const chapterUnit = isPsalm ? '篇' : '章';
+                return `${chapter}${chapterUnit}${verse}節`;
+            });
+            return spokenRef;
+        }
+
+        function readCurrentCard() {
+            cancelSpeech();
+            speechId++;
+            const currentSpeech = speechId;
+
+            const item = currentList[currentIndex];
+
+            if (isFlipped) {
+                // 讀反面解答
+                const spokenRef = formatReferenceForSpeech(item.ref);
+                speakText(spokenRef, 'zh-TW', () => {
+                    if (currentSpeech !== speechId) return;
+                    speakText(item.zh, 'zh-TW', () => {
+                        if (currentSpeech !== speechId) return;
+                        
+                        if (isPlayingAll) {
+                            // 讀完反面後，停頓 1.5 秒自動跳下一張
+                            setTimeout(() => {
+                                if (currentSpeech !== speechId) return;
+                                nextCardForPlayAll();
+                            }, 1500);
+                        }
+                    });
+                });
+            } else {
+                // 讀正面問題
+                const text = `第${item.id}問。${item.q}`;
+                speakText(text, 'zh-TW', () => {
+                    if (currentSpeech !== speechId) return;
+                    if (isPlayingAll) {
+                        // 讀完正面後，停頓 0.8 秒自動翻面
+                        setTimeout(() => {
+                            if (currentSpeech !== speechId) return;
+                            isFlipped = true;
+                            renderCard();
+                            readCurrentCard();
+                        }, 800);
+                    }
+                });
+            }
+        }
+
+        // --- 自動播放控制 ---
+        function stopPlayAll() {
+            isPlayingAll = false;
+            
+            // 更新按鈕 UI 與 Lucide 圖示
+            playAllBtn.innerHTML = `<i id="playIcon" data-lucide="play" class="w-4 h-4 mr-2"></i> <span id="playText">全部朗讀</span>`;
+            lucide.createIcons();
+            
+            playAllBtn.classList.replace('bg-red-100', 'bg-purple-100');
+            playAllBtn.classList.replace('text-red-700', 'text-purple-700');
+            playAllBtn.classList.replace('hover:bg-red-200', 'hover:bg-purple-200');
+            
+            speechId++; 
+            cancelSpeech();
+        }
+
+        function nextCardForPlayAll() {
+            if (!isPlayingAll) return;
+            currentIndex++;
+            if (currentIndex >= currentList.length) {
+                stopPlayAll();
+                currentIndex = 0;
+                isFlipped = false;
+                updateUI();
+                return;
+            }
+            isFlipped = false;
+            updateUI();
+            readCurrentCard();
+        }
+
+        // --- 核心渲染邏輯 ---
+        function renderCard() {
+            if (currentList.length === 0) return;
+            const item = currentList[currentIndex];
+
+            // 更新正面內容
+            frontQNumber.textContent = `Question ${item.id}`;
+            frontQuestion.textContent = item.q;
+
+            // 更新反面內容
+            backRef.textContent = item.ref;
+            backZh.textContent = item.zh;
+
+            // 處理翻轉動畫狀態
+            if (isFlipped) {
+                flashcardInner.classList.add('rotate-y-180');
+            } else {
+                flashcardInner.classList.remove('rotate-y-180');
+            }
+        }
+
+        function updateUI() {
+            totalCountDisplay.textContent = currentList.length;
+            if (currentList.length === 0) {
+                currentIndexDisplay.textContent = 0;
+            } else {
+                currentIndexDisplay.textContent = currentIndex + 1;
+            }
+            renderCard();
+        }
+
+        // --- 事件監聽 ---
+        
+        // 主題按鈕點擊事件
+        topicBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                // 移除所有按鈕的 active 樣式
+                topicBtns.forEach(b => {
+                    b.classList.remove('bg-amber-500', 'text-white', 'shadow', 'border-transparent');
+                    b.classList.add('bg-white', 'text-slate-600', 'border-slate-200');
+                });
+                // 加上當前點擊按鈕的 active 樣式
+                const target = e.currentTarget;
+                target.classList.remove('bg-white', 'text-slate-600', 'border-slate-200');
+                target.classList.add('bg-amber-500', 'text-white', 'shadow', 'border-transparent');
+
+                if (isPlayingAll) stopPlayAll();
+                const selectedTopic = target.dataset.topic;
+                if (selectedTopic === 'all') {
+                    currentList = [...questionsData];
+                } else {
+                    currentList = questionsData.filter(q => q.topic === selectedTopic);
+                }
+                currentIndex = 0;
+                isFlipped = false;
+                updateUI();
+            });
+        });
+
+        flashcardContainer.addEventListener('click', () => {
+            if (isPlayingAll) stopPlayAll(); 
+            isFlipped = !isFlipped;
+            renderCard();
+            readCurrentCard();
+        });
+
+        nextBtn.addEventListener('click', () => {
+            if (isPlayingAll) stopPlayAll();
+            if (currentList.length === 0) return;
+            currentIndex = (currentIndex + 1) % currentList.length;
+            isFlipped = false;
+            updateUI();
+            readCurrentCard();
+        });
+
+        prevBtn.addEventListener('click', () => {
+            if (isPlayingAll) stopPlayAll();
+            if (currentList.length === 0) return;
+            currentIndex = (currentIndex - 1 + currentList.length) % currentList.length;
+            isFlipped = false;
+            updateUI();
+            readCurrentCard();
+        });
+
+        playAllBtn.addEventListener('click', () => {
+            isPlayingAll = !isPlayingAll;
+            if (isPlayingAll) {
+                // 開始播放：更新圖示為正方形停止鍵
+                playAllBtn.innerHTML = `<i id="playIcon" data-lucide="square" class="w-4 h-4 mr-2 fill-current"></i> <span id="playText">停止朗讀</span>`;
+                lucide.createIcons();
+                
+                playAllBtn.classList.replace('bg-purple-100', 'bg-red-100');
+                playAllBtn.classList.replace('text-purple-700', 'text-red-700');
+                playAllBtn.classList.replace('hover:bg-purple-200', 'hover:bg-red-200');
+                
+                isFlipped = false;
+                renderCard();
+                readCurrentCard();
+            } else {
+                stopPlayAll();
+            }
+        });
+
+        // 初始化
+        updateUI();
+        lucide.createIcons();
+
+    </script>
+</body>
+</html>
