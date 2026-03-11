@@ -1011,26 +1011,55 @@
                 targetEl = dom.videoSection; // 捲動到輔助影片卡片頂部
             }
 
-            // 🔥 新增：當處於「全部朗讀」模式時，自動平滑捲動到對應區塊
+            // 當處於「全部朗讀」模式時，切換大區塊時自動平滑捲動
             if (isPlayingAll && targetEl) {
-                // 計算元素的頂部位置，並扣除 24px 的留白，避免貼齊螢幕邊緣
                 const y = targetEl.getBoundingClientRect().top + window.scrollY - 24; 
                 window.scrollTo({ top: y, behavior: 'smooth' });
             }
         }
 
-        // --- 智慧分段排隊機制 ---
-        function speakTextChunks(text, langMode, onStart, onEnd) {
+        // --- 🔥 升級版：智慧分段排隊機制 (支援錨點自動追蹤捲動) 🔥 ---
+        function speakTextChunks(text, langMode, onStart, onEnd, mappings = null) {
             if (!text) return;
-            const rawChunks = text.match(/[^。！？；.!?;\n]+[。！？；.!?;\n]*/g) || [text];
-            const chunks = []; let curr = ""; const MAX = 250;
+
+            // 1. 使用正則完整解析字串，並記錄每個句子的「原始絕對起點 Index」
+            const rawChunks = [];
+            let match;
+            const regex = /[^。！？；.!?;\n]+[。！？；.!?;\n]*/g;
+            while ((match = regex.exec(text)) !== null) {
+                rawChunks.push({
+                    text: match[0],
+                    startIndex: match.index
+                });
+            }
+            if (rawChunks.length === 0 && text.trim()) {
+                rawChunks.push({ text: text, startIndex: 0 });
+            }
+
+            // 2. 將短句打包成不超過 250 字的 Chunk，並精準繼承該 Chunk 的起點位置
+            const chunks = [];
+            let currText = "";
+            let currStartIndex = 0;
+            const MAX = 250;
+
             rawChunks.forEach(p => {
-                let part = p.trim();
-                if (!part) return;
-                if (curr.length + part.length > MAX) { if (curr) chunks.push(curr); curr = part; }
-                else curr += (curr ? " " : "") + part;
+                let partText = p.text;
+                let trimmedPart = partText.trim();
+                if (!trimmedPart) return;
+
+                if (currText.length + trimmedPart.length > MAX) {
+                    if (currText) chunks.push({ text: currText, startIndex: currStartIndex });
+                    currText = trimmedPart;
+                    currStartIndex = p.startIndex + partText.indexOf(trimmedPart);
+                } else {
+                    if (!currText) {
+                        currStartIndex = p.startIndex + partText.indexOf(trimmedPart);
+                    }
+                    currText += (currText ? " " : "") + trimmedPart;
+                }
             });
-            if (curr) chunks.push(curr);
+            if (currText) chunks.push({ text: currText, startIndex: currStartIndex });
+
             if (!chunks.length) return;
 
             let idx = 0, isCanceled = false;
@@ -1040,7 +1069,9 @@
                 if (isCanceled) return;
                 if (idx >= chunks.length) { window._currentSpeechCancel = null; if (onEnd) onEnd(); return; }
 
-                const utterance = new SpeechSynthesisUtterance(chunks[idx]);
+                const chunkObj = chunks[idx];
+                const utterance = new SpeechSynthesisUtterance(chunkObj.text);
+
                 if (langMode === 'en') {
                     const allVoices = synth.getVoices();
                     let enV = allVoices.find(v => (v.lang === 'en-US' || v.lang === 'en-GB') && (v.name.includes('Google') || v.name.includes('Online') || v.name.includes('Premium'))) || 
@@ -1053,7 +1084,28 @@
                 }
                 
                 utterance.rate = parseFloat(dom.rateSelector.value);
-                utterance.onstart = () => { if (idx === 0 && onStart) onStart(); };
+                
+                utterance.onstart = () => { 
+                    if (idx === 0 && onStart) onStart(); 
+                    
+                    // 🔥 核心魔法：根據「帳冊(mappings)」尋找該 Chunk 對應的經文 DOM 元素並捲動 🔥
+                    if (mappings && mappings.length > 0) {
+                        const targetMap = mappings.find(m => chunkObj.startIndex >= m.startIndex && chunkObj.startIndex < m.endIndex);
+                        if (targetMap && targetMap.element) {
+                            const container = dom.scriptureText;
+                            const el = targetMap.element;
+                            const containerRect = container.getBoundingClientRect();
+                            const elRect = el.getBoundingClientRect();
+                            
+                            // 預留約 48px (大約一行半) 的視覺緩衝空間，不讓文字死貼著框框頂端
+                            const offset = 48; 
+                            const targetScrollTop = container.scrollTop + (elRect.top - containerRect.top) - offset;
+                            
+                            container.scrollTo({ top: Math.max(0, targetScrollTop), behavior: 'smooth' });
+                        }
+                    }
+                };
+                
                 utterance.onend = () => { if (isCanceled) return; idx++; next(); };
                 utterance.onerror = (e) => { 
                     if (isCanceled || e.error === 'canceled' || e.error === 'interrupted') return;
@@ -1086,16 +1138,28 @@
                 });
             }
 
-            // 任務 2: 朗讀今日經文 (移除容易誤判的 includes 檢查，改為直接判斷抓取結果)
-            let scrTxt = '';
+            // 🔥 任務 2: 朗讀今日經文 (建立文字與 DOM 的映射帳冊) 🔥
+            let scrTxt = '今日經文。\n\n';
+            let scrMappings = [];
+            let currIdx = scrTxt.length; // 扣除前綴字元的長度
+
             dom.scriptureText.querySelectorAll('h5, span.text-stone-800').forEach(el => {
-                scrTxt += el.tagName === 'H5' ? el.innerText + '。\n' : el.innerText.replace(/📝/g, '') + ' ';
+                // 如果是內文 span，目標捲動元素設為它外層包裹的 div；如果是章節標題 h5，就是它自己
+                const scrollTarget = el.tagName === 'SPAN' ? el.closest('div.mb-3') : el;
+                const t = el.tagName === 'H5' ? el.innerText + '。\n' : el.innerText.replace(/📝/g, '') + ' ';
+                
+                // 記帳：這一段文字對應到哪一個網頁元素
+                scrMappings.push({ startIndex: currIdx, endIndex: currIdx + t.length, element: scrollTarget });
+                scrTxt += t;
+                currIdx += t.length;
             });
-            if (scrTxt.trim() !== "") {
+
+            if (scrMappings.length > 0) {
                 playAllQueue.push(() => {
-                    speakTextChunks(`今日經文。\n\n${scrTxt.trim()}`, 'zh',
+                    speakTextChunks(scrTxt, 'zh',
                         () => { requestWakeLock(); setActivePlayingUI('scripture'); },
-                        processPlayAllQueue
+                        processPlayAllQueue,
+                        scrMappings // 傳入帳冊
                     );
                 });
             }
@@ -1111,7 +1175,7 @@
                 });
             }
 
-            // 🔥 任務 4: 提示播放影片 (如果有)
+            // 任務 4: 提示播放影片
             const vData = videoData[currentDay];
             if (vData && (vData.chLink || vData.enLink)) {
                 playAllQueue.push(() => {
@@ -1132,30 +1196,27 @@
 
         // 佇列執行器
         function processPlayAllQueue() {
-            if (!isPlayingAll) return; // 若中途被使用者手動停止，則放棄後續佇列
+            if (!isPlayingAll) return; 
             
             if (playAllQueue.length === 0) {
-                // ✅ 全部順利唸完，自動打勾！
                 if (!dom.readProgressCheckbox.checked) {
                     dom.readProgressCheckbox.checked = true;
                     readProgress[currentDay] = true;
                     localStorage.setItem('gemini_read_progress', JSON.stringify(readProgress));
                     updateHeaderVisuals(currentDay, true);
-                    // 🔥 新增：自動打勾後也檢查是否全破關
                     checkAndShowCongrats(); 
                 }
-                handleStop(); // 恢復 UI
+                handleStop(); 
                 return;
             }
             
-            // 抽出下一個任務並執行
             const nextTask = playAllQueue.shift();
             nextTask();
         }
 
         // --- 單獨播放按鈕邏輯 ---
         function handlePlayContent() {
-            isPlayingAll = false; playAllQueue = []; // 切斷全局接力
+            isPlayingAll = false; playAllQueue = []; 
             const isEn = currentViewMode === 'english';
             const txt = isEn ? bibleData[currentDay].contentEn.main : bibleData[currentDay].contentCh.main;
             if (!txt || txt.trim() === "") return;
@@ -1168,19 +1229,27 @@
 
         function handlePlayScripture() {
             isPlayingAll = false; playAllQueue = [];
-            let txt = '';
-            // 直接抓取經文專屬標籤，徹底杜絕誤殺
+            
+            // 🔥 單獨播放經文時：同樣建立文字與 DOM 的映射帳冊 🔥
+            let txt = '今日經文。\n\n';
+            let mappings = [];
+            let currIdx = txt.length;
+
             dom.scriptureText.querySelectorAll('h5, span.text-stone-800').forEach(el => {
-                txt += el.tagName === 'H5' ? el.innerText + '。\n' : el.innerText.replace(/📝/g, '') + ' ';
+                const scrollTarget = el.tagName === 'SPAN' ? el.closest('div.mb-3') : el;
+                const t = el.tagName === 'H5' ? el.innerText + '。\n' : el.innerText.replace(/📝/g, '') + ' ';
+                mappings.push({ startIndex: currIdx, endIndex: currIdx + t.length, element: scrollTarget });
+                txt += t;
+                currIdx += t.length;
             });
             
-            // 如果抓出來是空的，就直接返回
-            if (!txt || txt.trim() === "") return;
+            if (mappings.length === 0) return;
             
             if (synth.speaking) synth.cancel();
-            speakTextChunks(`今日經文。\n\n${txt.trim()}`, 'zh',
+            speakTextChunks(txt, 'zh',
                 () => { requestWakeLock(); setActivePlayingUI('scripture'); dom.playAllBtn.classList.add('hidden'); dom.stopAllBtn.classList.remove('hidden'); },
-                handleStop
+                handleStop,
+                mappings // 傳入帳冊
             );
         }
 
@@ -1205,7 +1274,7 @@
             window._currentSpeechCancel = null; 
             if (cancelFn) cancelFn(); else synth.cancel();
             
-            setActivePlayingUI(null); // 重置所有子區塊的按鈕
+            setActivePlayingUI(null); 
             dom.stopAllBtn.classList.add('hidden'); 
             dom.playAllBtn.classList.remove('hidden');
         }
