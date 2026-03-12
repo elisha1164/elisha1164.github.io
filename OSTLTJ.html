@@ -194,6 +194,18 @@
                         </button>
                     </div>
                 </div>
+                
+                <!-- 🔥 新增：老張批註區塊 🔥 -->
+                <div id="laozhangNoteSection" class="px-6 pt-6 pb-0 hidden">
+                    <div class="bg-blue-50/60 border border-blue-200 rounded-xl p-5 flex items-start shadow-sm transition-all duration-300">
+                        <span class="text-2xl mr-3 shrink-0 select-none pt-0.5">💡</span>
+                        <div>
+                            <h5 class="font-bold mb-1.5 text-blue-800 tracking-wide">老張批註</h5>
+                            <p id="laozhangNoteText" class="whitespace-pre-wrap text-stone-700 leading-relaxed text-[15px]"></p>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="p-6">
                     <div class="relative w-full overflow-hidden rounded-xl shadow-sm border border-stone-100" style="padding-top: 56.25%;">
                         <iframe id="youtubePlayer" class="absolute top-0 left-0 w-full h-full" src="" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
@@ -402,6 +414,9 @@
             videoTitle: document.getElementById('videoTitle'),
             youtubePlayer: document.getElementById('youtubePlayer'),
             toggleVideoBtn: document.getElementById('toggleVideoBtn'),
+            // 🔥 新增：老張批註 DOM 元素
+            laozhangNoteSection: document.getElementById('laozhangNoteSection'),
+            laozhangNoteText: document.getElementById('laozhangNoteText'),
             scriptureText: document.getElementById('scriptureText'),
             reflectionSection: document.getElementById('reflectionSection'),
             reflectionTitle: document.getElementById('reflectionTitle'),
@@ -861,7 +876,16 @@
                 if (videoStr) {
                     Papa.parse(videoStr, parseOpts).data.forEach(row => {
                         const day = parseInt(row.day);
-                        if (!isNaN(day)) videoData[day] = { enTitle: row.en_title || '', enLink: row.en_youtubelink || '', chTitle: row.ch_title || '', chLink: row.ch_youtubelink || '' };
+                        if (!isNaN(day)) {
+                            videoData[day] = { 
+                                enTitle: row.en_title || '', 
+                                enLink: row.en_youtubelink || '', 
+                                chTitle: row.ch_title || '', 
+                                chLink: row.ch_youtubelink || '',
+                                // 🔥 新增：讀取老張批註
+                                laozhangNote: row['老張批註'] || '' 
+                            };
+                        }
                     });
                 }
 
@@ -952,10 +976,19 @@
                     dom.toggleVideoBtn.classList.remove('hidden');
                     dom.toggleVideoBtn.textContent = '切換英文版';
                 } else dom.toggleVideoBtn.classList.add('hidden');
+                
+                // 🔥 判斷並顯示老張批註 🔥
+                if (vData.laozhangNote && vData.laozhangNote.trim() !== "") {
+                    dom.laozhangNoteText.textContent = vData.laozhangNote.trim();
+                    dom.laozhangNoteSection.classList.remove('hidden');
+                } else {
+                    dom.laozhangNoteSection.classList.add('hidden');
+                }
             } else {
                 dom.youtubePlayer.src = "";
                 dom.videoSection.classList.add('hidden');
                 dom.toggleVideoBtn.classList.add('hidden');
+                dom.laozhangNoteSection.classList.add('hidden'); // 隱藏批註
             }
             
             let htmlChunks = [];
@@ -1175,11 +1208,18 @@
                 });
             }
 
-            // 任務 4: 提示播放影片
+            // 🔥 任務 4: 提示播放影片與接續朗讀老張批註 🔥
             const vData = videoData[currentDay];
             if (vData && (vData.chLink || vData.enLink)) {
                 playAllQueue.push(() => {
-                    speakTextChunks(`今日靈修內容中的輔助影片還沒有播放，請手動播放並觀賞影片。`, 'zh',
+                    let promptTxt = `今日靈修內容中的輔助影片還沒有播放，請手動播放並觀賞影片。`;
+                    
+                    // 若當天有批註，將內容接在後面一起唸出
+                    if (vData.laozhangNote && vData.laozhangNote.trim() !== "") {
+                        promptTxt += `\n\n老張批註。\n${vData.laozhangNote.trim()}`;
+                    }
+
+                    speakTextChunks(promptTxt, 'zh',
                         () => { requestWakeLock(); setActivePlayingUI('video'); },
                         processPlayAllQueue
                     );
