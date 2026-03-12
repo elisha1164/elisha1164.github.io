@@ -63,6 +63,12 @@
                         匯入進度與設定
                     </button>
                     <div class="border-t border-stone-100 my-1"></div>
+                    <!-- 🔥 新增：問題回報與建議按鈕 🔥 -->
+                    <button id="feedbackBtn" class="w-full text-left px-4 py-2 text-sm text-stone-700 hover:bg-stone-50 transition flex items-center">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+                        問題回報與建議
+                    </button>
+                    <div class="border-t border-stone-100 my-1"></div>
                     <button id="resetMenuBtn" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition flex items-center">
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                         進度重置
@@ -137,7 +143,7 @@
                             <span id="readProgressText" class="font-medium text-sm text-stone-600">標記為已讀</span>
                         </label>
                         
-                        <!-- 🔥 新增：全部朗讀按鈕 🔥 -->
+                        <!-- 全部朗讀按鈕 -->
                         <button id="playAllBtn" class="bg-amber-100 text-amber-800 hover:bg-amber-200 px-4 py-1.5 rounded-full text-sm font-medium transition flex items-center shadow-sm border border-amber-200">
                             <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
                             全部朗讀
@@ -195,7 +201,7 @@
                     </div>
                 </div>
                 
-                <!-- 🔥 新增：老張批註區塊 🔥 -->
+                <!-- 老張批註區塊 -->
                 <div id="laozhangNoteSection" class="px-6 pt-6 pb-0 hidden">
                     <div class="bg-blue-50/60 border border-blue-200 rounded-xl p-5 flex items-start shadow-sm transition-all duration-300">
                         <span class="text-2xl mr-3 shrink-0 select-none pt-0.5">💡</span>
@@ -434,6 +440,8 @@
             settingsMenu: document.getElementById('settingsMenu'),
             exportBtn: document.getElementById('exportBtn'),
             importBtn: document.getElementById('importBtn'),
+            // 🔥 新增：問題回報與建議按鈕
+            feedbackBtn: document.getElementById('feedbackBtn'),
             importFileInput: document.getElementById('importFileInput'),
             startTourBtn: document.getElementById('startTourBtn'),
             resetMenuBtn: document.getElementById('resetMenuBtn'),
@@ -451,6 +459,28 @@
         function cleanString(str) {
             if (str === null || str === undefined) return '';
             return String(str).replace(/[\s\uFEFF\u200B-\u200D\r\n]/g, '');
+        }
+
+        // --- 🔥 新增：系統資訊解析 (用於帶入問題回報表單) 🔥 ---
+        function getSystemInfo() {
+            const ua = navigator.userAgent || navigator.vendor || window.opera;
+            let os = "Unknown OS";
+            if (/windows phone/i.test(ua)) os = "Windows Phone";
+            else if (/win/i.test(ua)) os = "Windows";
+            else if (/android/i.test(ua)) os = "Android";
+            else if (/iPad|iPhone|iPod/.test(ua) && !window.MSStream) os = "iOS";
+            else if (/mac/i.test(ua)) os = "Mac";
+
+            let browser = "Unknown Browser";
+            if (/Line/i.test(ua)) browser = "LINE In-App";
+            else if (/FBAV|FBAN/i.test(ua)) browser = "Facebook In-App";
+            else if (/Instagram/i.test(ua)) browser = "Instagram In-App";
+            else if (/Edg/i.test(ua)) browser = "Edge";
+            else if (/Chrome/i.test(ua)) browser = "Chrome";
+            else if (/Safari/i.test(ua)) browser = "Safari";
+            else if (/Firefox/i.test(ua)) browser = "Firefox";
+
+            return { os, browser };
         }
 
         // 🔥 更新：最嚴謹的標題匹配演算法，徹底杜絕「誤吃內文」的 Bug 🔥
@@ -800,6 +830,21 @@
             dom.cancelResetBtn.addEventListener('click', closeResetModal);
             dom.confirmResetBtn.addEventListener('click', () => { performReset(); closeResetModal(); });
             dom.exportAndResetBtn.addEventListener('click', () => { handleExport(); setTimeout(() => { performReset(); closeResetModal(); }, 500); });
+
+            // 🔥 新增：問題回報與建議 (動態注入系統資料)
+            dom.feedbackBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                dom.settingsMenu.classList.add('hidden');
+                
+                const sysInfo = getSystemInfo();
+                const os = encodeURIComponent(sysInfo.os);
+                const browser = encodeURIComponent(sysInfo.browser);
+                const dayNum = encodeURIComponent(`Day ${currentDay}`);
+                
+                const formUrl = `https://docs.google.com/forms/d/e/1FAIpQLSemWYS0uB9iC2XqYCrGM41YUc0HfZJNdH83RbHQxaEd2-YV2A/viewform?usp=pp_url&entry.1108750864=${os}&entry.1445031465=${browser}&entry.845459391=${dayNum}`;
+                
+                window.open(formUrl, '_blank');
+            });
 
             // 🔥 新增：綁定恭喜對話框的按鈕事件
             dom.congratsCloseBtn.addEventListener('click', () => dom.congratsModal.classList.add('hidden'));
