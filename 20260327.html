@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>口譯閃卡特訓：勞倫斯50金句</title>
+    <title>口譯閃卡特訓：勞倫斯100金句</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -39,23 +39,28 @@
 </head>
 <body class="flex flex-col items-center justify-center min-h-screen p-4 text-gray-800">
 
-    <!-- 初始啟動畫面 (為了解除瀏覽器對自動播放音訊的限制) -->
+    <!-- 初始啟動畫面 -->
     <div id="start-screen" class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-white bg-opacity-95 backdrop-blur-sm">
         <h1 class="text-4xl font-bold mb-6 text-indigo-700 text-center">口譯閃卡特訓系統</h1>
-        <p class="text-lg text-gray-600 mb-8 text-center max-w-md">包含邁克爾·勞倫斯演講的 50 個高頻預測短句。<br>點擊下方按鈕啟動系統並啟用語音朗讀功能。</p>
-        <button id="start-btn" class="px-8 py-4 bg-indigo-600 text-white rounded-full text-xl font-bold shadow-lg hover:bg-indigo-700 transition transform hover:scale-105">
-            <i class="fa-solid fa-headphones mr-2"></i> 開始特訓
-        </button>
+        <p class="text-lg text-gray-600 mb-8 text-center max-w-md">包含邁克爾·勞倫斯演講的 100 個高頻預測短句。<br>請選擇您的特訓方向，系統將自動配置對應語音。</p>
+        <div class="flex flex-col sm:flex-row gap-4">
+            <button id="start-en-zh-btn" class="px-6 py-4 bg-indigo-600 text-white rounded-full text-lg sm:text-xl font-bold shadow-lg hover:bg-indigo-700 transition transform hover:scale-105 flex items-center justify-center">
+                <i class="fa-solid fa-language mr-2"></i> 開始特訓：英進中 (100句)
+            </button>
+            <button id="start-zh-en-btn" class="px-6 py-4 bg-blue-600 text-white rounded-full text-lg sm:text-xl font-bold shadow-lg hover:bg-blue-700 transition transform hover:scale-105 flex items-center justify-center">
+                <i class="fa-solid fa-ear-listen mr-2"></i> 開始特訓：中進英 (100句)
+            </button>
+        </div>
     </div>
 
     <!-- 主介面 -->
-    <div id="main-app" class="w-full max-w-3xl flex flex-col items-center hidden opacity-0 transition-opacity duration-500">
+    <div id="main-app" class="w-full max-w-4xl flex flex-col items-center hidden opacity-0 transition-opacity duration-500">
         
         <!-- 頂部資訊列 -->
         <div class="w-full flex justify-between items-center mb-6 px-4">
-            <h2 class="text-xl font-bold text-gray-700"><i class="fa-solid fa-layer-group text-indigo-500 mr-2"></i> 歸信 (Conversion) 演講金句</h2>
+            <h2 class="text-xl font-bold text-gray-700"><i class="fa-solid fa-layer-group text-indigo-500 mr-2"></i> 歸信 (Conversion) 演講金句 100</h2>
             <div class="bg-indigo-100 text-indigo-800 px-4 py-1.5 rounded-full font-mono font-bold text-lg shadow-sm">
-                <span id="counter">1 / 50</span>
+                <span id="counter">1 / 100</span>
             </div>
         </div>
 
@@ -63,23 +68,23 @@
         <div id="flashcard" class="perspective-1000 w-full h-80 sm:h-96 cursor-pointer group">
             <div id="card-inner" class="relative w-full h-full transform-style-3d shadow-xl rounded-2xl">
                 
-                <!-- 卡片正面 (英文) -->
+                <!-- 卡片正面 -->
                 <div class="absolute inset-0 backface-hidden bg-white rounded-2xl border-t-4 border-indigo-500 flex flex-col items-center justify-center p-8 sm:p-12 text-center">
                     <div class="absolute top-4 left-4 text-gray-300"><i class="fa-solid fa-quote-left text-2xl"></i></div>
-                    <span class="absolute top-4 right-4 text-xs font-bold text-indigo-400 uppercase tracking-widest bg-indigo-50 px-2 py-1 rounded">English</span>
+                    <span id="front-lang-label" class="absolute top-4 right-4 text-xs font-bold text-indigo-400 uppercase tracking-widest bg-indigo-50 px-2 py-1 rounded"></span>
                     
-                    <p id="text-en" class="text-2xl sm:text-3xl font-medium text-gray-800 leading-snug"></p>
+                    <p id="text-front" class="text-2xl sm:text-3xl font-medium text-gray-800 leading-snug"></p>
                     
                     <div class="absolute bottom-4 text-gray-400 text-sm flex items-center">
                         <i class="fa-solid fa-hand-pointer mr-2 animate-bounce"></i> 點擊翻面 (或按空白鍵)
                     </div>
                 </div>
                 
-                <!-- 卡片背面 (中文) -->
+                <!-- 卡片背面 -->
                 <div class="absolute inset-0 backface-hidden rotate-y-180 bg-gradient-to-br from-indigo-50 to-blue-100 rounded-2xl border-t-4 border-blue-600 flex flex-col items-center justify-center p-8 sm:p-12 text-center">
-                    <span class="absolute top-4 right-4 text-xs font-bold text-blue-500 uppercase tracking-widest bg-white px-2 py-1 rounded shadow-sm">Target Chinese</span>
+                    <span id="back-lang-label" class="absolute top-4 right-4 text-xs font-bold text-blue-500 uppercase tracking-widest bg-white px-2 py-1 rounded shadow-sm"></span>
                     
-                    <p id="text-zh" class="text-2xl sm:text-3xl font-bold text-indigo-900 leading-relaxed"></p>
+                    <p id="text-back" class="text-2xl sm:text-3xl font-bold text-indigo-900 leading-relaxed"></p>
                     
                     <div class="absolute bottom-4 text-indigo-400 text-sm flex items-center">
                         <i class="fa-solid fa-volume-high mr-2"></i> 語音朗讀中...
@@ -112,7 +117,7 @@
     </div>
 
     <script>
-        // --- 資料區：50個口譯金句 ---
+        // --- 資料區：100個口譯金句 ---
         const flashcards = [
             { en: "We don't just need to be nice; we must be made new.", zh: "我們不只需要做個好人，我們必須成為新造的人。" },
             { en: "Conversion is a monergistic work of God, not a synergistic effort of man.", zh: "歸信完全是神單方面的主權作為，而不是神人合作的努力。" },
@@ -122,9 +127,20 @@
             { en: "Conversion is not just a change of behavior; it is a change of nature.", zh: "歸信不僅僅是行為的改變，更是本質（本性）的改變。" },
             { en: "We don't just need to be reformed; we need to be resurrected.", zh: "我們需要的不是被改造，而是被復活。" },
             { en: "Moralism teaches us to be a better version of the old self, but the gospel offers the death of the old self.", zh: "道德主義教導我們成為更好版本的舊我，但福音卻要求將舊我治死。" },
-            { en: "God's love for us is not based on our lovability, but on His sovereign choice.", zh: "神愛我們，不是因為我們惹人喜愛，而是基於祂至高的揀選。" },
+            { en: "God's love for us is not based on our lovability, but on His sovereign choice.", zh: "神愛我們，不是因為我們惹人憐愛，而是基於祂至高的揀選。" },
             { en: "The root of our problem is original sin—we are born lovers of self rather than lovers of God.", zh: "我們問題的根源在於原罪——我們生來就專愛自己，而不是愛神。" },
             { en: "We are not merely sick people needing medicine; we are dead people needing life.", zh: "我們不僅僅是需要吃藥的病人；我們是需要生命的死人。" },
+            { en: "You can reform a church, but you cannot reform a dead heart.", zh: "你可以改革一間教會，但你無法改革一顆死去的心。" },
+            { en: "We say grace before meals, but we don't 'say' grace; we only receive it.", zh: "我們飯前會「作」感恩禱告（說出恩典），但恩典是無法被「說出」的；我們只能領受它。" },
+            { en: "Teaching children a moralism that secular atheists can easily duplicate is a deadly departure from the gospel.", zh: "教導孩子們連世俗無神論者都能輕易複製的道德主義，是對福音極其致命的背離。" },
+            { en: "We don't simply need to accept ourselves; we need God to accept us.", zh: "我們需要的不是簡單地接納自己；我們需要的是神接納我們。" },
+            { en: "The therapeutic gospel focuses on our brokenness; the biblical gospel focuses on our rebellion.", zh: "治療式福音聚焦於我們的破碎；但聖經的福音聚焦於我們的悖逆。" },
+            { en: "God does not love us because we are lovely; He loves us because He chose to love us.", zh: "神愛我們，不是因為我們惹人喜愛；祂愛我們，是因為祂定意要愛我們。" },
+            { en: "Without the objective reality of God's wrath, the cross becomes merely a sentimental display of solidarity.", zh: "如果沒有神忿怒的客觀現實，十字架就只不過是一種表達團結的煽情展示。" },
+            { en: "You cannot earn a gift. The moment you work for it, it becomes a wage.", zh: "你無法靠努力賺取一份禮物。當你為它做工的那一刻起，它就變成了工價。" },
+            { en: "If you have a new life, living it is not hard; what is impossible is living contrary to your new nature.", zh: "如果你有了新生命，活出這生命並不難；真正不可能的，是違背你的新本性而活。" },
+            { en: "In our culture, 'Portland nice' means avoiding conflict even if I secretly despise you.", zh: "在我們的文化中，「波特蘭式的好人」意味著避免衝突，即使我私底下非常鄙視你。" },
+            { en: "When the Holy Spirit unites us to Christ, He simultaneously unites us to Christ's body.", zh: "當聖靈將我們與基督聯合時，祂也同時將我們與基督的身體聯合。" },
             { en: "Jesus calls us to make disciples, not merely to collect decisions.", zh: "耶穌呼召我們去使人作門徒，而不僅僅是收集人們的決志。" },
             { en: "The legacy of Charles Finney and the anxious bench has ravaged the evangelical church.", zh: "查爾斯·芬尼和「焦慮席」所留下的復興主義遺毒，已經嚴重破壞了福音派教會。" },
             { en: "A spontaneous baptism often acts as a spiritual vaccine against the true gospel.", zh: "即興的洗禮往往就像一劑屬靈疫苗，讓人對真正的福音產生了免疫力。" },
@@ -137,6 +153,18 @@
             { en: "Assurance is not found in remembering a past prayer, but in examining your present fruit.", zh: "得救確據不是建立在回憶過去的某次禱告上，而是建立在省察你當下結出的果子上。" },
             { en: "The 'once saved, always saved' slogan becomes dangerous when disconnected from a life of discipleship.", zh: "當「一次得救，永遠得救」的口號脫離了作門徒的生命時，它就變得非常危險。" },
             { en: "We must give our children time, allowing their faith to be tested by the crucible of independence.", zh: "我們必須給孩子們時間，讓他們的信仰經過獨立自主的熔爐測試。" },
+            { en: "Demons know the facts of the gospel and even agree with them, but they do not trust Jesus.", zh: "魔鬼也知道福音的事實，甚至認同這些事實，但牠們並不信靠耶穌。" },
+            { en: "Repentance is not a New Year’s resolution to be a better person.", zh: "悔改不是立下「成為更好的人」的新年新希望。" },
+            { en: "You can feel guilty and still love the sin you committed.", zh: "你可能會感到內疚，但同時依然愛著你所犯的罪。" },
+            { en: "Idolaters are not always bad people; they are often nice, moral, and highly religious people.", zh: "拜偶像的人並不總是壞人；他們通常是友善、有道德且非常虔誠的人。" },
+            { en: "Children are hard-wired to imitate their parents; we must wait to see if their faith is a sociological reflex or a spiritual resurrection.", zh: "孩子們天生就會模仿父母；我們必須等待，看看他們的信仰究竟是社會學上的反射動作，還是屬靈的復活。" },
+            { en: "A two-tiered membership, where children are members but cannot exercise the keys of the kingdom, degrades the meaning of the church.", zh: "「兩極化會友制」——讓孩子成為會友卻無法行使天國的鑰匙——貶低了教會的意義。" },
+            { en: "The true believer might limp with the wounds of battle, but they keep walking toward Christ.", zh: "真正的信徒或許會帶著戰鬥的傷口蹣跚前行，但他們仍會繼續朝著基督走去。" },
+            { en: "Revivalism turned the miraculous outpouring of the Holy Spirit into a predictable psychological formula.", zh: "復興主義將聖靈神蹟般的澆灌，變成了一套可預測的心理學公式。" },
+            { en: "Idols make promises they can never keep; they demand sacrifices but give no salvation.", zh: "偶像會做出牠們永遠無法兌現的承諾；牠們要求你獻祭，卻無法給予拯救。" },
+            { en: "Like Charles Spurgeon, we must oppose the rush to baptize people without evidence of a changed life.", zh: "如同查爾斯·司布真一樣，我們必須反對在沒有生命改變證據的情況下，就急著為人施洗。" },
+            { en: "Assurance is a community project, not a solitary inward journey.", zh: "得救確據是一個群體項目，而不是一趟孤單的內在旅程。" },
+            { en: "When a church acts as an assurance of faith co-op, we help each other see the fruit of the Spirit.", zh: "當教會發揮「信仰確據互助會」的功能時，我們是在幫助彼此看見聖靈所結的果子。" },
             { en: "The local church is meant to be a visible hermeneutic of the gospel.", zh: "地方教會理應成為福音鮮活可見的釋經學（見證）。" },
             { en: "The church should function as an assurance of faith co-op.", zh: "教會應該發揮「信仰確據互助會」的功能。" },
             { en: "Pastors have a solemn duty to assess before they assure.", zh: "牧者肩負著莊嚴的責任：在給予確據之前，必須先仔細評估。" },
@@ -150,6 +178,21 @@
             { en: "We cannot separate our union with Christ from our union with His body, the local church.", zh: "我們不能把「與基督的聯合」，和「與祂的身體——也就是地方教會——的聯合」割裂開來。" },
             { en: "An overly pure church is a symptom of legalism that forgets we are a hospital for recovering sinners.", zh: "一個「過度追求純潔」的教會是律法主義的症狀，它忘記了我們是一所為正在康復的罪人設立的醫院。" },
             { en: "We must exercise the keys of the kingdom with pastoral discernment.", zh: "我們必須帶著教牧的辨識力（屬靈智慧），來行使天國的鑰匙。" },
+            { en: "The local church is where the universal church becomes visible.", zh: "地方教會是普世教會具體可見的地方。" },
+            { en: "Membership is not about joining a club; it’s about submitting to an outpost of Christ's kingdom.", zh: "會友制不是加入一個俱樂部；它是順服於基督國度的一個前哨站。" },
+            { en: "We should not treat the church as an optional consumer activity, balanced equally with sports leagues.", zh: "我們不應將教會視為一種可有可無的消費活動，把它和體育聯盟擺在同等的位置。" },
+            { en: "We fence the table not to keep bad people out, but to invite repentant sinners in.", zh: "我們圍護主餐（守護聖餐），不是為了把壞人拒之門外，而是為了邀請悔改的罪人進來。" },
+            { en: "If you don't pursue membership in a visible church, who can say you belong to the invisible one?", zh: "如果你不追求成為可見之地方教會的會友，誰敢說你屬於那不可見的普世教會呢？" },
+            { en: "Church discipline is an act of love, both for the sinner and for the watching world.", zh: "教會紀律（懲戒）是一種愛的行動，無論是對犯罪的人，還是對旁觀的世人而言。" },
+            { en: "We don't excommunicate people because they sin; we excommunicate them because they refuse to repent.", zh: "我們不因為人犯罪就將其除名；我們將其除名，是因為他們拒絕悔改。" },
+            { en: "Sanctification is not about achieving perfect emotional equilibrium; it's about the freedom of a new nature.", zh: "成聖不是為了達到完美的情緒平衡；它是新本性所帶來的自由。" },
+            { en: "The flesh will war against the Spirit until the day the Lord calls us home.", zh: "肉體將會持續與聖靈爭戰，直到主呼召我們回天家的那一天。" },
+            { en: "Holiness simply means being set apart for God and belonging to a new Master.", zh: "聖潔，簡單來說就是為神分別出來，並且歸屬於一位新主人。" },
+            { en: "The church is a hospital for recovering, repentant sinners who are being conformed to the image of Christ.", zh: "教會是一所專為正在康復、悔改的罪人設立的醫院，他們正被塑造成基督的形象。" },
+            { en: "We don't need any other common denominator than Jesus Christ to love one another deeply.", zh: "除了耶穌基督之外，我們不需要任何其他的共通點，就能夠深深地彼此相愛。" },
+            { en: "A designer church built on demographic studies might grow fast, but is it a Christian church?", zh: "建立在人口統計研究之上的「品牌教會」或許成長得很快，但那還算是基督教會嗎？" },
+            { en: "An overly pure church becomes suspicious and chary, forgetting that we are all justified by faith alone.", zh: "過度追求純潔的教會會變得多疑且嚴苛，忘記了我們都是唯獨因信稱義的。" },
+            { en: "Pastors are not called to be celebrities or corporate CEOs, but hopeful servants of the Word.", zh: "牧者蒙召不是為了成為名人或企業的執行長，而是作神話語充滿盼望的僕人。" },
             { en: "Evangelism is a summons from the King, not a sales pitch to consumers.", zh: "傳福音是發出君王的權威呼召，而不是向消費者推銷產品。" },
             { en: "We must reject the consumer-driven paradigm of the designer church.", zh: "我們必須拒絕那種以消費者為導向、刻意迎合市場的「品牌教會」模式。" },
             { en: "The philosophy of 'belonging before believing' destroys the very nature of the covenant community.", zh: "「先歸屬，再相信」的理念，徹底摧毀了聖約群體的本質。" },
@@ -163,34 +206,62 @@
             { en: "The gospel is not a product to be sold, but a truth to be proclaimed with prophetic urgency.", zh: "福音不是用來推銷的產品，而是需要帶著先知般的迫切感去宣告的真理。" },
             { en: "A healthy church is the most powerful apologetic for the truth of the resurrection.", zh: "一間健康的教會，就是證明復活真理最強而有力的護教見證。" },
             { en: "We must preach both the indicatives of what God has done and the imperatives of what He commands.", zh: "我們既要傳講神已成就之事的「陳述句」，也要傳講神所吩咐之事的「祈使句（命令）」。" },
-            { en: "At the end of the day, conversion is about God’s glory, not just our personal salvation.", zh: "歸根結底，歸信是關乎神的榮耀，而不僅僅是我們個人的得救。" }
+            { en: "At the end of the day, conversion is about God’s glory, not just our personal salvation.", zh: "歸根結底，歸信是關乎神的榮耀，而不僅僅是我們個人的得救。" },
+            { en: "When a church looks more like the world than like Christ, we are preaching another gospel.", zh: "當教會看起來更像世界而不是更像基督時，我們其實是在傳另一種福音。" },
+            { en: "Evangelism is not figuring out the key to someone's heart by appealing to their felt needs.", zh: "傳福音不是藉由迎合人的「切身需要」，來找出打開他們心門的鑰匙。" },
+            { en: "If our goal is to merely grow a crowd, entertainment will work just fine.", zh: "如果我們的目標僅僅是聚集一群人，那麼娛樂手段就綽綽有餘了。" },
+            { en: "We are not salesmen trying to close a deal; we are ambassadors delivering a royal summons.", zh: "我們不是試圖促成交易的推銷員；我們是傳達皇家呼召的大使。" },
+            { en: "We need to understand the grand narrative of God's redemption, from Eden to the New Jerusalem.", zh: "我們需要明白神救贖的宏大敘事，從伊甸園一直到新耶路撒冷。" },
+            { en: "Old Testament figures are not merely moral examples to copy; they are signposts pointing to Christ.", zh: "舊約人物不只是讓我們效法的道德榜樣；他們是指向基督的路標。" },
+            { en: "We don't tell children to be a better David; we tell them they need a new and better David, who is Christ.", zh: "我們不會告訴孩子們「要成為更好的大衛」；我們告訴他們，他們需要一位全新且更完美的大衛，那就是基督。" },
+            { en: "The target demographic of the gospel is dead sinners, regardless of their generation or tax bracket.", zh: "福音的目標受眾是死在罪中的人，無論他們屬於哪個世代或哪個納稅級距。" },
+            { en: "A homogenous church hides the supernatural power of the gospel to unite natural enemies.", zh: "同質性的教會，掩蓋了福音能使天生死敵合而為一的超自然大能。" },
+            { en: "We don't have to manipulate responses; we can rest in the sovereignty of the Holy Spirit to bring life.", zh: "我們不需要去操縱人們的回應；我們可以安息在聖靈賜予生命的主權之中。" },
+            { en: "We don't need a smoke machine to make the gospel powerful; the Word of God creates life.", zh: "我們不需要煙霧機來讓福音顯得有能力；神的話語本身就能創造生命。" },
+            { en: "In the end, God saves us for the praise of His glorious grace before the watching universe.", zh: "歸根結底，神拯救我們，是為了在觀看的宇宙面前，使祂榮耀的恩典得著稱讚。" }
         ];
+
+        // --- 新增：隨機打亂陣列順序 (Fisher-Yates Shuffle) ---
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+        
+        // 網頁載入時立刻洗牌
+        shuffleArray(flashcards);
 
         // --- 狀態變數 ---
         let currentIndex = 0;
         let isFlipped = false;
         let voices = [];
         let synth = window.speechSynthesis;
+        let currentMode = 'en-zh'; // 'en-zh' (英進中) 或 'zh-en' (中進英)
 
         // --- DOM 元素 ---
         const startScreen = document.getElementById('start-screen');
-        const startBtn = document.getElementById('start-btn');
+        const startEnZhBtn = document.getElementById('start-en-zh-btn');
+        const startZhEnBtn = document.getElementById('start-zh-en-btn');
         const mainApp = document.getElementById('main-app');
         const cardInner = document.getElementById('card-inner');
         const flashcard = document.getElementById('flashcard');
-        const textEn = document.getElementById('text-en');
-        const textZh = document.getElementById('text-zh');
+        
+        const frontLangLabel = document.getElementById('front-lang-label');
+        const backLangLabel = document.getElementById('back-lang-label');
+        const textFront = document.getElementById('text-front');
+        const textBack = document.getElementById('text-back');
+        
         const counter = document.getElementById('counter');
         const prevBtn = document.getElementById('prev-btn');
         const nextBtn = document.getElementById('next-btn');
         const replayBtn = document.getElementById('replay-btn');
 
-        // --- 語音初始化 (尋找最佳語音) ---
+        // --- 語音初始化 (尋找最佳語音，加入 Edge 雲端語音評分機制) ---
         function loadVoices() {
             voices = synth.getVoices();
         }
         
-        // 確保載入語音庫 (各瀏覽器行為不同)
         loadVoices();
         if (speechSynthesis.onvoiceschanged !== undefined) {
             speechSynthesis.onvoiceschanged = loadVoices;
@@ -199,7 +270,6 @@
         function getBestVoice(langPrefix) {
             let availableVoices = voices.filter(v => v.lang.startsWith(langPrefix));
             
-            // 如果找不到完全匹配的（例如 zh-TW），退而求其次找主語言（例如 zh）
             if (availableVoices.length === 0) {
                 let baseLang = langPrefix.split('-')[0];
                 availableVoices = voices.filter(v => v.lang.startsWith(baseLang));
@@ -222,11 +292,11 @@
                 else if (name.includes('siri')) score += 7;
                 // Mac 的進階高音質語音
                 else if (name.includes('premium') || name.includes('enhanced')) score += 6;
-                // 台灣特別好聽的微軟語音名稱 (HsiaoChen 曉臻 / HsiaoYu 曉雨)
+                // 台灣特別好聽的微軟語音名稱
                 else if (name.includes('hsiaochen') || name.includes('hsiaoyu')) score += 5;
                 else if (name.includes('mei-jia') || name.includes('ting-ting')) score += 4;
                 
-                // 扣分機制：避免選到老舊、生硬的單機版語音 (如 Microsoft Hanhan Desktop)
+                // 扣分機制：避免選到老舊、生硬的單機版語音
                 if (name.includes('desktop')) score -= 5;
 
                 if (score > highestScore) {
@@ -242,8 +312,16 @@
         function speakCurrentText() {
             synth.cancel(); // 停止先前的朗讀
             
-            const textToSpeak = isFlipped ? flashcards[currentIndex].zh : flashcards[currentIndex].en;
-            const langPrefix = isFlipped ? 'zh-TW' : 'en-US';
+            let textToSpeak, langPrefix;
+            
+            // 判斷當前要發音的文本與語言
+            if (currentMode === 'en-zh') {
+                textToSpeak = isFlipped ? flashcards[currentIndex].zh : flashcards[currentIndex].en;
+                langPrefix = isFlipped ? 'zh-TW' : 'en-US';
+            } else {
+                textToSpeak = isFlipped ? flashcards[currentIndex].en : flashcards[currentIndex].zh;
+                langPrefix = isFlipped ? 'en-US' : 'zh-TW';
+            }
             
             const utterance = new SpeechSynthesisUtterance(textToSpeak);
             
@@ -257,7 +335,7 @@
                 document.getElementById('voice-info').innerHTML = `<i class="fa-solid fa-tower-broadcast text-gray-400 mr-1"></i> 語音模型：系統預設`;
             }
 
-            if (isFlipped) {
+            if (langPrefix === 'zh-TW') {
                 utterance.lang = 'zh-TW';
                 utterance.rate = 0.95; // 中文稍微放慢一點點以求清晰
             } else {
@@ -270,16 +348,24 @@
 
         // --- UI 更新邏輯 ---
         function updateCard() {
-            // 先確保翻回正面，不帶動畫延遲地切換文字以防閃爍
             cardInner.classList.remove('is-flipped');
             isFlipped = false;
             
-            // 更新文字與計數器
-            textEn.textContent = flashcards[currentIndex].en;
-            textZh.textContent = flashcards[currentIndex].zh;
+            // 根據模式設定正反面的標籤與文字
+            if (currentMode === 'en-zh') {
+                frontLangLabel.textContent = 'English';
+                backLangLabel.textContent = 'Target Chinese';
+                textFront.textContent = flashcards[currentIndex].en;
+                textBack.textContent = flashcards[currentIndex].zh;
+            } else {
+                frontLangLabel.textContent = 'Source Chinese';
+                backLangLabel.textContent = 'Target English';
+                textFront.textContent = flashcards[currentIndex].zh;
+                textBack.textContent = flashcards[currentIndex].en;
+            }
+            
             counter.textContent = `${currentIndex + 1} / ${flashcards.length}`;
             
-            // 按鈕狀態處理
             prevBtn.disabled = currentIndex === 0;
             prevBtn.classList.toggle('opacity-50', currentIndex === 0);
             prevBtn.classList.toggle('cursor-not-allowed', currentIndex === 0);
@@ -288,7 +374,6 @@
             nextBtn.classList.toggle('opacity-50', currentIndex === flashcards.length - 1);
             nextBtn.classList.toggle('cursor-not-allowed', currentIndex === flashcards.length - 1);
 
-            // 短暫延遲後朗讀英文，確保翻轉動畫歸位
             setTimeout(() => {
                 speakCurrentText();
             }, 50);
@@ -301,7 +386,6 @@
             } else {
                 cardInner.classList.remove('is-flipped');
             }
-            // 每次翻面都朗讀該面的文字
             speakCurrentText();
         }
 
@@ -319,36 +403,35 @@
             }
         }
 
-        // --- 事件監聽器 ---
-        startBtn.addEventListener('click', () => {
-            // 解鎖音訊限制
+        function startTraining(mode) {
+            currentMode = mode;
             const unlockAudio = new SpeechSynthesisUtterance('');
             unlockAudio.volume = 0;
             synth.speak(unlockAudio);
 
-            // 切換畫面
             startScreen.classList.add('opacity-0');
             setTimeout(() => {
                 startScreen.classList.add('hidden');
                 mainApp.classList.remove('hidden');
                 setTimeout(() => {
                     mainApp.classList.remove('opacity-0');
-                    updateCard(); // 載入第一張並朗讀
+                    updateCard(); 
                 }, 50);
             }, 500);
-        });
+        }
+
+        // --- 事件監聽器 ---
+        startEnZhBtn.addEventListener('click', () => startTraining('en-zh'));
+        startZhEnBtn.addEventListener('click', () => startTraining('zh-en'));
 
         flashcard.addEventListener('click', flipCard);
         nextBtn.addEventListener('click', nextCard);
         prevBtn.addEventListener('click', prevCard);
         replayBtn.addEventListener('click', speakCurrentText);
 
-        // 鍵盤操作支援
         document.addEventListener('keydown', (e) => {
-            if (!startScreen.classList.contains('hidden')) {
-                if (e.code === 'Enter' || e.code === 'Space') startBtn.click();
-                return;
-            }
+            // 在啟動畫面禁用鍵盤預設快捷鍵，以防誤觸，必須手動點擊選擇模式
+            if (!startScreen.classList.contains('hidden')) return;
             
             if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'ArrowDown') {
                 e.preventDefault();
