@@ -87,15 +87,22 @@
                     <p id="text-back" class="text-2xl sm:text-3xl font-bold text-indigo-900 leading-relaxed"></p>
                     
                     <div class="absolute bottom-4 text-indigo-400 text-sm flex items-center">
-                        <i class="fa-solid fa-volume-high mr-2"></i> 語音朗讀中...
+                        <i id="back-audio-icon" class="fa-solid fa-volume-high mr-2"></i> <span id="back-audio-text">語音朗讀中...</span>
                     </div>
                 </div>
 
             </div>
         </div>
 
+        <!-- 新增：實戰模擬按鈕 -->
+        <div class="w-full mt-6 flex justify-center">
+            <button id="sim-btn" class="py-3 px-8 bg-amber-500 text-white text-lg font-bold rounded-full shadow-lg hover:bg-amber-600 transition transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-amber-400 flex items-center">
+                <i class="fa-solid fa-stopwatch mr-2"></i> 實戰模擬
+            </button>
+        </div>
+
         <!-- 控制按鈕 -->
-        <div class="w-full mt-8 flex justify-between items-center gap-4">
+        <div class="w-full mt-6 flex justify-between items-center gap-4">
             <button id="prev-btn" class="flex-1 py-3 px-4 bg-white text-gray-700 font-semibold rounded-xl shadow hover:bg-gray-50 transition border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500">
                 <i class="fa-solid fa-chevron-left mr-1"></i> 上一句 (←)
             </button>
@@ -221,7 +228,7 @@
             { en: "In the end, God saves us for the praise of His glorious grace before the watching universe.", zh: "歸根結底，神拯救我們，是為了在觀看的宇宙面前，使祂榮耀的恩典得著稱讚。" }
         ];
 
-        // --- 新增：隨機打亂陣列順序 (Fisher-Yates Shuffle) ---
+        // --- 隨機打亂陣列順序 (Fisher-Yates Shuffle) ---
         function shuffleArray(array) {
             for (let i = array.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
@@ -238,6 +245,10 @@
         let voices = [];
         let synth = window.speechSynthesis;
         let currentMode = 'en-zh'; // 'en-zh' (英進中) 或 'zh-en' (中進英)
+        
+        // 實戰模擬狀態
+        let isSimulationActive = false;
+        let simTimeout = null;
 
         // --- DOM 元素 ---
         const startScreen = document.getElementById('start-screen');
@@ -251,11 +262,14 @@
         const backLangLabel = document.getElementById('back-lang-label');
         const textFront = document.getElementById('text-front');
         const textBack = document.getElementById('text-back');
+        const backAudioIcon = document.getElementById('back-audio-icon');
+        const backAudioText = document.getElementById('back-audio-text');
         
         const counter = document.getElementById('counter');
         const prevBtn = document.getElementById('prev-btn');
         const nextBtn = document.getElementById('next-btn');
         const replayBtn = document.getElementById('replay-btn');
+        const simBtn = document.getElementById('sim-btn');
 
         // --- 語音初始化 (尋找最佳語音，加入 Edge 雲端語音評分機制) ---
         function loadVoices() {
@@ -284,19 +298,13 @@
                 let score = 0;
                 const name = v.name.toLowerCase();
 
-                // 評分系統：優先選擇 Edge 的雲端神經網路語音 (Online/Natural)
                 if (name.includes('natural') || name.includes('online')) score += 10;
-                // 次優選：Google 雲端語音
                 else if (name.includes('google')) score += 8;
-                // Mac/iOS 的 Siri 語音
                 else if (name.includes('siri')) score += 7;
-                // Mac 的進階高音質語音
                 else if (name.includes('premium') || name.includes('enhanced')) score += 6;
-                // 台灣特別好聽的微軟語音名稱
                 else if (name.includes('hsiaochen') || name.includes('hsiaoyu')) score += 5;
                 else if (name.includes('mei-jia') || name.includes('ting-ting')) score += 4;
                 
-                // 扣分機制：避免選到老舊、生硬的單機版語音
                 if (name.includes('desktop')) score -= 5;
 
                 if (score > highestScore) {
@@ -309,9 +317,21 @@
         }
 
         // --- 朗讀功能 ---
-        function speakCurrentText() {
+        // forceSilence: 實戰模擬時翻到背面不發音
+        function speakCurrentText(forceSilence = false) {
             synth.cancel(); // 停止先前的朗讀
             
+            if (forceSilence) {
+                backAudioIcon.className = "fa-solid fa-volume-xmark mr-2 text-gray-400";
+                backAudioText.textContent = "實戰模擬：請自行口譯 (無語音)";
+                backAudioText.className = "text-gray-500 font-bold";
+                return;
+            } else {
+                backAudioIcon.className = "fa-solid fa-volume-high mr-2";
+                backAudioText.textContent = "語音朗讀中...";
+                backAudioText.className = "";
+            }
+
             let textToSpeak, langPrefix;
             
             // 判斷當前要發音的文本與語言
@@ -346,12 +366,8 @@
             synth.speak(utterance);
         }
 
-        // --- UI 更新邏輯 ---
-        function updateCard() {
-            cardInner.classList.remove('is-flipped');
-            isFlipped = false;
-            
-            // 根據模式設定正反面的標籤與文字
+        // --- UI 更新邏輯 (僅更新文字，不負責翻面與發聲) ---
+        function updateCardTextOnly() {
             if (currentMode === 'en-zh') {
                 frontLangLabel.textContent = 'English';
                 backLangLabel.textContent = 'Target Chinese';
@@ -373,13 +389,22 @@
             nextBtn.disabled = currentIndex === flashcards.length - 1;
             nextBtn.classList.toggle('opacity-50', currentIndex === flashcards.length - 1);
             nextBtn.classList.toggle('cursor-not-allowed', currentIndex === flashcards.length - 1);
+        }
 
+        // 正常手動操作時的更新
+        function updateCard() {
+            cardInner.classList.remove('is-flipped');
+            isFlipped = false;
+            updateCardTextOnly();
+            
             setTimeout(() => {
-                speakCurrentText();
+                if (!isSimulationActive) speakCurrentText();
             }, 50);
         }
 
         function flipCard() {
+            if (isSimulationActive) stopSimulation(); // 手動干預時自動停止模擬
+            
             isFlipped = !isFlipped;
             if (isFlipped) {
                 cardInner.classList.add('is-flipped');
@@ -390,6 +415,7 @@
         }
 
         function nextCard() {
+            if (isSimulationActive) stopSimulation();
             if (currentIndex < flashcards.length - 1) {
                 currentIndex++;
                 updateCard();
@@ -397,6 +423,7 @@
         }
 
         function prevCard() {
+            if (isSimulationActive) stopSimulation();
             if (currentIndex > 0) {
                 currentIndex--;
                 updateCard();
@@ -420,6 +447,89 @@
             }, 500);
         }
 
+        // --- 實戰模擬核心邏輯 ---
+        function toggleSimulation() {
+            if (isSimulationActive) {
+                stopSimulation();
+            } else {
+                startSimulation();
+            }
+        }
+
+        function stopSimulation() {
+            isSimulationActive = false;
+            synth.cancel();
+            
+            simBtn.innerHTML = '<i class="fa-solid fa-stopwatch mr-2"></i> 實戰模擬';
+            simBtn.classList.remove('bg-red-600', 'hover:bg-red-700');
+            simBtn.classList.add('bg-amber-500', 'hover:bg-amber-600');
+        }
+
+        function startSimulation() {
+            isSimulationActive = true;
+            
+            simBtn.innerHTML = '<i class="fa-solid fa-stop mr-2"></i> 停止實戰';
+            simBtn.classList.remove('bg-amber-500', 'hover:bg-amber-600');
+            simBtn.classList.add('bg-red-600', 'hover:bg-red-700');
+            
+            runSimulationLoop();
+        }
+
+        // 帶有中斷檢查的等待函數 (精確到每100ms檢查一次狀態)
+        function waitWithCheck(ms) {
+            return new Promise(resolve => {
+                let elapsed = 0;
+                const interval = 100;
+                const timer = setInterval(() => {
+                    if (!isSimulationActive) {
+                        clearInterval(timer);
+                        resolve(false);
+                    }
+                    elapsed += interval;
+                    if (elapsed >= ms) {
+                        clearInterval(timer);
+                        resolve(true);
+                    }
+                }, interval);
+            });
+        }
+
+        async function runSimulationLoop() {
+            while (isSimulationActive) {
+                // 1. 確保在正面，更新文字並朗讀
+                if (isFlipped) {
+                    cardInner.classList.remove('is-flipped');
+                    isFlipped = false;
+                }
+                updateCardTextOnly();
+                
+                // 朗讀正面
+                speakCurrentText(false);
+
+                // 2. 停等 5 秒
+                const waitedFront = await waitWithCheck(5000);
+                if (!waitedFront) break; // 若在等待中按下停止，則跳出迴圈
+
+                // 3. 翻到背面 (不朗讀)
+                cardInner.classList.add('is-flipped');
+                isFlipped = true;
+                speakCurrentText(true); // 傳入 true 強制靜音，僅更新UI狀態
+
+                // 停等 5 秒
+                const waitedBack = await waitWithCheck(5000);
+                if (!waitedBack) break;
+
+                // 4. 準備下一張卡
+                if (currentIndex < flashcards.length - 1) {
+                    currentIndex++;
+                } else {
+                    // 完成 100 句，洗牌重來
+                    shuffleArray(flashcards);
+                    currentIndex = 0;
+                }
+            }
+        }
+
         // --- 事件監聽器 ---
         startEnZhBtn.addEventListener('click', () => startTraining('en-zh'));
         startZhEnBtn.addEventListener('click', () => startTraining('zh-en'));
@@ -427,10 +537,13 @@
         flashcard.addEventListener('click', flipCard);
         nextBtn.addEventListener('click', nextCard);
         prevBtn.addEventListener('click', prevCard);
-        replayBtn.addEventListener('click', speakCurrentText);
+        replayBtn.addEventListener('click', () => {
+            if (isSimulationActive) stopSimulation();
+            speakCurrentText();
+        });
+        simBtn.addEventListener('click', toggleSimulation);
 
         document.addEventListener('keydown', (e) => {
-            // 在啟動畫面禁用鍵盤預設快捷鍵，以防誤觸，必須手動點擊選擇模式
             if (!startScreen.classList.contains('hidden')) return;
             
             if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'ArrowDown') {
@@ -441,6 +554,7 @@
             } else if (e.code === 'ArrowLeft') {
                 prevCard();
             } else if (e.code === 'KeyR') {
+                if (isSimulationActive) stopSimulation();
                 speakCurrentText();
             }
         });
