@@ -95,10 +95,11 @@
         </div>
 
         <!-- 新增：實戰模擬按鈕 -->
-        <div class="w-full mt-6 flex justify-center">
+        <div class="w-full mt-6 flex justify-center flex-col items-center">
             <button id="sim-btn" class="py-3 px-8 bg-amber-500 text-white text-lg font-bold rounded-full shadow-lg hover:bg-amber-600 transition transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-amber-400 flex items-center">
                 <i class="fa-solid fa-stopwatch mr-2"></i> 實戰模擬
             </button>
+            <span id="wakelock-status" class="text-xs text-gray-400 mt-2 hidden"><i class="fa-solid fa-sun mr-1"></i>防熄屏已啟動</span>
         </div>
 
         <!-- 控制按鈕 -->
@@ -249,6 +250,40 @@
         // 實戰模擬狀態
         let isSimulationActive = false;
         let simTimeout = null;
+
+        // --- 螢幕喚醒鎖定 (Screen Wake Lock API) ---
+        let wakeLock = null;
+
+        async function requestWakeLock() {
+            if ('wakeLock' in navigator) {
+                try {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    document.getElementById('wakelock-status').classList.remove('hidden');
+                } catch (err) {
+                    console.warn('Wake Lock error:', err);
+                    document.getElementById('wakelock-status').classList.add('hidden');
+                }
+            }
+        }
+
+        async function releaseWakeLock() {
+            if (wakeLock !== null) {
+                try {
+                    await wakeLock.release();
+                    wakeLock = null;
+                    document.getElementById('wakelock-status').classList.add('hidden');
+                } catch (err) {
+                    console.warn('Wake Lock release error:', err);
+                }
+            }
+        }
+
+        // 處理分頁切換時 Wake Lock 可能被瀏覽器自動釋放的問題
+        document.addEventListener('visibilitychange', async () => {
+            if (wakeLock !== null && document.visibilityState === 'visible' && isSimulationActive) {
+                requestWakeLock();
+            }
+        });
 
         // --- DOM 元素 ---
         const startScreen = document.getElementById('start-screen');
@@ -459,6 +494,7 @@
         function stopSimulation() {
             isSimulationActive = false;
             synth.cancel();
+            releaseWakeLock(); // 釋放常亮
             
             simBtn.innerHTML = '<i class="fa-solid fa-stopwatch mr-2"></i> 實戰模擬';
             simBtn.classList.remove('bg-red-600', 'hover:bg-red-700');
@@ -467,6 +503,7 @@
 
         function startSimulation() {
             isSimulationActive = true;
+            requestWakeLock(); // 請求螢幕常亮
             
             simBtn.innerHTML = '<i class="fa-solid fa-stop mr-2"></i> 停止實戰';
             simBtn.classList.remove('bg-amber-500', 'hover:bg-amber-600');
