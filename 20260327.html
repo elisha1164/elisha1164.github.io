@@ -351,54 +351,64 @@
             return bestVoice;
         }
 
-        // --- 朗讀功能 ---
+        // --- 改寫為 Promise 的朗讀功能 ---
         // forceSilence: 實戰模擬時翻到背面不發音
         function speakCurrentText(forceSilence = false) {
-            synth.cancel(); // 停止先前的朗讀
-            
-            if (forceSilence) {
-                backAudioIcon.className = "fa-solid fa-volume-xmark mr-2 text-gray-400";
-                backAudioText.textContent = "實戰模擬：請自行口譯 (無語音)";
-                backAudioText.className = "text-gray-500 font-bold";
-                return;
-            } else {
-                backAudioIcon.className = "fa-solid fa-volume-high mr-2";
-                backAudioText.textContent = "語音朗讀中...";
-                backAudioText.className = "";
-            }
+            return new Promise((resolve) => {
+                synth.cancel(); // 停止先前的朗讀
+                
+                if (forceSilence) {
+                    backAudioIcon.className = "fa-solid fa-volume-xmark mr-2 text-gray-400";
+                    backAudioText.textContent = "實戰模擬：請自行口譯 (無語音)";
+                    backAudioText.className = "text-gray-500 font-bold";
+                    resolve(); // 強制靜音時直接回傳完成
+                    return;
+                } else {
+                    backAudioIcon.className = "fa-solid fa-volume-high mr-2";
+                    backAudioText.textContent = "語音朗讀中...";
+                    backAudioText.className = "";
+                }
 
-            let textToSpeak, langPrefix;
-            
-            // 判斷當前要發音的文本與語言
-            if (currentMode === 'en-zh') {
-                textToSpeak = isFlipped ? flashcards[currentIndex].zh : flashcards[currentIndex].en;
-                langPrefix = isFlipped ? 'zh-TW' : 'en-US';
-            } else {
-                textToSpeak = isFlipped ? flashcards[currentIndex].en : flashcards[currentIndex].zh;
-                langPrefix = isFlipped ? 'en-US' : 'zh-TW';
-            }
-            
-            const utterance = new SpeechSynthesisUtterance(textToSpeak);
-            
-            // 嘗試設定最佳語音
-            const selectedVoice = getBestVoice(langPrefix);
-            
-            if (selectedVoice) {
-                utterance.voice = selectedVoice;
-                document.getElementById('voice-info').innerHTML = `<i class="fa-solid fa-tower-broadcast text-indigo-500 mr-1"></i> 語音模型：${selectedVoice.name}`;
-            } else {
-                document.getElementById('voice-info').innerHTML = `<i class="fa-solid fa-tower-broadcast text-gray-400 mr-1"></i> 語音模型：系統預設`;
-            }
+                let textToSpeak, langPrefix;
+                
+                // 判斷當前要發音的文本與語言
+                if (currentMode === 'en-zh') {
+                    textToSpeak = isFlipped ? flashcards[currentIndex].zh : flashcards[currentIndex].en;
+                    langPrefix = isFlipped ? 'zh-TW' : 'en-US';
+                } else {
+                    textToSpeak = isFlipped ? flashcards[currentIndex].en : flashcards[currentIndex].zh;
+                    langPrefix = isFlipped ? 'en-US' : 'zh-TW';
+                }
+                
+                const utterance = new SpeechSynthesisUtterance(textToSpeak);
+                
+                // 嘗試設定最佳語音
+                const selectedVoice = getBestVoice(langPrefix);
+                
+                if (selectedVoice) {
+                    utterance.voice = selectedVoice;
+                    document.getElementById('voice-info').innerHTML = `<i class="fa-solid fa-tower-broadcast text-indigo-500 mr-1"></i> 語音模型：${selectedVoice.name}`;
+                } else {
+                    document.getElementById('voice-info').innerHTML = `<i class="fa-solid fa-tower-broadcast text-gray-400 mr-1"></i> 語音模型：系統預設`;
+                }
 
-            if (langPrefix === 'zh-TW') {
-                utterance.lang = 'zh-TW';
-                utterance.rate = 0.95; // 中文稍微放慢一點點以求清晰
-            } else {
-                utterance.lang = 'en-US';
-                utterance.rate = 0.9; // 英文稍微放慢，方便跟讀
-            }
+                if (langPrefix === 'zh-TW') {
+                    utterance.lang = 'zh-TW';
+                    utterance.rate = 0.95; // 中文稍微放慢一點點以求清晰
+                } else {
+                    utterance.lang = 'en-US';
+                    utterance.rate = 0.9; // 英文稍微放慢，方便跟讀
+                }
 
-            synth.speak(utterance);
+                // 綁定事件以解析 Promise
+                utterance.onend = () => resolve();
+                utterance.onerror = (e) => {
+                    console.warn('SpeechSynthesis error:', e);
+                    resolve(); // 發生錯誤也讓它往下走，避免系統卡死
+                };
+
+                synth.speak(utterance);
+            });
         }
 
         // --- UI 更新邏輯 (僅更新文字，不負責翻面與發聲) ---
@@ -533,26 +543,29 @@
 
         async function runSimulationLoop() {
             while (isSimulationActive) {
-                // 1. 確保在正面，更新文字並朗讀
+                // 1. 確保在正面，更新文字
                 if (isFlipped) {
                     cardInner.classList.remove('is-flipped');
                     isFlipped = false;
                 }
                 updateCardTextOnly();
                 
-                // 朗讀正面
-                speakCurrentText(false);
+                // 朗讀正面並等待其播放完畢
+                await speakCurrentText(false);
 
-                // 2. 停等 5 秒
-                const waitedFront = await waitWithCheck(5000);
-                if (!waitedFront) break; // 若在等待中按下停止，則跳出迴圈
+                // 若在等待朗讀期間按下停止，則跳出迴圈
+                if (!isSimulationActive) break;
+
+                // 2. 朗讀完成之後，精確倒數 3 秒供口譯產出
+                const waitedFront = await waitWithCheck(3000);
+                if (!waitedFront) break; 
 
                 // 3. 翻到背面 (不朗讀)
                 cardInner.classList.add('is-flipped');
                 isFlipped = true;
-                speakCurrentText(true); // 傳入 true 強制靜音，僅更新UI狀態
+                await speakCurrentText(true); // 傳入 true 強制靜音，僅更新UI狀態
 
-                // 停等 5 秒
+                // 停等 5 秒讓使用者對答案
                 const waitedBack = await waitWithCheck(5000);
                 if (!waitedBack) break;
 
