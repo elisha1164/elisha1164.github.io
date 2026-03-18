@@ -389,28 +389,27 @@
                 const coverFileName = `cover.${coverExtension}`;
                 oebps.folder("images").file(coverFileName, coverFileData, { binary: true });
                 
-                coverMetaTag = `<meta name="cover" content="cover" />`;
-                coverManifestItem = `<item id="cover" href="images/${coverFileName}" media-type="${coverMimeType}" properties="cover-image"/>`;
-                coverXhtmlItem = `<item id="cover-page" href="cover.xhtml" media-type="application/xhtml+xml"/>`;
-                coverSpineItem = `<itemref idref="cover-page"/>`;
-                coverGuideItem = `<reference type="cover" title="封面" href="cover.xhtml"/>`;
+                // 【封面修復 1】：淨化 ID 為 img-cover，避免與其他關鍵字衝突
+                coverMetaTag = `<meta name="cover" content="img-cover" />`;
+                coverManifestItem = `<item id="img-cover" href="images/${coverFileName}" media-type="${coverMimeType}" properties="cover-image"/>`;
+                coverXhtmlItem = `<item id="page-cover" href="cover.xhtml" media-type="application/xhtml+xml"/>`;
+                coverSpineItem = `<itemref idref="page-cover"/>`;
+                coverGuideItem = `<reference type="cover" title="Cover" href="cover.xhtml"/>`;
 
-                // 【修正】：移除 Kobo RMSDK 不支援的 100vh，改回相容性最高的 @page margin 歸零與 height: auto
+                // 【封面修復 2】：極簡純淨的 HTML 與 CSS，防止 Kobo 引擎因不支援的樣式而渲染失敗
                 const coverXhtmlContent = `<?xml version="1.0" encoding="UTF-8"?>
-<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="zh-TW" xml:lang="zh-TW">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-TW">
 <head>
-    <title>${title} - 封面</title>
+    <title>封面</title>
     <meta charset="utf-8"/>
     <style type="text/css">
-        @page { margin: 0; padding: 0; }
-        body { margin: 0; padding: 0; text-align: center; background-color: #ffffff; }
-        div.cover-wrap { text-align: center; margin: 0; padding: 0; }
-        img { max-width: 100%; height: auto; margin: 0 auto; }
+        body, div { margin: 0; padding: 0; text-align: center; }
+        img { max-width: 100%; height: auto; }
     </style>
 </head>
 <body>
-    <div class="cover-wrap">
-        <img src="images/${coverFileName}" alt="封面" />
+    <div>
+        <img src="images/${coverFileName}" alt="Cover" />
     </div>
 </body>
 </html>`;
@@ -528,8 +527,9 @@
         <dc:creator id="creator">${author}</dc:creator>
         <dc:language>zh-TW</dc:language>
         <dc:identifier id="BookId">${uuid}</dc:identifier>
-        <meta property="dcterms:modified">${currentDate}</meta>
+        <!-- 【封面修復 3】：將封面標籤移至 EPUB3 標籤之上，避免 Kobo 舊解析器提早中斷讀取 -->
         ${coverMetaTag}
+        <meta property="dcterms:modified">${currentDate}</meta>
     </metadata>
     <manifest>
         <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
