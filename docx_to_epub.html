@@ -16,7 +16,7 @@
 <body class="bg-gray-50 min-h-screen flex items-center justify-center p-4 font-sans">
 
     <div class="bg-white rounded-xl shadow-lg p-8 max-w-4xl w-full">
-        <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">Word 轉 EPUB 轉換器 (相容 Kobo Kepub 終極版)</h1>
+        <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">Word 轉 EPUB 轉換器 (純淨標準版)</h1>
         
         <div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6 rounded">
             <div class="flex">
@@ -27,8 +27,8 @@
                     <p class="text-sm text-blue-700 font-medium">排版與使用提示：</p>
                     <ul class="text-sm text-blue-700 list-disc list-inside mt-1">
                         <li>使用 Word 的<strong>「標題 1」</strong>來區隔大章節，系統會自動拆分實體檔案產生完美跳頁。</li>
-                        <li>若要在章節內部換頁，請插入標準的<strong>「分頁符號 (Ctrl+Enter)」</strong>。(系統已能完美攔截並於 Kobo 執行跳頁)</li>
-                        <li>Kobo 玩家強烈建議將下載的檔案副檔名改為 <code>.kepub.epub</code> 以獲得最佳體驗。</li>
+                        <li>若要在章節內部換頁，請插入標準的<strong>「分頁符號 (Ctrl+Enter)」</strong>。系統會轉為合法的 <code>&lt;hr&gt;</code> 標籤強制跳頁。</li>
+                        <li>此版本產出最高相容性的標準 EPUB，請直接將檔案傳入設備，無需更改副檔名。</li>
                     </ul>
                 </div>
             </div>
@@ -151,7 +151,7 @@
             reader.onerror = function() {
                 showStatus('讀取檔案失敗。', 'error');
             };
-            // 改為 readAsArrayBuffer 以便 JSZip 同步預處理
+            // 恢復最單純的 ArrayBuffer 讀取
             reader.readAsArrayBuffer(file);
         });
 
@@ -185,24 +185,14 @@
             let imageCounter = 0;
 
             try {
-                showStatus('正在對 Word 檔進行分頁符號預處理...', 'info');
+                showStatus('正在解析 Word 檔案內容...', 'info');
 
-                // 【修復 1】：強制攔截並保留分頁符號 (繞過 Mammoth 的過濾機制)
-                // 將 Word 檔解開，尋找底層的 <w:br w:type="page"/>，並替換成我們的特殊標記
-                const zip = new JSZip();
-                const loadedZip = await zip.loadAsync(arrayBuffer);
-                
-                if (loadedZip.file("word/document.xml")) {
-                    let docXml = await loadedZip.file("word/document.xml").async("string");
-                    // 尋找 OOXML 的分頁標籤，並安全地插入 ===PAGE_BREAK===
-                    docXml = docXml.replace(/<w:br([^>]*?)w:type=["']page["']([^>]*?)\/?>/gi, '<w:t>===PAGE_BREAK===</w:t>');
-                    loadedZip.file("word/document.xml", docXml);
-                }
-                
-                // 重新將處理過 XML 的檔案包裝回 ArrayBuffer 交給 Mammoth
-                const modifiedArrayBuffer = await loadedZip.generateAsync({type: "arraybuffer"});
-
+                // 徹底拋棄破壞結構的 JSZip 預處理，回歸最標準的 Mammoth 內建轉換法
                 const options = {
+                    styleMap: [
+                        "br[type='page'] => hr.page-break",
+                        "br[type='column'] => hr.page-break"
+                    ],
                     convertImage: mammoth.images.imgElement(function(image) {
                         return image.read("arraybuffer").then(function(imageBuffer) {
                             imageCounter++;
@@ -212,6 +202,7 @@
                             
                             const fileName = `img_${imageCounter}.${ext}`;
                             extractedImages.push({
+                                id: `img_${imageCounter}`,
                                 name: fileName,
                                 buffer: imageBuffer,
                                 mimeType: image.contentType
@@ -221,7 +212,7 @@
                     })
                 };
 
-                const result = await mammoth.convertToHtml({arrayBuffer: modifiedArrayBuffer}, options);
+                const result = await mammoth.convertToHtml({arrayBuffer: arrayBuffer}, options);
                 let rawHtml = result.value; 
 
                 if (rawHtml.trim() === '') {
@@ -229,22 +220,50 @@
                     return;
                 }
 
-                // 將預處理保留下來的分頁標記替換為真實的 XHTML hr 分頁標籤
-                rawHtml = rawHtml.replace(/===PAGE_BREAK===/g, '<hr class="page-break" />');
+                // 【修復 1：完美剝離 <p> 標籤】
+                // Mammoth 預設會把我們轉譯的 hr 包在 p 裡面，造成 HTML 語法錯誤
+                // 第一步：先將產生的 hr 替換成特殊標記
+                rawHtml = rawHtml.replace(/<hr class="page-break"\s*\/?\s*>/gi, '===HR_BREAK===');
+                
+                // 第二步：尋找包住這個標記的 p 標籤，並將它安全切開，把 hr 放在絕對獨立的外面！
+                rawHtml = rawHtml.replace(/<p[^>]*>(.*?)<\/p>/gi, function(match, content) {
+                    if (content.includes('===HR_BREAK===')) {
+                        const parts = content.split('===HR_BREAK===');
+                        let newHtml = '';
+                        for(let i = 0; i < parts.length; i++) {
+                            // 保留原本有內容的文字
+                            if(parts[i].trim() !== '') {
+                                newHtml += `<p>${parts[i]}</p>`;
+                            }
+                            // 插入獨立且合法的區塊級 hr
+                            if(i < parts.length - 1) {
+                                newHtml += `<hr class="page-break" />`;
+                            }
+                        }
+                        return newHtml;
+                    }
+                    return match;
+                });
+                
+                // 處理原本就沒有被 p 包住的落單標記
+                rawHtml = rawHtml.replace(/===HR_BREAK===/g, '<hr class="page-break" />');
+                
+                // 清除切開後可能產生的空段落
+                rawHtml = rawHtml.replace(/<p[^>]*>\s*<\/p>/gi, '');
 
-                // Kobo Kepub 崩潰殺手！清除一切會導致崩潰的書籤標籤
-                // 1. 拆除有包覆文字，但是卻沒有 href (網址) 的無效 <a> 標籤 (Word 經常產生此類書籤)
+                // 清除無效書籤錨點
                 rawHtml = rawHtml.replace(/<a(?![^>]*href=)[^>]*>(.*?)<\/a>/gi, '$1');
-                // 2. 清除完全為空的 <a> 標籤 (<a id="..."></a>)
                 rawHtml = rawHtml.replace(/<a[^>]*>\s*<\/a>/gi, '');
 
-                // 強制修復 XHTML 常見的未閉合標籤
+                // 強制修復 XHTML 常見的未閉合標籤，並確保所有 img 有 alt 屬性
                 rawHtml = rawHtml.replace(/<(img|br|hr)([^>]*?)\/?>/gi, function(match, tag, attrs) {
                     const cleanAttrs = attrs.replace(/\/$/, '').trimRight();
+                    if (tag.toLowerCase() === 'img' && !cleanAttrs.toLowerCase().includes('alt=')) {
+                        return `<${tag}${cleanAttrs ? ' ' + cleanAttrs : ''} alt="" />`;
+                    }
                     return `<${tag}${cleanAttrs ? ' ' + cleanAttrs : ''} />`;
                 });
                 
-                // 確保 &nbsp; 轉為安全的 XML 實體，防止 Kobo Kepub 解析出錯
                 rawHtml = rawHtml.replace(/&nbsp;/g, '&#160;');
                 
                 parsedHtmlContent = rawHtml;
@@ -389,31 +408,34 @@
                 const coverFileName = `cover.${coverExtension}`;
                 oebps.folder("images").file(coverFileName, coverFileData, { binary: true });
                 
-                // 【封面修復 1】：淨化 ID 為 img-cover，避免與其他關鍵字衝突
-                coverMetaTag = `<meta name="cover" content="img-cover" />`;
-                coverManifestItem = `<item id="img-cover" href="images/${coverFileName}" media-type="${coverMimeType}" properties="cover-image"/>`;
-                coverXhtmlItem = `<item id="page-cover" href="cover.xhtml" media-type="application/xhtml+xml"/>`;
-                coverSpineItem = `<itemref idref="page-cover"/>`;
-                coverGuideItem = `<reference type="cover" title="Cover" href="cover.xhtml"/>`;
+                // 【封面終極修復】：徹底對齊 Calibre 業界標準的命名法 (解決縮圖消失的根本原因)
+                // 1. 圖片的 ID 必須嚴格為 "cover"
+                // 2. 封面的 HTML 頁面必須命名為 "titlepage"
+                coverMetaTag = `<meta name="cover" content="cover" />`;
+                coverManifestItem = `<item id="cover" href="images/${coverFileName}" media-type="${coverMimeType}" properties="cover-image"/>`;
+                coverXhtmlItem = `<item id="titlepage" href="titlepage.xhtml" media-type="application/xhtml+xml"/>`;
+                coverSpineItem = `<itemref idref="titlepage"/>`;
+                coverGuideItem = `<reference type="cover" title="封面" href="titlepage.xhtml"/>`;
 
-                // 【封面修復 2】：極簡純淨的 HTML 與 CSS，防止 Kobo 引擎因不支援的樣式而渲染失敗
                 const coverXhtmlContent = `<?xml version="1.0" encoding="UTF-8"?>
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-TW">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="zh-TW" xml:lang="zh-TW">
 <head>
-    <title>封面</title>
+    <title>${title} - 封面</title>
     <meta charset="utf-8"/>
     <style type="text/css">
-        body, div { margin: 0; padding: 0; text-align: center; }
-        img { max-width: 100%; height: auto; }
+        @page { margin: 0; padding: 0; }
+        body { margin: 0; padding: 0; text-align: center; }
+        div.cover-wrap { text-align: center; margin: 0; padding: 0; }
+        img { max-width: 100%; height: auto; margin: 0 auto; }
     </style>
 </head>
 <body>
-    <div>
-        <img src="images/${coverFileName}" alt="Cover" />
+    <div class="cover-wrap">
+        <img src="images/${coverFileName}" alt="封面" />
     </div>
 </body>
 </html>`;
-                oebps.file("cover.xhtml", coverXhtmlContent);
+                oebps.file("titlepage.xhtml", coverXhtmlContent);
             }
 
             extractedChapters.forEach(ch => {
@@ -436,6 +458,7 @@
             padding: 0;
             height: 0;
             visibility: hidden;
+            display: block;
         }
     </style>
 </head>
@@ -516,25 +539,25 @@
 
             const currentDate = new Date().toISOString().split('.')[0] + 'Z';
 
-            const manifestImages = extractedImages.map(img => `<item id="${img.name}" href="images/${img.name}" media-type="${img.mimeType}"/>`).join('\n        ');
+            const manifestImages = extractedImages.map(img => `<item id="${img.id || img.name.replace(/\./g, '_')}" href="images/${img.name}" media-type="${img.mimeType}"/>`).join('\n        ');
             const manifestChapters = extractedChapters.map(ch => `<item id="${ch.id}" href="${ch.id}.xhtml" media-type="application/xhtml+xml"/>`).join('\n        ');
             const spineChapters = extractedChapters.map(ch => `<itemref idref="${ch.id}"/>`).join('\n        ');
 
             oebps.file("content.opf", `<?xml version="1.0" encoding="UTF-8"?>
-<package xmlns="http://www.idpf.org/2007/opf" unique-identifier="BookId" version="3.0">
-    <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
+<package xmlns="http://www.idpf.org/2007/opf" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" unique-identifier="BookId" version="3.0">
+    <metadata>
         <dc:title>${title}</dc:title>
         <dc:creator id="creator">${author}</dc:creator>
         <dc:language>zh-TW</dc:language>
         <dc:identifier id="BookId">${uuid}</dc:identifier>
-        <!-- 【封面修復 3】：將封面標籤移至 EPUB3 標籤之上，避免 Kobo 舊解析器提早中斷讀取 -->
         ${coverMetaTag}
         <meta property="dcterms:modified">${currentDate}</meta>
     </metadata>
     <manifest>
+        ${coverManifestItem}
         <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
         <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
-        ${coverManifestItem}
+        ${coverXhtmlItem}
         ${manifestImages}
         ${manifestChapters}
     </manifest>
