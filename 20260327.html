@@ -306,7 +306,7 @@
         const replayBtn = document.getElementById('replay-btn');
         const simBtn = document.getElementById('sim-btn');
 
-        // --- 語音初始化 (尋找最佳語音，加入 Edge 雲端語音評分機制) ---
+        // --- 語音初始化 (尋找最佳語音，加入 Edge 雲端語音評分機制與男性語音優先) ---
         function loadVoices() {
             voices = synth.getVoices();
         }
@@ -333,13 +333,19 @@
                 let score = 0;
                 const name = v.name.toLowerCase();
 
+                // 基礎品質評分
                 if (name.includes('natural') || name.includes('online')) score += 10;
                 else if (name.includes('google')) score += 8;
                 else if (name.includes('siri')) score += 7;
                 else if (name.includes('premium') || name.includes('enhanced')) score += 6;
-                else if (name.includes('hsiaochen') || name.includes('hsiaoyu')) score += 5;
-                else if (name.includes('mei-jia') || name.includes('ting-ting')) score += 4;
                 
+                // 新增：男性語音優先 (因為講者 Michael 是男性)
+                if (name.includes('male') && !name.includes('female')) score += 15; // 標註為男性的語音
+                if (name.includes('yunjian') || name.includes('guy') || name.includes('christopher') || name.includes('eric') || name.includes('brian') || name.includes('aaron') || name.includes('daniel')) score += 15; // 常見的高品質男聲 (如 微軟YunJian雲健, Guy, Christopher等)
+                
+                // 扣分機制：女性語音或老舊單機版語音
+                if (name.includes('female') || name.includes('girl') || name.includes('woman')) score -= 10;
+                if (name.includes('hsiaochen') || name.includes('hsiaoyu') || name.includes('zira') || name.includes('aria') || name.includes('jenny')) score -= 10; // 扣除常見女聲權重
                 if (name.includes('desktop')) score -= 5;
 
                 if (score > highestScore) {
@@ -611,3 +617,4 @@
     </script>
 </body>
 </html>
+```eof
