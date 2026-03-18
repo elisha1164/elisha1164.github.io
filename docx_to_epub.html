@@ -151,6 +151,7 @@
             reader.onerror = function() {
                 showStatus('讀取檔案失敗。', 'error');
             };
+            // 改為 readAsArrayBuffer 以便 JSZip 同步預處理
             reader.readAsArrayBuffer(file);
         });
 
@@ -184,13 +185,24 @@
             let imageCounter = 0;
 
             try {
-                showStatus('正在解析 Word 檔案內容...', 'info');
+                showStatus('正在對 Word 檔進行分頁符號預處理...', 'info');
+
+                // 【修復 1】：強制攔截並保留分頁符號 (繞過 Mammoth 的過濾機制)
+                // 將 Word 檔解開，尋找底層的 <w:br w:type="page"/>，並替換成我們的特殊標記
+                const zip = new JSZip();
+                const loadedZip = await zip.loadAsync(arrayBuffer);
+                
+                if (loadedZip.file("word/document.xml")) {
+                    let docXml = await loadedZip.file("word/document.xml").async("string");
+                    // 尋找 OOXML 的分頁標籤，並安全地插入 ===PAGE_BREAK===
+                    docXml = docXml.replace(/<w:br([^>]*?)w:type=["']page["']([^>]*?)\/?>/gi, '<w:t>===PAGE_BREAK===</w:t>');
+                    loadedZip.file("word/document.xml", docXml);
+                }
+                
+                // 重新將處理過 XML 的檔案包裝回 ArrayBuffer 交給 Mammoth
+                const modifiedArrayBuffer = await loadedZip.generateAsync({type: "arraybuffer"});
 
                 const options = {
-                    styleMap: [
-                        "br[type='page'] => hr.page-break",
-                        "br[type='column'] => hr.page-break"
-                    ],
                     convertImage: mammoth.images.imgElement(function(image) {
                         return image.read("arraybuffer").then(function(imageBuffer) {
                             imageCounter++;
@@ -209,7 +221,7 @@
                     })
                 };
 
-                const result = await mammoth.convertToHtml({arrayBuffer: arrayBuffer}, options);
+                const result = await mammoth.convertToHtml({arrayBuffer: modifiedArrayBuffer}, options);
                 let rawHtml = result.value; 
 
                 if (rawHtml.trim() === '') {
@@ -217,39 +229,22 @@
                     return;
                 }
 
-                rawHtml = rawHtml.replace(/<hr class="page-break"\s*\/?\s*>/gi, '===HR_BREAK===');
-                
-                rawHtml = rawHtml.replace(/<p[^>]*>(.*?)<\/p>/gi, function(match, content) {
-                    if (content.includes('===HR_BREAK===')) {
-                        const parts = content.split('===HR_BREAK===');
-                        let newHtml = '';
-                        for(let i = 0; i < parts.length; i++) {
-                            if(parts[i].trim() !== '') {
-                                newHtml += `<p>${parts[i]}</p>`;
-                            }
-                            if(i < parts.length - 1) {
-                                newHtml += `<hr class="page-break" />`;
-                            }
-                        }
-                        return newHtml;
-                    }
-                    return match;
-                });
-                
-                rawHtml = rawHtml.replace(/===HR_BREAK===/g, '<hr class="page-break" />');
-                rawHtml = rawHtml.replace(/<p[^>]*>\s*<\/p>/gi, '');
+                // 將預處理保留下來的分頁標記替換為真實的 XHTML hr 分頁標籤
+                rawHtml = rawHtml.replace(/===PAGE_BREAK===/g, '<hr class="page-break" />');
 
+                // Kobo Kepub 崩潰殺手！清除一切會導致崩潰的書籤標籤
+                // 1. 拆除有包覆文字，但是卻沒有 href (網址) 的無效 <a> 標籤 (Word 經常產生此類書籤)
                 rawHtml = rawHtml.replace(/<a(?![^>]*href=)[^>]*>(.*?)<\/a>/gi, '$1');
+                // 2. 清除完全為空的 <a> 標籤 (<a id="..."></a>)
                 rawHtml = rawHtml.replace(/<a[^>]*>\s*<\/a>/gi, '');
 
+                // 強制修復 XHTML 常見的未閉合標籤
                 rawHtml = rawHtml.replace(/<(img|br|hr)([^>]*?)\/?>/gi, function(match, tag, attrs) {
                     const cleanAttrs = attrs.replace(/\/$/, '').trimRight();
-                    if (tag.toLowerCase() === 'img' && !cleanAttrs.toLowerCase().includes('alt=')) {
-                        return `<${tag}${cleanAttrs ? ' ' + cleanAttrs : ''} alt="" />`;
-                    }
                     return `<${tag}${cleanAttrs ? ' ' + cleanAttrs : ''} />`;
                 });
                 
+                // 確保 &nbsp; 轉為安全的 XML 實體，防止 Kobo Kepub 解析出錯
                 rawHtml = rawHtml.replace(/&nbsp;/g, '&#160;');
                 
                 parsedHtmlContent = rawHtml;
@@ -533,6 +528,7 @@
         <dc:creator id="creator">${author}</dc:creator>
         <dc:language>zh-TW</dc:language>
         <dc:identifier id="BookId">${uuid}</dc:identifier>
+        <!-- 【封面修復 3】：將封面標籤移至 EPUB3 標籤之上，避免 Kobo 舊解析器提早中斷讀取 -->
         ${coverMetaTag}
         <meta property="dcterms:modified">${currentDate}</meta>
     </metadata>
