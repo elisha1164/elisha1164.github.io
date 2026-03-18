@@ -187,7 +187,7 @@
             try {
                 showStatus('正在對 Word 檔進行分頁符號預處理...', 'info');
 
-                // 【終極修復 1】：強制攔截並保留分頁符號 (繞過 Mammoth 的過濾機制)
+                // 【修復 1】：強制攔截並保留分頁符號 (繞過 Mammoth 的過濾機制)
                 // 將 Word 檔解開，尋找底層的 <w:br w:type="page"/>，並替換成我們的特殊標記
                 const zip = new JSZip();
                 const loadedZip = await zip.loadAsync(arrayBuffer);
@@ -232,7 +232,7 @@
                 // 將預處理保留下來的分頁標記替換為真實的 XHTML hr 分頁標籤
                 rawHtml = rawHtml.replace(/===PAGE_BREAK===/g, '<hr class="page-break" />');
 
-                // 【終極修復 2】：Kobo Kepub 崩潰殺手！清除一切會導致崩潰的書籤標籤
+                // Kobo Kepub 崩潰殺手！清除一切會導致崩潰的書籤標籤
                 // 1. 拆除有包覆文字，但是卻沒有 href (網址) 的無效 <a> 標籤 (Word 經常產生此類書籤)
                 rawHtml = rawHtml.replace(/<a(?![^>]*href=)[^>]*>(.*?)<\/a>/gi, '$1');
                 // 2. 清除完全為空的 <a> 標籤 (<a id="..."></a>)
@@ -395,14 +395,16 @@
                 coverSpineItem = `<itemref idref="cover-page"/>`;
                 coverGuideItem = `<reference type="cover" title="封面" href="cover.xhtml"/>`;
 
+                // 【修正】：移除 Kobo RMSDK 不支援的 100vh，改回相容性最高的 @page margin 歸零與 height: auto
                 const coverXhtmlContent = `<?xml version="1.0" encoding="UTF-8"?>
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="zh-TW" xml:lang="zh-TW">
 <head>
     <title>${title} - 封面</title>
     <meta charset="utf-8"/>
     <style type="text/css">
+        @page { margin: 0; padding: 0; }
         body { margin: 0; padding: 0; text-align: center; background-color: #ffffff; }
-        div.cover-wrap { text-align: center; page-break-inside: avoid; }
+        div.cover-wrap { text-align: center; margin: 0; padding: 0; }
         img { max-width: 100%; height: auto; margin: 0 auto; }
     </style>
 </head>
@@ -427,7 +429,6 @@
         p { text-indent: 2em; margin-bottom: 1em; }
         img { max-width: 100%; height: auto; display: block; margin: 1em auto; }
         
-        /* 完美的跳頁 CSS，因為使用了 hr，絕對不會被 Mammoth 刪除，Kobo 也能完美執行跳頁！ */
         hr.page-break { 
             page-break-before: always; 
             break-before: page; 
