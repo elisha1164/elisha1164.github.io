@@ -16,7 +16,7 @@
 <body class="bg-gray-50 min-h-screen flex items-center justify-center p-4 font-sans">
 
     <div class="bg-white rounded-xl shadow-lg p-8 max-w-4xl w-full">
-        <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">Word 轉 EPUB 轉換器 (純淨標準版)</h1>
+        <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">Word 轉 EPUB 轉換器 (純淨標準滿版封面)</h1>
         
         <div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6 rounded">
             <div class="flex">
@@ -26,8 +26,8 @@
                 <div class="ml-3">
                     <p class="text-sm text-blue-700 font-medium">排版與使用提示：</p>
                     <ul class="text-sm text-blue-700 list-disc list-inside mt-1">
-                        <li>使用 Word 的<strong>「標題 1」</strong>來區隔大章節，系統會自動拆分實體檔案產生完美跳頁。</li>
-                        <li>若要在章節內部換頁，請插入標準的<strong>「分頁符號 (Ctrl+Enter)」</strong>。系統會轉為合法的 <code>&lt;hr&gt;</code> 標籤強制跳頁。</li>
+                        <li>使用 Word 的<strong>「標題 1」</strong>來區隔大章節，系統會自動拆分實體檔案產生跳頁。</li>
+                        <li>若要在章節內部換頁，請插入標準的<strong>「分頁符號 (Ctrl+Enter)」</strong>。系統會實體切割檔案，保證 100% 絕對跳頁且不吃字。</li>
                         <li>此版本產出最高相容性的標準 EPUB，請直接將檔案傳入設備，無需更改副檔名。</li>
                     </ul>
                 </div>
@@ -151,7 +151,6 @@
             reader.onerror = function() {
                 showStatus('讀取檔案失敗。', 'error');
             };
-            // 恢復最單純的 ArrayBuffer 讀取
             reader.readAsArrayBuffer(file);
         });
 
@@ -187,11 +186,12 @@
             try {
                 showStatus('正在解析 Word 檔案內容...', 'info');
 
-                // 徹底拋棄破壞結構的 JSZip 預處理，回歸最標準的 Mammoth 內建轉換法
                 const options = {
+                    // 將分頁符號轉為具有特殊 class 的 p 標籤，這樣 Mammoth 就不會產生 HTML 語法錯誤
+                    // 後續我們會用這個 p 標籤進行 100% 絕對安全的「實體檔案切割」
                     styleMap: [
-                        "br[type='page'] => hr.page-break",
-                        "br[type='column'] => hr.page-break"
+                        "br[type='page'] => p.page-break",
+                        "br[type='column'] => p.page-break"
                     ],
                     convertImage: mammoth.images.imgElement(function(image) {
                         return image.read("arraybuffer").then(function(imageBuffer) {
@@ -220,42 +220,17 @@
                     return;
                 }
 
-                // 【修復 1：完美剝離 <p> 標籤】
-                // Mammoth 預設會把我們轉譯的 hr 包在 p 裡面，造成 HTML 語法錯誤
-                // 第一步：先將產生的 hr 替換成特殊標記
-                rawHtml = rawHtml.replace(/<hr class="page-break"\s*\/?\s*>/gi, '===HR_BREAK===');
-                
-                // 第二步：尋找包住這個標記的 p 標籤，並將它安全切開，把 hr 放在絕對獨立的外面！
-                rawHtml = rawHtml.replace(/<p[^>]*>(.*?)<\/p>/gi, function(match, content) {
-                    if (content.includes('===HR_BREAK===')) {
-                        const parts = content.split('===HR_BREAK===');
-                        let newHtml = '';
-                        for(let i = 0; i < parts.length; i++) {
-                            // 保留原本有內容的文字
-                            if(parts[i].trim() !== '') {
-                                newHtml += `<p>${parts[i]}</p>`;
-                            }
-                            // 插入獨立且合法的區塊級 hr
-                            if(i < parts.length - 1) {
-                                newHtml += `<hr class="page-break" />`;
-                            }
-                        }
-                        return newHtml;
-                    }
-                    return match;
-                });
-                
-                // 處理原本就沒有被 p 包住的落單標記
-                rawHtml = rawHtml.replace(/===HR_BREAK===/g, '<hr class="page-break" />');
-                
-                // 清除切開後可能產生的空段落
-                rawHtml = rawHtml.replace(/<p[^>]*>\s*<\/p>/gi, '');
+                // 將 Mammoth 吐出來的分頁標籤，替換成純文字的切斷點
+                // 這樣做絕對不會破壞原本的 <p> 結構，徹底根絕內文消失的問題
+                rawHtml = rawHtml.replace(/<p class="page-break"><\/p>/gi, '===PAGE_BREAK===');
+                // 處理可能包含空格的防呆
+                rawHtml = rawHtml.replace(/<p class="page-break">(?:&#160;|&nbsp;|\s)*<\/p>/gi, '===PAGE_BREAK===');
 
                 // 清除無效書籤錨點
                 rawHtml = rawHtml.replace(/<a(?![^>]*href=)[^>]*>(.*?)<\/a>/gi, '$1');
                 rawHtml = rawHtml.replace(/<a[^>]*>\s*<\/a>/gi, '');
 
-                // 強制修復 XHTML 常見的未閉合標籤，並確保所有 img 有 alt 屬性
+                // 強制修復 XHTML 常見的未閉合標籤，並確保 img 有 alt
                 rawHtml = rawHtml.replace(/<(img|br|hr)([^>]*?)\/?>/gi, function(match, tag, attrs) {
                     const cleanAttrs = attrs.replace(/\/$/, '').trimRight();
                     if (tag.toLowerCase() === 'img' && !cleanAttrs.toLowerCase().includes('alt=')) {
@@ -291,38 +266,54 @@
                 if (!chunkHtml || chunkHtml.trim() === '') return;
 
                 const chapterId = `chapter_${chapterCounter}`;
-                let subItems = [];
+                // 【完美分頁的終極手術】：用剛才插入的 PAGE_BREAK 切割實體檔案！
+                const pagesHtml = chunkHtml.split('===PAGE_BREAK===');
+                const pages = [];
+                let allSubItems = [];
                 let subCounter = 0;
 
-                const headingRegex = /<(h[2-6])([^>]*)>(.*?)<\/\1>/gi;
-                const processedHtml = chunkHtml.replace(headingRegex, (fullMatch, tagName, attrs, content) => {
-                    const level = parseInt(tagName.substring(1));
+                pagesHtml.forEach((pageHtml, pageIndex) => {
+                    if (pageHtml.trim() === '') return;
+                    const pageId = `${chapterId}_${pageIndex}`;
                     
-                    if (level <= maxDepth) {
-                        subCounter++;
-                        const headingId = `sec_${chapterCounter}_${subCounter}`;
-                        const safeTitle = getSafeXml(content);
+                    const headingRegex = /<(h[2-6])([^>]*)>(.*?)<\/\1>/gi;
+                    const processedHtml = pageHtml.replace(headingRegex, (fullMatch, tagName, attrs, content) => {
+                        const level = parseInt(tagName.substring(1));
                         
-                        subItems.push({
-                            id: headingId,
-                            title: safeTitle || `無標題`,
-                            level: level
-                        });
-                        
-                        const cleanAttrs = attrs ? attrs.replace(/\s*id\s*=\s*['"][^'"]*['"]/gi, '') : '';
-                        const safeAttrs = cleanAttrs ? ` ${cleanAttrs.trim()}` : '';
-                        
-                        return `<${tagName} id="${headingId}"${safeAttrs}>${content}</${tagName}>`;
-                    }
-                    return fullMatch;
+                        if (level <= maxDepth) {
+                            subCounter++;
+                            const headingId = `sec_${chapterCounter}_${pageIndex}_${subCounter}`;
+                            const safeTitle = getSafeXml(content);
+                            
+                            allSubItems.push({
+                                id: headingId,
+                                title: safeTitle || `無標題`,
+                                level: level,
+                                fileId: pageId // 準確記錄這個次標題落在哪個切割後的實體檔案
+                            });
+                            
+                            const cleanAttrs = attrs ? attrs.replace(/\s*id\s*=\s*['"][^'"]*['"]/gi, '') : '';
+                            const safeAttrs = cleanAttrs ? ` ${cleanAttrs.trim()}` : '';
+                            
+                            return `<${tagName} id="${headingId}"${safeAttrs}>${content}</${tagName}>`;
+                        }
+                        return fullMatch;
+                    });
+                    
+                    pages.push({ id: pageId, content: processedHtml });
                 });
 
+                if (pages.length === 0) return;
+
                 if (isFirstPart && chapters.length === 0) {
-                    chapters.push({ id: 'chapter_0', title: '前言', content: processedHtml, subItems: subItems });
+                    chapters.push({ id: chapterId, title: '前言', pages: pages, subItems: allSubItems });
                 } else if (isFirstPart) {
-                    chapters[chapters.length - 1].content += processedHtml;
+                    // 如果是落在 H1 之前的文字，附加到上一章
+                    const lastCh = chapters[chapters.length - 1];
+                    lastCh.pages.push(...pages);
+                    lastCh.subItems.push(...allSubItems);
                 } else {
-                    chapters.push({ id: chapterId, title: titleText, content: processedHtml, subItems: subItems });
+                    chapters.push({ id: chapterId, title: titleText, pages: pages, subItems: allSubItems });
                 }
             };
 
@@ -408,30 +399,32 @@
                 const coverFileName = `cover.${coverExtension}`;
                 oebps.folder("images").file(coverFileName, coverFileData, { binary: true });
                 
-                // 【封面終極修復】：徹底對齊 Calibre 業界標準的命名法 (解決縮圖消失的根本原因)
-                // 1. 圖片的 ID 必須嚴格為 "cover"
-                // 2. 封面的 HTML 頁面必須命名為 "titlepage"
+                // 【封面終極滿版修復】：全面採納 Calibre 的完美標準
+                // 1. 強制 ID 為 cover，保證各大閱讀器 100% 認得縮圖
                 coverMetaTag = `<meta name="cover" content="cover" />`;
                 coverManifestItem = `<item id="cover" href="images/${coverFileName}" media-type="${coverMimeType}" properties="cover-image"/>`;
-                coverXhtmlItem = `<item id="titlepage" href="titlepage.xhtml" media-type="application/xhtml+xml"/>`;
+                
+                // 2. 必須加上 properties="svg"，宣告這是一頁含有 SVG 滿版包裝的 XHTML
+                coverXhtmlItem = `<item id="titlepage" href="titlepage.xhtml" media-type="application/xhtml+xml" properties="svg"/>`;
                 coverSpineItem = `<itemref idref="titlepage"/>`;
                 coverGuideItem = `<reference type="cover" title="封面" href="titlepage.xhtml"/>`;
 
+                // 3. 使用 viewBox 滿版自動縮放包裝，解決高度只有 50% 的問題
                 const coverXhtmlContent = `<?xml version="1.0" encoding="UTF-8"?>
-<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="zh-TW" xml:lang="zh-TW">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="zh-TW">
 <head>
     <title>${title} - 封面</title>
     <meta charset="utf-8"/>
     <style type="text/css">
-        @page { margin: 0; padding: 0; }
-        body { margin: 0; padding: 0; text-align: center; }
-        div.cover-wrap { text-align: center; margin: 0; padding: 0; }
-        img { max-width: 100%; height: auto; margin: 0 auto; }
+        @page { padding: 0; margin: 0; }
+        body { text-align: center; padding: 0; margin: 0; }
     </style>
 </head>
 <body>
-    <div class="cover-wrap">
-        <img src="images/${coverFileName}" alt="封面" />
+    <div>
+        <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" height="100%" width="100%" version="1.1" preserveAspectRatio="xMidYMid meet" viewBox="0 0 1000 1500">
+            <image width="1000" height="1500" xlink:href="images/${coverFileName}" />
+        </svg>
     </div>
 </body>
 </html>`;
@@ -439,7 +432,8 @@
             }
 
             extractedChapters.forEach(ch => {
-                const xhtmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+                ch.pages.forEach((page) => {
+                    const xhtmlContent = `<?xml version="1.0" encoding="UTF-8"?>
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="zh-TW" xml:lang="zh-TW">
 <head>
     <title>${ch.title}</title>
@@ -449,35 +443,25 @@
         h1, h2, h3, h4, h5, h6 { color: #333; margin-top: 1.5em; margin-bottom: 0.5em; }
         p { text-indent: 2em; margin-bottom: 1em; }
         img { max-width: 100%; height: auto; display: block; margin: 1em auto; }
-        
-        hr.page-break { 
-            page-break-before: always; 
-            break-before: page; 
-            border: none;
-            margin: 0;
-            padding: 0;
-            height: 0;
-            visibility: hidden;
-            display: block;
-        }
     </style>
 </head>
 <body>
-    ${ch.content}
+    ${page.content}
 </body>
 </html>`;
-                oebps.file(`${ch.id}.xhtml`, xhtmlContent);
+                    oebps.file(`${page.id}.xhtml`, xhtmlContent);
+                });
             });
 
+            // 建立導覽頁 (nav.xhtml)
             const navLiItems = extractedChapters.map(ch => {
-                let html = `<li><a href="${ch.id}.xhtml">${ch.title}</a>`;
-                
+                let html = `<li><a href="${ch.pages[0].id}.xhtml">${ch.title}</a>`;
                 if (ch.subItems && ch.subItems.length > 0) {
                     html += `\n                <ol>`;
                     ch.subItems.forEach(sub => {
                         const marginLeft = (sub.level - 2) * 1.5; 
                         const styleStr = marginLeft > 0 ? ` style="margin-left: ${marginLeft}em;"` : '';
-                        html += `\n                    <li${styleStr}><a href="${ch.id}.xhtml#${sub.id}">${sub.title}</a></li>`;
+                        html += `\n                    <li${styleStr}><a href="${sub.fileId}.xhtml#${sub.id}">${sub.title}</a></li>`;
                     });
                     html += `\n                </ol>\n            `;
                 }
@@ -505,7 +489,7 @@
                 ncxNavPoints += `
         <navPoint id="navPoint-${playOrder}" playOrder="${playOrder}">
             <navLabel><text>${ch.title}</text></navLabel>
-            <content src="${ch.id}.xhtml"/>`;
+            <content src="${ch.pages[0].id}.xhtml"/>`;
                 playOrder++;
 
                 if (ch.subItems && ch.subItems.length > 0) {
@@ -513,7 +497,7 @@
                         ncxNavPoints += `
             <navPoint id="navPoint-${playOrder}" playOrder="${playOrder}">
                 <navLabel><text>${sub.title}</text></navLabel>
-                <content src="${ch.id}.xhtml#${sub.id}"/>
+                <content src="${sub.fileId}.xhtml#${sub.id}"/>
             </navPoint>`;
                         playOrder++;
                     });
@@ -540,9 +524,14 @@
             const currentDate = new Date().toISOString().split('.')[0] + 'Z';
 
             const manifestImages = extractedImages.map(img => `<item id="${img.id || img.name.replace(/\./g, '_')}" href="images/${img.name}" media-type="${img.mimeType}"/>`).join('\n        ');
-            const manifestChapters = extractedChapters.map(ch => `<item id="${ch.id}" href="${ch.id}.xhtml" media-type="application/xhtml+xml"/>`).join('\n        ');
-            const spineChapters = extractedChapters.map(ch => `<itemref idref="${ch.id}"/>`).join('\n        ');
+            const manifestChapters = extractedChapters.flatMap(ch => 
+                ch.pages.map(page => `<item id="${page.id}" href="${page.id}.xhtml" media-type="application/xhtml+xml"/>`)
+            ).join('\n        ');
+            const spineChapters = extractedChapters.flatMap(ch => 
+                ch.pages.map(page => `<itemref idref="${page.id}"/>`)
+            ).join('\n        ');
 
+            // OPF 中繼資料設定，強制確保 coverMetaTag 排在最前面，防止死板舊引擎出錯
             oebps.file("content.opf", `<?xml version="1.0" encoding="UTF-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" unique-identifier="BookId" version="3.0">
     <metadata>
