@@ -28,7 +28,7 @@
                     <ul class="text-sm text-blue-700 list-disc list-inside mt-1">
                         <li>使用 Word 的<strong>「標題 1」</strong>來區隔大章節，系統會自動拆分實體檔案，產生流暢的跳頁體驗。</li>
                         <li>若要在章節內部換頁，請插入標準的<strong>「分頁符號 (Ctrl+Enter)」</strong>，系統會自動轉換為相容性最高的跳頁標籤。</li>
-                        <li>此版本產出業界相容性極高的標準 EPUB，<strong>請直接將檔案傳入設備即可，無需更改副檔名</strong>。</li>
+                        <li>此版本產出業界相容性極高的標準 EPUB，且<strong>支援原生彈出式註腳</strong>，請直接將檔案傳入設備即可，無需更改副檔名。</li>
                     </ul>
                 </div>
             </div>
@@ -114,6 +114,7 @@
         let coverExtension = '';
         let extractedImages = []; 
         let extractedChapters = []; 
+        let extractedFootnotesHtml = ''; // 儲存獨立抽離的註腳內容
 
         function getSafeXml(text) {
             if (!text) return '未命名';
@@ -182,13 +183,13 @@
 
         async function parseWordDoc(arrayBuffer) {
             extractedImages = [];
+            extractedFootnotesHtml = ''; // 重置註腳內容
             let imageCounter = 0;
 
             try {
                 showStatus('正在對 Word 檔進行分頁符號預處理...', 'info');
 
                 // 預處理：強制攔截並保留分頁符號 (繞過 Mammoth 的過濾機制)
-                // 將 Word 檔解開，尋找底層的 <w:br w:type="page"/>，並替換成特定的純文字標記
                 const zip = new JSZip();
                 const loadedZip = await zip.loadAsync(arrayBuffer);
                 
@@ -232,10 +233,34 @@
                 // 將預處理保留下來的分頁標記替換為真實的 XHTML hr 分頁標籤
                 rawHtml = rawHtml.replace(/===PAGE_BREAK===/g, '<hr class="page-break" />');
 
-                // 淨化 HTML：清除無效的書籤錨點，避免部分閱讀器解析錯誤
-                // 1. 拆除有包覆文字，但是卻沒有 href (網址) 的無效 <a> 標籤 (Word 經常產生此類書籤)
+                // -----------------------------------------------------------
+                // 【新增功能】：處理彈出式註腳 (Pop-up Footnotes)
+                // -----------------------------------------------------------
+                
+                // 1. 抽取所有註腳內容，轉換為 EPUB 3 的 <aside epub:type="footnote">
+                // 使用非貪婪比對安全地從 HTML 尾部把註腳「挖」出來，準備獨立成檔
+                rawHtml = rawHtml.replace(/<li\s+id="(footnote-[^"]+)"[^>]*>([\s\S]*?)<\/li>/gi, function(match, id, content) {
+                    // 移除 Mammoth 自動生成的返回箭頭 (↑)，因為彈出視窗不需要返回鍵
+                    let cleanContent = content.replace(/<a\s+href="#footnote-ref-[^"]+"[^>]*>.*?<\/a>/gi, '');
+                    extractedFootnotesHtml += `<aside epub:type="footnote" id="${id}" class="footnote-aside">\n${cleanContent}\n</aside>\n`;
+                    return ''; // 將原註腳從內文中徹底抽離
+                });
+
+                // 2. 移除被抽空註腳後，遺留下來的空 <ol> 標籤，保持結構乾淨
+                rawHtml = rawHtml.replace(/<ol[^>]*>\s*<\/ol>/gi, '');
+
+                // 3. 修改內文中的註腳連結，加上 epub:type="noteref" 並精準指向獨立的註腳檔案
+                // 由於 Mammoth 會確保 href 裡的 id 是獨一無二的，所以即使 Word 每節重新編號，也絕對不會跳錯！
+                rawHtml = rawHtml.replace(/<a\s+href="#(footnote-[^"]+)"([^>]*)>(.*?)<\/a>/gi, function(match, targetId, attrs, content) {
+                    return `<a href="footnotes.xhtml#${targetId}"${attrs} epub:type="noteref" class="footnote-link">${content}</a>`;
+                });
+
+                // -----------------------------------------------------------
+                // HTML 淨化階段
+                // -----------------------------------------------------------
+
+                // 清除無效的書籤錨點，避免部分閱讀器解析錯誤
                 rawHtml = rawHtml.replace(/<a(?![^>]*href=)[^>]*>(.*?)<\/a>/gi, '$1');
-                // 2. 清除完全為空的 <a> 標籤 (<a id="..."></a>)
                 rawHtml = rawHtml.replace(/<a[^>]*>\s*<\/a>/gi, '');
 
                 // 強制修復 XHTML 常見的未閉合標籤
@@ -380,6 +405,9 @@
             let coverSpineItem = '';
             let coverMetaTag = '';
             let coverGuideItem = ''; 
+            
+            let footnotesManifestItem = '';
+            let footnotesSpineItem = '';
 
             extractedImages.forEach(img => {
                 oebps.folder("images").file(img.name, img.buffer, { binary: true });
@@ -389,7 +417,7 @@
                 const coverFileName = `cover.${coverExtension}`;
                 oebps.folder("images").file(coverFileName, coverFileData, { binary: true });
                 
-                // 採用業界標準的封面命名與 SVG 滿版包裝，確保各大閱讀器皆能成功辨識封面與縮圖
+                // 採用 Calibre 業界標準的封面命名與 SVG 滿版包裝
                 coverMetaTag = `<meta name="cover" content="cover" />`;
                 coverManifestItem = `<item id="cover" href="images/${coverFileName}" media-type="${coverMimeType}" properties="cover-image"/>`;
                 coverXhtmlItem = `<item id="titlepage" href="titlepage.xhtml" media-type="application/xhtml+xml" properties="svg"/>`;
@@ -417,6 +445,30 @@
                 oebps.file("titlepage.xhtml", coverXhtmlContent);
             }
 
+            // 【新增】：生成獨立的註腳 XHTML 實體檔案
+            if (extractedFootnotesHtml.trim() !== '') {
+                const footnotesXhtmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="zh-TW">
+<head>
+    <title>${title} - 註腳</title>
+    <meta charset="utf-8"/>
+    <style type="text/css">
+        body { font-family: sans-serif; line-height: 1.6; margin: 5%; text-align: justify; }
+        .footnote-aside { margin-bottom: 1.5em; padding: 1em; border-top: 1px solid #ddd; font-size: 0.9em; }
+    </style>
+</head>
+<body>
+    <h2 style="color: #333; margin-bottom: 1em;">註腳與附註</h2>
+    ${extractedFootnotesHtml}
+</body>
+</html>`;
+                oebps.file("footnotes.xhtml", footnotesXhtmlContent);
+
+                footnotesManifestItem = `<item id="footnotes" href="footnotes.xhtml" media-type="application/xhtml+xml"/>`;
+                // 標記 linear="no" 確保這個檔案不會出現在讀者正常翻頁的順序中，純粹作為彈出視窗的資料庫
+                footnotesSpineItem = `<itemref idref="footnotes" linear="no"/>`;
+            }
+
             extractedChapters.forEach(ch => {
                 const xhtmlContent = `<?xml version="1.0" encoding="UTF-8"?>
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="zh-TW" xml:lang="zh-TW">
@@ -437,6 +489,13 @@
             padding: 0;
             height: 0;
             visibility: hidden;
+        }
+        
+        /* 註腳連結的美化樣式 */
+        a.footnote-link {
+            text-decoration: none;
+            color: #0056b3;
+            font-weight: bold;
         }
     </style>
 </head>
@@ -537,6 +596,7 @@
         ${coverXhtmlItem}
         <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
         <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
+        ${footnotesManifestItem}
         ${manifestImages}
         ${manifestChapters}
     </manifest>
@@ -544,6 +604,7 @@
         ${coverSpineItem}
         <itemref idref="nav"/> 
         ${spineChapters}
+        ${footnotesSpineItem}
     </spine>
     <guide>
         ${coverGuideItem}
