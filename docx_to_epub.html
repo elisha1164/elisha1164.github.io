@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>純前端 Word 轉 EPUB 轉換器</title>
+    <!-- 引入 Tailwind CSS 進行快速樣式設定 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Mammoth.js 用於解析 docx -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <!-- 引入 JSZip 用於建立 epub 壓縮檔 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <!-- 引入 FileSaver.js 用於觸發檔案下載 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+</head>
+<body class="bg-gray-50 min-h-screen flex items-center justify-center p-4 font-sans">
+
+    <div class="bg-white rounded-xl shadow-lg p-8 max-w-4xl w-full">
+        <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">Word 轉 EPUB 轉換器 (相容 Kobo Kepub 終極版)</h1>
+        
+        <div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6 rounded">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" /></svg>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm text-blue-700 font-medium">排版與使用提示：</p>
+                    <ul class="text-sm text-blue-700 list-disc list-inside mt-1">
+                        <li>使用 Word 的<strong>「標題 1」</strong>來區隔大章節，系統會自動拆分實體檔案產生完美跳頁。</li>
+                        <li>若要在章節內部換頁，請插入標準的<strong>「分頁符號 (Ctrl+Enter)」</strong>。(系統已能完美攔截並於 Kobo 執行跳頁)</li>
+                        <li>Kobo 玩家強烈建議將下載的檔案副檔名改為 <code>.kepub.epub</code> 以獲得最佳體驗。</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <!-- Word 檔案上傳區塊 -->
+            <div class="relative border-2 border-dashed border-blue-300 rounded-lg p-8 text-center hover:bg-blue-50 transition-colors bg-white">
+                <input type="file" id="uploadFile" accept=".docx" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                <div class="text-gray-500">
+                    <svg class="mx-auto h-10 w-10 mb-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    <p id="fileNameDisplay" class="font-medium text-sm">步驟 1: 上傳 .docx 檔案</p>
+                    <p class="text-xs text-gray-400 mt-1">(必填)</p>
+                </div>
+            </div>
+
+            <!-- 封面圖片上傳區塊 -->
+            <div class="relative border-2 border-dashed border-green-300 rounded-lg p-8 text-center hover:bg-green-50 transition-colors bg-white">
+                <input type="file" id="coverImage" accept="image/jpeg, image/png" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                <div class="text-gray-500">
+                    <svg class="mx-auto h-10 w-10 mb-3 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                    <p id="coverNameDisplay" class="font-medium text-sm">步驟 2: 上傳封面圖片</p>
+                    <p class="text-xs text-gray-400 mt-1">(JPG/PNG, 選填)</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 書本資訊設定 -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 bg-gray-50 p-4 rounded-lg border border-gray-200">
+            <div>
+                <label for="bookTitle" class="block text-sm font-medium text-gray-700 mb-1">書名 (可選)</label>
+                <input type="text" id="bookTitle" placeholder="例如：我的偉大小說" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label for="bookAuthor" class="block text-sm font-medium text-gray-700 mb-1">作者 (可選)</label>
+                <input type="text" id="bookAuthor" placeholder="例如：張三" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label for="tocDepth" class="block text-sm font-medium text-gray-700 mb-1">目錄提取層級</label>
+                <select id="tocDepth" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                    <option value="1">僅標題 1 (大章節)</option>
+                    <option value="2" selected>標題 1 ~ 2 (預設)</option>
+                    <option value="3">標題 1 ~ 3</option>
+                    <option value="6">全部標題 (H1 ~ H6)</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- 狀態與操作區塊 -->
+        <div class="flex flex-col items-center">
+            <button id="convertBtn" class="bg-gray-800 hover:bg-gray-900 text-white font-semibold py-3 px-10 rounded-lg shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed w-full md:w-auto text-lg" disabled>
+                開始轉換並下載 EPUB
+            </button>
+            <div id="statusMessage" class="mt-4 text-sm font-medium text-center hidden"></div>
+        </div>
+        
+        <!-- 預覽區塊 (除錯用) -->
+        <div class="mt-8 border-t border-gray-200 pt-6 hidden" id="previewContainer">
+             <h3 class="text-sm font-semibold text-gray-500 mb-2 uppercase tracking-wider">內文解析預覽 (擷取前段)</h3>
+             <div id="previewArea" class="bg-white rounded p-4 h-40 overflow-y-auto text-sm text-gray-700 border border-gray-200 shadow-inner">
+             </div>
+        </div>
+    </div>
+
+    <script>
+        const uploadFileInput = document.getElementById('uploadFile');
+        const coverImageInput = document.getElementById('coverImage');
+        const fileNameDisplay = document.getElementById('fileNameDisplay');
+        const coverNameDisplay = document.getElementById('coverNameDisplay');
+        const convertBtn = document.getElementById('convertBtn');
+        const statusMessage = document.getElementById('statusMessage');
+        const previewContainer = document.getElementById('previewContainer');
+        const previewArea = document.getElementById('previewArea');
+        const bookTitleInput = document.getElementById('bookTitle');
+        const bookAuthorInput = document.getElementById('bookAuthor');
+        const tocDepthInput = document.getElementById('tocDepth');
+
+        let currentFileContent = null; 
+        let parsedHtmlContent = '';    
+        
+        let coverFileData = null;
+        let coverMimeType = '';
+        let coverExtension = '';
+        let extractedImages = []; 
+        let extractedChapters = []; 
+
+        function getSafeXml(text) {
+            if (!text) return '未命名';
+            const temp = document.createElement('div');
+            temp.innerHTML = text;
+            const plainText = temp.textContent || temp.innerText || '';
+            return plainText
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&apos;');
+        }
+
+        uploadFileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            if (!file.name.toLowerCase().endsWith('.docx')) {
+                showStatus('請上傳 .docx 格式的檔案。', 'error');
+                convertBtn.disabled = true;
+                return;
+            }
+
+            fileNameDisplay.textContent = `已選擇：${file.name}`;
+            fileNameDisplay.classList.add('text-blue-600');
+            showStatus('正在讀取並解析 Word 檔案...', 'info');
+            convertBtn.disabled = true;
+
+            const reader = new FileReader();
+            reader.onload = async function(event) {
+                currentFileContent = event.target.result;
+                await parseWordDoc(currentFileContent);
+            };
+            reader.onerror = function() {
+                showStatus('讀取檔案失敗。', 'error');
+            };
+            // 改為 readAsArrayBuffer 以便 JSZip 同步預處理
+            reader.readAsArrayBuffer(file);
+        });
+
+        coverImageInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            if (!file.type.startsWith('image/')) {
+                showStatus('請上傳 JPG 或 PNG 格式的圖片。', 'error');
+                return;
+            }
+
+            coverMimeType = file.type;
+            coverExtension = file.name.split('.').pop().toLowerCase();
+            
+            coverNameDisplay.textContent = `封面：${file.name}`;
+            coverNameDisplay.classList.add('text-green-600');
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                coverFileData = event.target.result;
+                if(parsedHtmlContent) {
+                    showStatus('封面已載入，準備好可以轉換了！', 'success');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        async function parseWordDoc(arrayBuffer) {
+            extractedImages = [];
+            let imageCounter = 0;
+
+            try {
+                showStatus('正在對 Word 檔進行分頁符號預處理...', 'info');
+
+                // 【修復 1】：強制攔截並保留分頁符號 (繞過 Mammoth 的過濾機制)
+                // 將 Word 檔解開，尋找底層的 <w:br w:type="page"/>，並替換成我們的特殊標記
+                const zip = new JSZip();
+                const loadedZip = await zip.loadAsync(arrayBuffer);
+                
+                if (loadedZip.file("word/document.xml")) {
+                    let docXml = await loadedZip.file("word/document.xml").async("string");
+                    // 尋找 OOXML 的分頁標籤，並安全地插入 ===PAGE_BREAK===
+                    docXml = docXml.replace(/<w:br([^>]*?)w:type=["']page["']([^>]*?)\/?>/gi, '<w:t>===PAGE_BREAK===</w:t>');
+                    loadedZip.file("word/document.xml", docXml);
+                }
+                
+                // 重新將處理過 XML 的檔案包裝回 ArrayBuffer 交給 Mammoth
+                const modifiedArrayBuffer = await loadedZip.generateAsync({type: "arraybuffer"});
+
+                const options = {
+                    convertImage: mammoth.images.imgElement(function(image) {
+                        return image.read("arraybuffer").then(function(imageBuffer) {
+                            imageCounter++;
+                            let ext = "jpg";
+                            if(image.contentType === "image/png") ext = "png";
+                            else if(image.contentType === "image/gif") ext = "gif";
+                            
+                            const fileName = `img_${imageCounter}.${ext}`;
+                            extractedImages.push({
+                                name: fileName,
+                                buffer: imageBuffer,
+                                mimeType: image.contentType
+                            });
+                            return { src: `images/${fileName}` }; 
+                        });
+                    })
+                };
+
+                const result = await mammoth.convertToHtml({arrayBuffer: modifiedArrayBuffer}, options);
+                let rawHtml = result.value; 
+
+                if (rawHtml.trim() === '') {
+                    showStatus('檔案內容為空或無法解析文字。', 'error');
+                    return;
+                }
+
+                // 將預處理保留下來的分頁標記替換為真實的 XHTML hr 分頁標籤
+                rawHtml = rawHtml.replace(/===PAGE_BREAK===/g, '<hr class="page-break" />');
+
+                // Kobo Kepub 崩潰殺手！清除一切會導致崩潰的書籤標籤
+                // 1. 拆除有包覆文字，但是卻沒有 href (網址) 的無效 <a> 標籤 (Word 經常產生此類書籤)
+                rawHtml = rawHtml.replace(/<a(?![^>]*href=)[^>]*>(.*?)<\/a>/gi, '$1');
+                // 2. 清除完全為空的 <a> 標籤 (<a id="..."></a>)
+                rawHtml = rawHtml.replace(/<a[^>]*>\s*<\/a>/gi, '');
+
+                // 強制修復 XHTML 常見的未閉合標籤
+                rawHtml = rawHtml.replace(/<(img|br|hr)([^>]*?)\/?>/gi, function(match, tag, attrs) {
+                    const cleanAttrs = attrs.replace(/\/$/, '').trimRight();
+                    return `<${tag}${cleanAttrs ? ' ' + cleanAttrs : ''} />`;
+                });
+                
+                // 確保 &nbsp; 轉為安全的 XML 實體，防止 Kobo Kepub 解析出錯
+                rawHtml = rawHtml.replace(/&nbsp;/g, '&#160;');
+                
+                parsedHtmlContent = rawHtml;
+
+                showStatus(`Word 解析成功！已提取 ${extractedImages.length} 張插圖。請設定書籍資訊後點擊轉換。`, 'success');
+                convertBtn.disabled = false;
+                
+                previewContainer.classList.remove('hidden');
+                previewArea.innerHTML = parsedHtmlContent.substring(0, 1000) + '...';
+
+            } catch(error) {
+                console.error('Mammoth 解析錯誤:', error);
+                showStatus('解析 Word 檔案時發生錯誤。', 'error');
+            }
+        }
+
+        function splitIntoChapters(htmlContent, maxDepth) {
+            const chapters = [];
+            const h1Regex = /(<h1[^>]*>.*?<\/h1>)/gi;
+            const parts = htmlContent.split(h1Regex);
+            
+            let chapterCounter = 0;
+
+            const processChunk = (chunkHtml, titleText, isFirstPart) => {
+                if (!chunkHtml || chunkHtml.trim() === '') return;
+
+                const chapterId = `chapter_${chapterCounter}`;
+                let subItems = [];
+                let subCounter = 0;
+
+                const headingRegex = /<(h[2-6])([^>]*)>(.*?)<\/\1>/gi;
+                const processedHtml = chunkHtml.replace(headingRegex, (fullMatch, tagName, attrs, content) => {
+                    const level = parseInt(tagName.substring(1));
+                    
+                    if (level <= maxDepth) {
+                        subCounter++;
+                        const headingId = `sec_${chapterCounter}_${subCounter}`;
+                        const safeTitle = getSafeXml(content);
+                        
+                        subItems.push({
+                            id: headingId,
+                            title: safeTitle || `無標題`,
+                            level: level
+                        });
+                        
+                        const cleanAttrs = attrs ? attrs.replace(/\s*id\s*=\s*['"][^'"]*['"]/gi, '') : '';
+                        const safeAttrs = cleanAttrs ? ` ${cleanAttrs.trim()}` : '';
+                        
+                        return `<${tagName} id="${headingId}"${safeAttrs}>${content}</${tagName}>`;
+                    }
+                    return fullMatch;
+                });
+
+                if (isFirstPart && chapters.length === 0) {
+                    chapters.push({ id: 'chapter_0', title: '前言', content: processedHtml, subItems: subItems });
+                } else if (isFirstPart) {
+                    chapters[chapters.length - 1].content += processedHtml;
+                } else {
+                    chapters.push({ id: chapterId, title: titleText, content: processedHtml, subItems: subItems });
+                }
+            };
+
+            processChunk(parts[0], null, true);
+            
+            for (let i = 1; i < parts.length; i += 2) {
+                chapterCounter++;
+                const h1Tag = parts[i];
+                const h1Content = parts[i+1]; 
+                
+                const titleMatch = h1Tag.match(/<h1[^>]*>(.*?)<\/h1>/i);
+                const titleText = titleMatch ? getSafeXml(titleMatch[1]) : `第 ${chapterCounter} 章`;
+                
+                const fullChunk = h1Tag + (h1Content || '');
+                processChunk(fullChunk, titleText, false);
+            }
+            
+            return chapters;
+        }
+
+        convertBtn.addEventListener('click', function() {
+            if (!parsedHtmlContent) return;
+
+            const maxDepth = parseInt(tocDepthInput.value, 10);
+            
+            showStatus('正在生成章節與目錄層級...', 'info');
+            convertBtn.disabled = true;
+
+            extractedChapters = splitIntoChapters(parsedHtmlContent, maxDepth);
+
+            if (extractedChapters.length === 0) {
+                showStatus('沒有可轉換的內容。', 'error');
+                convertBtn.disabled = false;
+                return;
+            }
+
+            const originalFileName = uploadFileInput.files[0].name.replace('.docx', '');
+            
+            const rawTitle = bookTitleInput.value.trim() || originalFileName || '未命名書籍';
+            const safeTitle = getSafeXml(rawTitle);
+            
+            const rawAuthor = bookAuthorInput.value.trim() || '未知作者';
+            const safeAuthor = getSafeXml(rawAuthor);
+            
+            const uuid = 'urn:uuid:' + crypto.randomUUID(); 
+
+            showStatus('正在將檔案、插圖與封面打包成 EPUB...', 'info');
+
+            try {
+                generateEpub(safeTitle, safeAuthor, uuid, rawTitle);
+            } catch (error) {
+                console.error('打包 EPUB 錯誤:', error);
+                showStatus('打包 EPUB 時發生錯誤。', 'error');
+                convertBtn.disabled = false;
+            }
+        });
+
+        function generateEpub(title, author, uuid, rawTitleForFilename) {
+            const zip = new JSZip();
+
+            zip.file("mimetype", "application/epub+zip", { compression: "STORE" });
+
+            zip.folder("META-INF").file("container.xml", `<?xml version="1.0" encoding="UTF-8"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+    <rootfiles>
+        <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
+    </rootfiles>
+</container>`);
+
+            const oebps = zip.folder("OEBPS");
+            
+            let coverManifestItem = '';
+            let coverXhtmlItem = '';
+            let coverSpineItem = '';
+            let coverMetaTag = '';
+            let coverGuideItem = ''; 
+
+            extractedImages.forEach(img => {
+                oebps.folder("images").file(img.name, img.buffer, { binary: true });
+            });
+
+            if (coverFileData) {
+                const coverFileName = `cover.${coverExtension}`;
+                oebps.folder("images").file(coverFileName, coverFileData, { binary: true });
+                
+                // 回歸 Calibre 業界標準的封面命名與 SVG 滿版包裝
+                coverMetaTag = `<meta name="cover" content="cover" />`;
+                coverManifestItem = `<item id="cover" href="images/${coverFileName}" media-type="${coverMimeType}" properties="cover-image"/>`;
+                coverXhtmlItem = `<item id="titlepage" href="titlepage.xhtml" media-type="application/xhtml+xml" properties="svg"/>`;
+                coverSpineItem = `<itemref idref="titlepage"/>`;
+                coverGuideItem = `<reference type="cover" title="封面" href="titlepage.xhtml"/>`;
+
+                const coverXhtmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-TW">
+<head>
+    <title>${title} - 封面</title>
+    <meta charset="utf-8"/>
+    <style type="text/css">
+        @page { padding: 0; margin: 0; }
+        body { text-align: center; padding: 0; margin: 0; }
+    </style>
+</head>
+<body>
+    <div>
+        <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" height="100%" width="100%" version="1.1" preserveAspectRatio="xMidYMid meet" viewBox="0 0 1000 1500">
+            <image width="1000" height="1500" xlink:href="images/${coverFileName}" />
+        </svg>
+    </div>
+</body>
+</html>`;
+                oebps.file("titlepage.xhtml", coverXhtmlContent);
+            }
+
+            extractedChapters.forEach(ch => {
+                const xhtmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="zh-TW" xml:lang="zh-TW">
+<head>
+    <title>${ch.title}</title>
+    <meta charset="utf-8"/>
+    <style>
+        body { font-family: sans-serif; line-height: 1.6; margin: 5%; text-align: justify; }
+        h1, h2, h3, h4, h5, h6 { color: #333; margin-top: 1.5em; margin-bottom: 0.5em; }
+        p { text-indent: 2em; margin-bottom: 1em; }
+        img { max-width: 100%; height: auto; display: block; margin: 1em auto; }
+        
+        hr.page-break { 
+            page-break-before: always; 
+            break-before: page; 
+            border: none;
+            margin: 0;
+            padding: 0;
+            height: 0;
+            visibility: hidden;
+        }
+    </style>
+</head>
+<body>
+    ${ch.content}
+</body>
+</html>`;
+                oebps.file(`${ch.id}.xhtml`, xhtmlContent);
+            });
+
+            const navLiItems = extractedChapters.map(ch => {
+                let html = `<li><a href="${ch.id}.xhtml">${ch.title}</a>`;
+                
+                if (ch.subItems && ch.subItems.length > 0) {
+                    html += `\n                <ol>`;
+                    ch.subItems.forEach(sub => {
+                        const marginLeft = (sub.level - 2) * 1.5; 
+                        const styleStr = marginLeft > 0 ? ` style="margin-left: ${marginLeft}em;"` : '';
+                        html += `\n                    <li${styleStr}><a href="${ch.id}.xhtml#${sub.id}">${sub.title}</a></li>`;
+                    });
+                    html += `\n                </ol>\n            `;
+                }
+                html += `</li>`;
+                return html;
+            }).join('\n            ');
+
+            oebps.file("nav.xhtml", `<?xml version="1.0" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="zh-TW" xml:lang="zh-TW">
+<head><title>目錄</title><meta charset="utf-8"/><style>ol { list-style-type: none; padding-left: 0; } li { margin-bottom: 0.8em; } li li { margin-bottom: 0.4em; } a { text-decoration: none; color: #000; }</style></head>
+<body>
+    <nav epub:type="toc" id="toc">
+        <h1>目錄</h1>
+        <ol>
+            ${navLiItems}
+        </ol>
+    </nav>
+</body>
+</html>`);
+
+            let ncxNavPoints = '';
+            let playOrder = 1;
+
+            extractedChapters.forEach((ch) => {
+                ncxNavPoints += `
+        <navPoint id="navPoint-${playOrder}" playOrder="${playOrder}">
+            <navLabel><text>${ch.title}</text></navLabel>
+            <content src="${ch.id}.xhtml"/>`;
+                playOrder++;
+
+                if (ch.subItems && ch.subItems.length > 0) {
+                    ch.subItems.forEach(sub => {
+                        ncxNavPoints += `
+            <navPoint id="navPoint-${playOrder}" playOrder="${playOrder}">
+                <navLabel><text>${sub.title}</text></navLabel>
+                <content src="${ch.id}.xhtml#${sub.id}"/>
+            </navPoint>`;
+                        playOrder++;
+                    });
+                }
+                
+                ncxNavPoints += `
+        </navPoint>`;
+            });
+            
+            oebps.file("toc.ncx", `<?xml version="1.0" encoding="UTF-8"?>
+<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
+    <head>
+        <meta name="dtb:uid" content="${uuid}"/>
+        <meta name="dtb:depth" content="2"/>
+        <meta name="dtb:totalPageCount" content="0"/>
+        <meta name="dtb:maxPageNumber" content="0"/>
+    </head>
+    <docTitle><text>${title}</text></docTitle>
+    <docAuthor><text>${author}</text></docAuthor>
+    <navMap>${ncxNavPoints}
+    </navMap>
+</ncx>`);
+
+            const currentDate = new Date().toISOString().split('.')[0] + 'Z';
+
+            const manifestImages = extractedImages.map(img => `<item id="${img.name}" href="images/${img.name}" media-type="${img.mimeType}"/>`).join('\n        ');
+            const manifestChapters = extractedChapters.map(ch => `<item id="${ch.id}" href="${ch.id}.xhtml" media-type="application/xhtml+xml"/>`).join('\n        ');
+            const spineChapters = extractedChapters.map(ch => `<itemref idref="${ch.id}"/>`).join('\n        ');
+
+            oebps.file("content.opf", `<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" unique-identifier="BookId" version="3.0">
+    <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
+        <dc:title>${title}</dc:title>
+        <dc:creator id="creator">${author}</dc:creator>
+        <dc:language>zh-TW</dc:language>
+        <dc:identifier id="BookId">${uuid}</dc:identifier>
+        <!-- 【封面修復 3】：將封面標籤移至 EPUB3 標籤之上，避免 Kobo 舊解析器提早中斷讀取 -->
+        ${coverMetaTag}
+        <meta property="dcterms:modified">${currentDate}</meta>
+    </metadata>
+    <manifest>
+        ${coverManifestItem}
+        ${coverXhtmlItem}
+        <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
+        <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
+        ${manifestImages}
+        ${manifestChapters}
+    </manifest>
+    <spine toc="ncx">
+        ${coverSpineItem}
+        <itemref idref="nav"/> 
+        ${spineChapters}
+    </spine>
+    <guide>
+        ${coverGuideItem}
+        <reference type="toc" title="目錄" href="nav.xhtml"/>
+    </guide>
+</package>`);
+
+            zip.generateAsync({
+                type: "blob",
+                mimeType: "application/epub+zip",
+                compression: "DEFLATE",
+                compressionOptions: { level: 9 }
+            }).then(function(content) {
+                saveAs(content, `${rawTitleForFilename}.epub`);
+                showStatus('轉換完成！已開始下載。', 'success');
+                convertBtn.disabled = false;
+            });
+        }
+
+        function showStatus(text, type) {
+            statusMessage.textContent = text;
+            statusMessage.className = 'mt-4 text-sm font-medium text-center px-4 py-2 rounded ' + 
+                (type === 'info' ? 'text-blue-700 bg-blue-50' : 
+                 type === 'success' ? 'text-green-700 bg-green-50' : 
+                 'text-red-700 bg-red-50');
+            statusMessage.classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
