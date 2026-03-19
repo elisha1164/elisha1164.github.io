@@ -204,6 +204,20 @@
                 const modifiedArrayBuffer = await loadedZip.generateAsync({type: "arraybuffer"});
 
                 const options = {
+                    styleMap: [
+                        // 新增：保留對齊方式
+                        "p[align='left'] => p.text-left",
+                        "p[align='center'] => p.text-center",
+                        "p[align='right'] => p.text-right",
+                        // 新增：捕捉引文樣式，轉換為 blockquote
+                        "p[style-name='Quote'] => blockquote",
+                        "p[style-name='Intense Quote'] => blockquote",
+                        "p[style-name='引文'] => blockquote",
+                        "p[style-name='強烈引文'] => blockquote",
+                        // 保留原有的分頁攔截
+                        "br[type='page'] => hr.page-break",
+                        "br[type='column'] => hr.page-break"
+                    ],
                     convertImage: mammoth.images.imgElement(function(image) {
                         return image.read("arraybuffer").then(function(imageBuffer) {
                             imageCounter++;
@@ -455,6 +469,12 @@
     <style type="text/css">
         body { font-family: sans-serif; line-height: 1.6; margin: 5%; text-align: justify; }
         .footnote-aside { margin-bottom: 1.5em; padding: 1em; border-top: 1px solid #ddd; font-size: 0.9em; }
+        
+        /* 註腳內若有對齊與引文也一併支援 */
+        p.text-left { text-align: left; text-indent: 0; }
+        p.text-center { text-align: center; text-indent: 0; }
+        p.text-right { text-align: right; text-indent: 0; }
+        blockquote { margin: 1em 2em; padding-left: 1em; border-left: 3px solid #666; font-style: italic; text-indent: 0; }
     </style>
 </head>
 <body>
@@ -496,6 +516,20 @@
             text-decoration: none;
             color: #0056b3;
             font-weight: bold;
+        }
+
+        /* 新增：對齊樣式 (取消首行縮排以確保對齊精準) */
+        p.text-left { text-align: left; text-indent: 0; }
+        p.text-center { text-align: center; text-indent: 0; }
+        p.text-right { text-align: right; text-indent: 0; }
+
+        /* 新增：引文樣式 */
+        blockquote {
+            margin: 1em 2em;
+            padding-left: 1em;
+            border-left: 3px solid #666;
+            font-style: italic;
+            text-indent: 0;
         }
     </style>
 </head>
