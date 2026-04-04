@@ -8,10 +8,9 @@
     <!-- 雙色書本 Favicon (左藍、右白) -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%230056b3' d='M12 21.33V6.2C10.6 5.4 9 5 7.5 5 5 5 2 6 2 6v15s3-1 5.5-1c2 0 4 .67 4.5 1.33z'/><path fill='%23ffffff' stroke='%230056b3' stroke-width='1.5' stroke-linejoin='round' d='M12 21.33V6.2C13.4 5.4 15 5 16.5 5 19 5 22 6 22 6v15s-3-1-5.5-1c-2 0-4 .67-4.5 1.33z'/></svg>" type="image/svg+xml">
 
-    <!-- 引入 JSZip (ePub.js 依賴) - 使用效能更好且穩定的 3.10.1 -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <!-- 引入 ePub.js -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/epub.js/0.3.93/epub.min.js"></script>
+    <!-- 【修復】改用更穩定、不挑網路環境的 jsdelivr CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"></script>
     
     <style>
         body {
@@ -167,6 +166,17 @@
         .btn-download { background: #0056b3; color: #fff; }
         .btn-download:hover { background: #004494; }
 
+        /* 右下角版本標籤 */
+        .version-tag {
+            position: fixed;
+            bottom: 5px;
+            right: 5px;
+            font-size: 11px;
+            color: #aaa;
+            z-index: 9999;
+            pointer-events: none;
+        }
+
         /* ==========================================
            列印專用樣式 (@media print)
            ========================================== */
@@ -174,7 +184,7 @@
 
         @media print {
             body { background: #fff; }
-            #controls, #main-container, #loading-overlay, .modal-overlay { display: none !important; }
+            #controls, #main-container, #loading-overlay, .modal-overlay, .version-tag { display: none !important; }
             
             #print-area {
                 display: block;
@@ -262,6 +272,9 @@
 
     <!-- 隱藏的列印區塊 -->
     <div id="print-area"></div>
+    
+    <!-- 部署追蹤用版號 -->
+    <div class="version-tag">v1.1</div>
 
     <script>
         let book = null;
@@ -344,6 +357,13 @@
         // 初始化書籍流程 (已加入強大的 Debug 輸出與 Base64 支援)
         // ==========================================
         function initBook(bookData) {
+            // 防禦性檢查：CDN 是否真的載入了核心套件
+            if (typeof ePub === 'undefined') {
+                showLoading(false);
+                alert("⚠️ 核心套件載入失敗 (ePub is not defined)！\n\n這通常是因為網路連線問題，或瀏覽器阻擋了外部腳本(CDN)。\n請嘗試重新整理網頁，或檢查網路環境。");
+                return;
+            }
+
             console.log("👉 [Debug] 1. 收到資料，準備初始化 ePub...");
             showLoading(true, '正在解析電子書結構...');
             
