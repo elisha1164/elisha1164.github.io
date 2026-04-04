@@ -138,6 +138,31 @@
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
+        /* 自訂彈出視窗 (Modal) 樣式 */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.6);
+            display: none; justify-content: center; align-items: center;
+            z-index: 2000;
+            backdrop-filter: blur(2px);
+        }
+        .modal-box {
+            background: #fff; padding: 25px 30px; border-radius: 10px;
+            max-width: 400px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            animation: modalFadeIn 0.3s ease;
+        }
+        @keyframes modalFadeIn { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+        .modal-box h3 { margin-top: 0; color: #d9534f; font-size: 20px; }
+        .modal-box p { font-size: 15px; color: #555; line-height: 1.6; margin-bottom: 25px; text-align: left; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
+        .modal-actions button {
+            padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; transition: background 0.2s;
+        }
+        .btn-cancel { background: #e0e0e0; color: #333; }
+        .btn-cancel:hover { background: #ccc; }
+        .btn-download { background: #0056b3; color: #fff; }
+        .btn-download:hover { background: #004494; }
+
         /* ==========================================
            列印專用樣式 (@media print)
            ========================================== */
@@ -145,7 +170,7 @@
 
         @media print {
             body { background: #fff; }
-            #controls, #main-container, #loading-overlay { display: none !important; }
+            #controls, #main-container, #loading-overlay, .modal-overlay { display: none !important; }
             
             #print-area {
                 display: block;
@@ -219,6 +244,19 @@
         <div id="loading-text">載入中，請稍候...</div>
     </div>
 
+    <!-- 自訂彈出視窗 (Modal) -->
+    <div id="custom-modal" class="modal-overlay">
+        <div class="modal-box">
+            <h3>⚠️ 無法直接載入此網址</h3>
+            <p>因為目標網站的安全設定 (未開放 CORS)，瀏覽器阻止了我們的載入請求。</p>
+            <p><strong>解決方案：</strong><br>您可以透過瀏覽器直接將檔案下載下來，然後點擊左上角的【📂 上傳】來閱讀它！</p>
+            <div class="modal-actions">
+                <button id="modal-cancel-btn" class="btn-cancel">取消</button>
+                <button id="modal-download-btn" class="btn-download">⬇️ 直接下載</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 隱藏的列印區塊 (僅在按下 ctrl+P 時生效) -->
     <div id="print-area"></div>
 
@@ -240,11 +278,49 @@
         const loadingText = document.getElementById('loading-text');
         const printArea = document.getElementById('print-area');
 
+        // Modal 相關元素
+        const customModal = document.getElementById('custom-modal');
+        const modalDownloadBtn = document.getElementById('modal-download-btn');
+        const modalCancelBtn = document.getElementById('modal-cancel-btn');
+        let currentDownloadUrl = ''; // 暫存要下載的網址
+
         // 控制載入動畫
         function showLoading(show, text = '載入中，請稍候...') {
             loadingText.textContent = text;
             loadingOverlay.style.display = show ? 'flex' : 'none';
         }
+
+        // ==========================================
+        // Modal 控制邏輯
+        // ==========================================
+        function showDownloadModal(url) {
+            currentDownloadUrl = url;
+            customModal.style.display = 'flex';
+        }
+
+        function hideDownloadModal() {
+            customModal.style.display = 'none';
+            currentDownloadUrl = '';
+        }
+
+        modalCancelBtn.addEventListener('click', hideDownloadModal);
+
+        modalDownloadBtn.addEventListener('click', () => {
+            if (currentDownloadUrl) {
+                // 在這裡觸發下載！
+                // 因為這是使用者「實體點擊按鈕」的當下，瀏覽器絕對不會阻擋它！
+                const link = document.createElement('a');
+                link.href = currentDownloadUrl;
+                link.target = '_blank'; // 加上 target=_blank 更保險
+                link.download = currentDownloadUrl.split('/').pop() || 'download.epub'; 
+                
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+            hideDownloadModal();
+        });
+
 
         // ==========================================
         // 排版套用邏輯 (動態更新 ePub.js 樣式)
@@ -256,7 +332,6 @@
             rendition.themes.fontSize(`${currentFontSize}%`);
             
             // 2. 調整行距 (透過注入 custom theme 覆蓋預設 CSS)
-            // 為了讓它強制即時生效，我們每次都註冊一個新的隨機主題名稱
             const themeName = `custom-theme-${Date.now()}`;
             rendition.themes.register(themeName, {
                 "body": { "line-height": `${currentLineHeight} !important` },
@@ -268,103 +343,79 @@
 
         // 綁定排版微調按鈕事件
         document.getElementById('btn-font-dec').addEventListener('click', () => {
-            currentFontSize = Math.max(80, currentFontSize - 10); // 下限 80%
+            currentFontSize = Math.max(80, currentFontSize - 10);
             applyStyles();
         });
         document.getElementById('btn-font-inc').addEventListener('click', () => {
-            currentFontSize = Math.min(200, currentFontSize + 10); // 上限 200%
+            currentFontSize = Math.min(200, currentFontSize + 10);
             applyStyles();
         });
         document.getElementById('btn-line-dec').addEventListener('click', () => {
-            currentLineHeight = Math.max(1.2, parseFloat((currentLineHeight - 0.2).toFixed(1))); // 下限 1.2
+            currentLineHeight = Math.max(1.2, parseFloat((currentLineHeight - 0.2).toFixed(1)));
             applyStyles();
         });
         document.getElementById('btn-line-inc').addEventListener('click', () => {
-            currentLineHeight = Math.min(2.4, parseFloat((currentLineHeight + 0.2).toFixed(1))); // 上限 2.4
+            currentLineHeight = Math.min(2.4, parseFloat((currentLineHeight + 0.2).toFixed(1)));
             applyStyles();
         });
 
         // ==========================================
-        // 從網址手動下載 EPUB 資料 (解決 ePub.js 遇到 CORS 會卡死的問題)
+        // 從網址手動下載 EPUB 資料 
         // ==========================================
         async function loadBookFromUrl(url) {
             showLoading(true, '正在下載電子書 (視檔案大小可能需要一些時間)...');
             try {
-                // 由我們自己接管網路請求，準確捕捉 CORS 或 404 錯誤
                 const response = await fetch(url);
                 if (!response.ok) {
                     throw new Error(`伺服器回應錯誤: ${response.status}`);
                 }
                 const arrayBuffer = await response.arrayBuffer();
-                // 下載成功，將二進位資料交給 ePub.js 解析
                 initBook(arrayBuffer);
             } catch (error) {
                 console.error("下載或 CORS 錯誤:", error);
                 showLoading(false);
-                // 精確判斷失敗並提供降級方案 (下載)
-                const wantDownload = confirm("⚠️ 無法直接載入此網址 (可能是目標網站未開放 CORS 跨域權限)。\n\n請問是否要透過瀏覽器「直接下載」該檔案？\n(下載完成後，您可以再次點擊左側的【📂 上傳】來閱讀它)");
-                
-                if (wantDownload) {
-                    // 為了避免被快顯封鎖，改用動態建立 <a> 標籤觸發下載
-                    const link = document.createElement('a');
-                    link.href = url;
-                    
-                    // 試圖從網址提取檔名，如果沒有則給個預設值
-                    const fileName = url.split('/').pop() || 'download.epub';
-                    link.download = fileName; 
-                    
-                    // 將連結加入畫面後模擬點擊，接著再移除
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                }
+                // 使用我們精美的自訂 Modal 替代 confirm()
+                showDownloadModal(url);
             }
         }
 
         // ==========================================
-        // 初始化書籍並渲染 (現在統一接收 ArrayBuffer 資料)
+        // 初始化書籍並渲染
         // ==========================================
         function initBook(bookData) {
             showLoading(true, '正在解析電子書...');
             
-            // 清理舊的實例
             if (book) { book.destroy(); }
             if (rendition) { viewer.innerHTML = ''; }
             tocSelect.innerHTML = '<option value="">請選擇章節...</option>';
             tocSelect.disabled = true;
             printBtn.disabled = true;
             
-            // 停用工具列按鈕直到載入完成
             document.querySelectorAll('.tool-btn').forEach(btn => btn.disabled = true);
 
-            // 建立新的 ePub 實例
             book = ePub(bookData);
             
-            // 處理載入失敗 (防護網)
             book.opened.catch(err => {
                 showLoading(false);
                 console.error("電子書解析失敗:", err);
                 alert("檔案解析失敗，請確認是否為完整的 EPUB 檔案。");
             });
 
-            // 渲染書籍到 #viewer
             rendition = book.renderTo("viewer", {
                 width: "100%",
                 height: "100%",
-                spread: "none" // 單頁顯示，適合網頁瀏覽
+                spread: "none"
             });
 
             rendition.display().then(() => {
                 showLoading(false);
                 printBtn.disabled = false;
-                // 啟用排版工具按鈕並套用偏好設定
                 document.querySelectorAll('.tool-btn').forEach(btn => btn.disabled = false);
                 applyStyles();
             }).catch(() => {
                 showLoading(false);
             });
 
-            // 解析並產生目錄
             book.loaded.navigation.then((nav) => {
                 const generateToc = (tocList, level = 0) => {
                     tocList.forEach((navItem) => {
@@ -410,7 +461,6 @@
                 const newUrl = new URL(window.location);
                 newUrl.searchParams.set('src', url);
                 window.history.pushState({}, '', newUrl);
-                // 改用自製的下載函數
                 loadBookFromUrl(url); 
             }
         });
@@ -448,8 +498,6 @@
             showLoading(true, '正在提取全書內容以供列印，請稍候...');
             printArea.innerHTML = ''; 
             
-            // 將使用者的排版偏好套用到列印區塊！
-            // 將 % 轉換為 pt 單位 (假設 100% 約等於 12pt 適合列印)
             printArea.style.fontSize = `${(currentFontSize / 100) * 12}pt`; 
             printArea.style.lineHeight = currentLineHeight;
 
@@ -523,7 +571,6 @@
             const srcUrl = params.get('src');
             if (srcUrl) {
                 urlInput.value = srcUrl;
-                // 改用自製的下載函數
                 loadBookFromUrl(srcUrl);
             }
         });
