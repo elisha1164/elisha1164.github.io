@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>純前端 EPUB 閱讀與列印工具</title>
+    <!-- 引入 JSZip (ePub.js 依賴) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <!-- 引入 ePub.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/epub.js/0.3.93/epub.min.js"></script>
+    
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f9;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* 頂部控制列 */
+        #controls {
+            background-color: #fff;
+            padding: 15px 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+            z-index: 10;
+        }
+
+        #controls input[type="file"], #controls input[type="text"] {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        #controls button, #controls select {
+            padding: 8px 15px;
+            background-color: #0056b3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+
+        #controls button:hover { background-color: #004494; }
+        #controls button:disabled { background-color: #ccc; cursor: not-allowed; }
+        #controls select { background-color: #fff; color: #333; border: 1px solid #ccc; }
+
+        /* 閱讀器主體區塊 */
+        #main-container {
+            flex: 1;
+            display: flex;
+            position: relative;
+            overflow: hidden;
+            padding: 20px;
+        }
+
+        /* ePub.js 渲染區域 */
+        #viewer {
+            flex: 1;
+            background: #fff;
+            box-shadow: 0 0 10px rgba(0,0,0,0.05);
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* 翻頁按鈕 */
+        .nav-btn {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(0,0,0,0.1);
+            border: none;
+            font-size: 24px;
+            padding: 20px 10px;
+            cursor: pointer;
+            z-index: 5;
+            transition: background 0.3s;
+        }
+        .nav-btn:hover { background: rgba(0,0,0,0.2); }
+        #prev-btn { left: 0; border-radius: 0 8px 8px 0; }
+        #next-btn { right: 0; border-radius: 8px 0 0 8px; }
+
+        /* 載入中遮罩 */
+        #loading-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255,255,255,0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            display: none; /* 預設隱藏 */
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #0056b3;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* ==========================================
+           列印專用樣式 (@media print)
+           ========================================== */
+        #print-area { display: none; } /* 螢幕上隱藏列印區塊 */
+
+        @media print {
+            /* 隱藏所有 UI 元素 */
+            body { background: #fff; }
+            #controls, #main-container, #loading-overlay { display: none !important; }
+            
+            /* 顯示列印區塊 */
+            #print-area {
+                display: block;
+                width: 100%;
+                font-size: 12pt;
+                line-height: 1.6;
+                color: #000;
+            }
+
+            /* 控制列印排版 */
+            #print-area img {
+                max-width: 100% !important;
+                height: auto !important;
+                break-inside: avoid; /* 防止圖片被切斷 */
+            }
+
+            .print-chapter {
+                break-before: page; /* 確保每個章節從新的一頁開始 */
+                padding-top: 20px;
+            }
+
+            h1, h2, h3 { break-after: avoid; } /* 標題後不換頁 */
+            p { orphans: 3; widows: 3; } /* 防止孤行/寡行 */
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 頂部控制列 -->
+    <div id="controls">
+        <div>
+            <label for="file-input">📂 本機上傳：</label>
+            <input type="file" id="file-input" accept=".epub">
+        </div>
+        <div>
+            <label for="url-input">🌐 網址載入：</label>
+            <input type="text" id="url-input" placeholder="輸入 EPUB 網址 (需支援 CORS)">
+            <button id="load-url-btn">載入</button>
+        </div>
+        <div style="flex-grow: 1;"></div>
+        <select id="toc-select" disabled>
+            <option value="">目錄 (載入中...)</option>
+        </select>
+        <button id="print-btn" disabled>🖨️ 產生完整列印檔</button>
+    </div>
+
+    <!-- 閱讀器主體區塊 -->
+    <div id="main-container">
+        <div id="viewer"></div>
+        <button id="prev-btn" class="nav-btn">‹</button>
+        <button id="next-btn" class="nav-btn">›</button>
+    </div>
+
+    <!-- 載入中畫面 -->
+    <div id="loading-overlay">
+        <div class="spinner"></div>
+        <div id="loading-text">載入中，請稍候...</div>
+    </div>
+
+    <!-- 隱藏的列印區塊 (僅在按下 ctrl+P 時生效) -->
+    <div id="print-area"></div>
+
+    <script>
+        let book = null;
+        let rendition = null;
+
+        const fileInput = document.getElementById('file-input');
+        const urlInput = document.getElementById('url-input');
+        const loadUrlBtn = document.getElementById('load-url-btn');
+        const tocSelect = document.getElementById('toc-select');
+        const printBtn = document.getElementById('print-btn');
+        const viewer = document.getElementById('viewer');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const loadingText = document.getElementById('loading-text');
+        const printArea = document.getElementById('print-area');
+
+        // 控制載入動畫
+        function showLoading(show, text = '載入中，請稍候...') {
+            loadingText.textContent = text;
+            loadingOverlay.style.display = show ? 'flex' : 'none';
+        }
+
+        // 初始化書籍並渲染
+        function initBook(bookData) {
+            showLoading(true, '正在解析電子書...');
+            
+            // 清理舊的實例
+            if (book) { book.destroy(); }
+            if (rendition) { viewer.innerHTML = ''; }
+            tocSelect.innerHTML = '<option value="">請選擇章節...</option>';
+            tocSelect.disabled = true;
+            printBtn.disabled = true;
+
+            // 建立新的 ePub 實例
+            book = ePub(bookData);
+            
+            // 處理載入失敗 (如 CORS 錯誤、網址失效或無效檔案)
+            book.opened.catch(err => {
+                showLoading(false);
+                console.error("電子書載入失敗:", err);
+                
+                // 判斷使用者是不是輸入網址
+                if (typeof bookData === 'string' && (bookData.startsWith('http://') || bookData.startsWith('https://'))) {
+                    const wantDownload = confirm("⚠️ 無法直接載入此網址 (可能是目標網站未開放 CORS 跨域權限)。\n\n請問是否要透過瀏覽器「直接下載」該檔案？\n(下載完成後，您可以再次點擊左側的【📂 本機上傳】來閱讀它)");
+                    
+                    if (wantDownload) {
+                        // 開啟新分頁，利用瀏覽器原生行為直接下載 EPUB 檔
+                        window.open(bookData, '_blank'); 
+                    }
+                } else {
+                    alert("檔案解析失敗，請確認是否為完整的 EPUB 檔案。");
+                }
+            });
+
+            // 渲染書籍到 #viewer
+            rendition = book.renderTo("viewer", {
+                width: "100%",
+                height: "100%",
+                spread: "none" // 單頁顯示，適合網頁瀏覽
+            });
+
+            rendition.display().then(() => {
+                showLoading(false);
+                printBtn.disabled = false;
+            }).catch(() => {
+                showLoading(false); // 確保失敗時隱藏載入動畫
+            });
+
+            // 解析並產生目錄 (Table of Contents)
+            book.loaded.navigation.then((nav) => {
+                // 建立遞迴函數，支援多層級(章、節)的目錄
+                const generateToc = (tocList, level = 0) => {
+                    tocList.forEach((navItem) => {
+                        let option = document.createElement('option');
+                        option.value = navItem.href;
+                        // 依據層級加上空白縮排，讓選單更有層次感
+                        option.textContent = "\u00A0\u00A0".repeat(level * 2) + navItem.label;
+                        tocSelect.appendChild(option);
+                        
+                        // 如果有子目錄，遞迴處理
+                        if (navItem.subitems && navItem.subitems.length > 0) {
+                            generateToc(navItem.subitems, level + 1);
+                        }
+                    });
+                };
+                
+                // ePub.js 中，目錄陣列放在 nav.toc 裡面
+                if (nav && nav.toc) {
+                    generateToc(nav.toc);
+                    tocSelect.disabled = false;
+                }
+            });
+        }
+
+        // 監聽本機檔案上傳
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            if (window.FileReader) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    // 將檔案轉為 ArrayBuffer 交給 ePub.js
+                    initBook(event.target.result); 
+                };
+                reader.readAsArrayBuffer(file);
+            }
+        });
+
+        // 監聽網址載入
+        loadUrlBtn.addEventListener('click', () => {
+            const url = urlInput.value.trim();
+            if (url) { initBook(url); }
+        });
+
+        // 目錄選擇跳轉
+        tocSelect.addEventListener('change', (e) => {
+            if (e.target.value) { rendition.display(e.target.value); }
+        });
+
+        // 翻頁功能
+        document.getElementById('prev-btn').addEventListener('click', () => rendition && rendition.prev());
+        document.getElementById('next-btn').addEventListener('click', () => rendition && rendition.next());
+
+        // 綁定鍵盤左右鍵翻頁
+        document.addEventListener('keyup', (e) => {
+            if (!rendition) return;
+            if (e.key === 'ArrowLeft') rendition.prev();
+            if (e.key === 'ArrowRight') rendition.next();
+        });
+
+        // ==========================================
+        // 核心難點：客製化「完整書籍列印」功能
+        // ==========================================
+        printBtn.addEventListener('click', async () => {
+            if (!book) return;
+            
+            // 防呆：從網址讀取的可能沒有 archive 物件，無法輕易提取全書
+            if (!book.archive) {
+                alert("目前列印功能僅支援「本機上傳」的 EPUB 檔案（需包含完整 ZIP 結構）。");
+                return;
+            }
+
+            showLoading(true, '正在提取全書內容以供列印，請稍候...');
+            printArea.innerHTML = ''; // 清空上次的列印內容
+
+            try {
+                // 取得電子書的章節列表 (Spine)
+                const spineItems = book.spine.spineItems;
+                
+                for (let i = 0; i < spineItems.length; i++) {
+                    let item = spineItems[i];
+                    
+                    try {
+                        // 使用 archive.getXml 取出該章節的 DOM 結構
+                        let doc = await book.archive.getXml(item.href);
+                        if (!doc) continue;
+
+                        let body = doc.querySelector('body');
+                        if (!body) continue;
+
+                        // 處理圖片路徑問題
+                        const images = body.querySelectorAll('img, image');
+                        for (let img of images) {
+                            let src = img.getAttribute('src') || img.getAttribute('href');
+                            
+                            // 忽略已經是絕對網址或 Base64 的圖片
+                            if (src && !src.startsWith('http') && !src.startsWith('data:')) {
+                                
+                                // 自製相對路徑解析函數
+                                const resolvePath = (base, relative) => {
+                                    const stack = base.split('/');
+                                    stack.pop(); // 移除檔名
+                                    const parts = relative.split('/');
+                                    for (let p of parts) {
+                                        if (p === '.') continue;
+                                        if (p === '..') stack.pop();
+                                        else stack.push(p);
+                                    }
+                                    return stack.join('/');
+                                };
+
+                                let absolutePath = resolvePath(item.href, src);
+                                
+                                try {
+                                    // 從壓縮檔中提取該圖片的 Blob
+                                    let blob = await book.archive.getBlob(absolutePath);
+                                    if (blob) {
+                                        let objectUrl = URL.createObjectURL(blob);
+                                        if(img.tagName.toLowerCase() === 'image') {
+                                            img.setAttribute('href', objectUrl); // SVG 處理
+                                        } else {
+                                            img.src = objectUrl; // IMG 處理
+                                        }
+                                    }
+                                } catch(imgErr) {
+                                    console.warn('提取列印圖片失敗:', absolutePath, imgErr);
+                                }
+                            }
+                        }
+
+                        // 建立章節的容器，方便列印時控制分頁
+                        let chapterDiv = document.createElement('div');
+                        chapterDiv.className = 'print-chapter';
+                        chapterDiv.innerHTML = body.innerHTML;
+                        printArea.appendChild(chapterDiv);
+
+                    } catch (err) {
+                        console.warn(`無法解析章節: ${item.href}`, err);
+                    }
+                }
+
+                showLoading(false);
+                
+                // 稍微延遲讓圖片有時間載入，然後呼叫瀏覽器列印
+                setTimeout(() => {
+                    window.print();
+                }, 1000);
+
+            } catch (error) {
+                console.error("列印處理發生錯誤：", error);
+                alert("列印處理失敗，請查看開發者工具(F12)的 Console。");
+                showLoading(false);
+            }
+        });
+    </script>
+</body>
+</html>
