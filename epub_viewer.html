@@ -284,7 +284,34 @@
             applyStyles();
         });
 
-        // 初始化書籍並渲染
+        // ==========================================
+        // 從網址手動下載 EPUB 資料 (解決 ePub.js 遇到 CORS 會卡死的問題)
+        // ==========================================
+        async function loadBookFromUrl(url) {
+            showLoading(true, '正在下載電子書 (視檔案大小可能需要一些時間)...');
+            try {
+                // 由我們自己接管網路請求，準確捕捉 CORS 或 404 錯誤
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`伺服器回應錯誤: ${response.status}`);
+                }
+                const arrayBuffer = await response.arrayBuffer();
+                // 下載成功，將二進位資料交給 ePub.js 解析
+                initBook(arrayBuffer);
+            } catch (error) {
+                console.error("下載或 CORS 錯誤:", error);
+                showLoading(false);
+                // 精確判斷失敗並提供降級方案 (下載)
+                const wantDownload = confirm("⚠️ 無法直接載入此網址 (可能是目標網站未開放 CORS 跨域權限)。\n\n請問是否要透過瀏覽器「直接下載」該檔案？\n(下載完成後，您可以再次點擊左側的【📂 上傳】來閱讀它)");
+                if (wantDownload) {
+                    window.open(url, '_blank');
+                }
+            }
+        }
+
+        // ==========================================
+        // 初始化書籍並渲染 (現在統一接收 ArrayBuffer 資料)
+        // ==========================================
         function initBook(bookData) {
             showLoading(true, '正在解析電子書...');
             
@@ -301,16 +328,11 @@
             // 建立新的 ePub 實例
             book = ePub(bookData);
             
-            // 處理載入失敗 (如 CORS 錯誤、網址失效或無效檔案)
+            // 處理載入失敗 (防護網)
             book.opened.catch(err => {
                 showLoading(false);
-                console.error("電子書載入失敗:", err);
-                if (typeof bookData === 'string' && (bookData.startsWith('http://') || bookData.startsWith('https://'))) {
-                    const wantDownload = confirm("⚠️ 無法直接載入此網址 (可能是目標網站未開放 CORS 跨域權限)。\n\n請問是否要透過瀏覽器「直接下載」該檔案？\n(下載完成後，您可以再次點擊左側的【📂 本機上傳】來閱讀它)");
-                    if (wantDownload) { window.open(bookData, '_blank'); }
-                } else {
-                    alert("檔案解析失敗，請確認是否為完整的 EPUB 檔案。");
-                }
+                console.error("電子書解析失敗:", err);
+                alert("檔案解析失敗，請確認是否為完整的 EPUB 檔案。");
             });
 
             // 渲染書籍到 #viewer
@@ -376,7 +398,8 @@
                 const newUrl = new URL(window.location);
                 newUrl.searchParams.set('src', url);
                 window.history.pushState({}, '', newUrl);
-                initBook(url); 
+                // 改用自製的下載函數
+                loadBookFromUrl(url); 
             }
         });
 
@@ -406,7 +429,7 @@
             if (!book) return;
             
             if (!book.archive) {
-                alert("目前列印功能僅支援「本機上傳」的 EPUB 檔案（需包含完整 ZIP 結構）。");
+                alert("目前載入的電子書格式無法列印（需包含完整 ZIP 結構）。");
                 return;
             }
 
@@ -488,7 +511,8 @@
             const srcUrl = params.get('src');
             if (srcUrl) {
                 urlInput.value = srcUrl;
-                initBook(srcUrl);
+                // 改用自製的下載函數
+                loadBookFromUrl(srcUrl);
             }
         });
     </script>
