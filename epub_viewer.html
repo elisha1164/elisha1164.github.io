@@ -282,6 +282,14 @@
             const file = e.target.files[0];
             if (!file) return;
 
+            // 清除網址上的 src 參數，避免切換為本機檔案時造成混淆
+            const newUrl = new URL(window.location);
+            if (newUrl.searchParams.has('src')) {
+                newUrl.searchParams.delete('src');
+                window.history.pushState({}, '', newUrl);
+            }
+            urlInput.value = '';
+
             if (window.FileReader) {
                 const reader = new FileReader();
                 reader.onload = (event) => {
@@ -295,7 +303,21 @@
         // 監聽網址載入
         loadUrlBtn.addEventListener('click', () => {
             const url = urlInput.value.trim();
-            if (url) { initBook(url); }
+            if (url) { 
+                // 更新網址列加上 ?src=... (不重新整理頁面)
+                const newUrl = new URL(window.location);
+                newUrl.searchParams.set('src', url);
+                window.history.pushState({}, '', newUrl);
+                
+                initBook(url); 
+            }
+        });
+
+        // 讓使用者在網址輸入框按 Enter 也可以載入
+        urlInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                loadUrlBtn.click();
+            }
         });
 
         // 目錄選擇跳轉
@@ -406,6 +428,20 @@
                 console.error("列印處理發生錯誤：", error);
                 alert("列印處理失敗，請查看開發者工具(F12)的 Console。");
                 showLoading(false);
+            }
+        });
+
+        // ==========================================
+        // 網址參數解析 (自動載入 ?src=...)
+        // ==========================================
+        window.addEventListener('DOMContentLoaded', () => {
+            const params = new URLSearchParams(window.location.search);
+            const srcUrl = params.get('src');
+            
+            // 如果網址帶有 src 參數，自動填入並觸發載入
+            if (srcUrl) {
+                urlInput.value = srcUrl;
+                initBook(srcUrl);
             }
         });
     </script>
