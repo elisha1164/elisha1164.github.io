@@ -273,8 +273,8 @@
     <!-- 隱藏的列印區塊 -->
     <div id="print-area"></div>
     
-    <!-- 部署追蹤用版號 -->
-    <div class="version-tag">v1.1</div>
+    <!-- 部署追蹤用版號 (v1.2: 恢復 ArrayBuffer 原生解析，修正 Base64 效能卡死) -->
+    <div class="version-tag">v1.2</div>
 
     <script>
         let book = null;
@@ -354,7 +354,7 @@
         });
 
         // ==========================================
-        // 初始化書籍流程 (已加入強大的 Debug 輸出與 Base64 支援)
+        // 初始化書籍流程 (回歸純淨的 ArrayBuffer 寫法)
         // ==========================================
         function initBook(bookData) {
             // 防禦性檢查：CDN 是否真的載入了核心套件
@@ -388,7 +388,7 @@
             }, 30000);
 
             try {
-                // 將資料交給 ePub。因為我們現在傳入的是 Data URL (Base64) 字串，ePub 會將其視為標準網址處理
+                // 將 ArrayBuffer 資料直接交給 ePub (極速解析，不會再有 Base64 轉換效能瓶頸)
                 book = ePub(bookData);
                 console.log("👉 [Debug] 2. ePub 核心物件已建立，等待 ready...");
                 
@@ -450,15 +450,10 @@
                 const response = await fetch(url);
                 if (!response.ok) { throw new Error(`伺服器回應錯誤: ${response.status}`); }
                 
-                console.log("👉 [Debug] 網路下載完畢，準備轉換為 Blob -> Base64");
-                const blob = await response.blob();
-                
-                // 將下載的 Blob 轉為 Data URL (Base64) 格式以確保 ePub.js 穩定解析
-                const reader = new FileReader();
-                reader.onloadend = () => {
-                    initBook(reader.result);
-                };
-                reader.readAsDataURL(blob);
+                console.log("👉 [Debug] 網路下載完畢，準備轉換為 ArrayBuffer");
+                // 【修復】直接取得 ArrayBuffer (極速) 而非轉 Blob 再轉 Base64
+                const arrayBuffer = await response.arrayBuffer();
+                initBook(arrayBuffer);
 
             } catch (error) {
                 console.error("👉 [Debug] 下載或 CORS 錯誤:", error);
@@ -482,12 +477,12 @@
             if (window.FileReader) {
                 const reader = new FileReader();
                 reader.onload = (event) => { 
-                    console.log("👉 [Debug] 本機檔案讀取完畢，已轉換為 Data URL (Base64) 格式");
+                    console.log("👉 [Debug] 本機檔案讀取完畢，已成功取得 ArrayBuffer 格式");
                     initBook(event.target.result); 
                 };
                 
-                // 【核心修復】不再使用容易引起錯誤的 readAsArrayBuffer，全面改用 Data URL
-                reader.readAsDataURL(file);
+                // 【修復】回歸最標準的 readAsArrayBuffer 讀取二進位資料
+                reader.readAsArrayBuffer(file);
             }
         });
 
