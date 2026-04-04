@@ -8,7 +8,7 @@
     <!-- 雙色書本 Favicon (左藍、右白) -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%230056b3' d='M12 21.33V6.2C10.6 5.4 9 5 7.5 5 5 5 2 6 2 6v15s3-1 5.5-1c2 0 4 .67 4.5 1.33z'/><path fill='%23ffffff' stroke='%230056b3' stroke-width='1.5' stroke-linejoin='round' d='M12 21.33V6.2C13.4 5.4 15 5 16.5 5 19 5 22 6 22 6v15s-3-1-5.5-1c-2 0-4 .67-4.5 1.33z'/></svg>" type="image/svg+xml">
 
-    <!-- 【修復】改用更穩定、不挑網路環境的 jsdelivr CDN -->
+    <!-- 改用更穩定、不挑網路環境的 jsdelivr CDN -->
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"></script>
     
@@ -183,11 +183,21 @@
         #print-area { display: none; }
 
         @media print {
-            body { background: #fff; }
-            #controls, #main-container, #loading-overlay, .modal-overlay, .version-tag { display: none !important; }
+            /* 【修復列印空白】覆蓋原有的 100vh 高度與 flex 排版，讓瀏覽器能正常延伸分頁 */
+            html, body { 
+                height: auto !important; 
+                display: block !important; 
+                overflow: visible !important;
+                background: #fff !important; 
+            }
+            
+            #controls, #main-container, #loading-overlay, .modal-overlay, .version-tag { 
+                display: none !important; 
+            }
             
             #print-area {
-                display: block;
+                display: block !important;
+                position: relative;
                 width: 100%;
                 font-size: 12pt; 
                 line-height: 1.6;
@@ -273,8 +283,8 @@
     <!-- 隱藏的列印區塊 -->
     <div id="print-area"></div>
     
-    <!-- 部署追蹤用版號 (v1.2: 恢復 ArrayBuffer 原生解析，修正 Base64 效能卡死) -->
-    <div class="version-tag">v1.2</div>
+    <!-- 部署追蹤用版號 (v1.3: 修復 CSS 列印空白 Bug, 強化提取演算法) -->
+    <div class="version-tag">v1.3</div>
 
     <script>
         let book = null;
@@ -354,13 +364,13 @@
         });
 
         // ==========================================
-        // 初始化書籍流程 (回歸純淨的 ArrayBuffer 寫法)
+        // 初始化書籍流程
         // ==========================================
         function initBook(bookData) {
-            // 防禦性檢查：CDN 是否真的載入了核心套件
+            // 防禦性檢查
             if (typeof ePub === 'undefined') {
                 showLoading(false);
-                alert("⚠️ 核心套件載入失敗 (ePub is not defined)！\n\n這通常是因為網路連線問題，或瀏覽器阻擋了外部腳本(CDN)。\n請嘗試重新整理網頁，或檢查網路環境。");
+                alert("⚠️ 核心套件載入失敗 (ePub is not defined)！\n\n請嘗試重新整理網頁，或檢查網路環境。");
                 return;
             }
 
@@ -388,7 +398,6 @@
             }, 30000);
 
             try {
-                // 將 ArrayBuffer 資料直接交給 ePub (極速解析，不會再有 Base64 轉換效能瓶頸)
                 book = ePub(bookData);
                 console.log("👉 [Debug] 2. ePub 核心物件已建立，等待 ready...");
                 
@@ -451,7 +460,6 @@
                 if (!response.ok) { throw new Error(`伺服器回應錯誤: ${response.status}`); }
                 
                 console.log("👉 [Debug] 網路下載完畢，準備轉換為 ArrayBuffer");
-                // 【修復】直接取得 ArrayBuffer (極速) 而非轉 Blob 再轉 Base64
                 const arrayBuffer = await response.arrayBuffer();
                 initBook(arrayBuffer);
 
@@ -480,8 +488,6 @@
                     console.log("👉 [Debug] 本機檔案讀取完畢，已成功取得 ArrayBuffer 格式");
                     initBook(event.target.result); 
                 };
-                
-                // 【修復】回歸最標準的 readAsArrayBuffer 讀取二進位資料
                 reader.readAsArrayBuffer(file);
             }
         });
@@ -513,15 +519,15 @@
             if (e.key === 'ArrowRight') rendition.next();
         });
 
-        // 列印功能
+        // ==========================================
+        // 列印功能 (強化版內容提取)
+        // ==========================================
         printBtn.addEventListener('click', async () => {
             if (!book) return;
-            if (!book.archive) {
-                alert("目前載入的電子書格式無法列印（需包含完整 ZIP 結構）。");
-                return;
-            }
-            showLoading(true, '正在提取全書內容以供列印，請稍候...');
+            showLoading(true, '正在提取全書內容以供列印，可能需要數十秒的時間，請稍候...');
             printArea.innerHTML = ''; 
+            
+            // 套用使用者選擇的排版
             printArea.style.fontSize = `${(currentFontSize / 100) * 12}pt`; 
             printArea.style.lineHeight = currentLineHeight;
 
@@ -530,11 +536,19 @@
                 for (let i = 0; i < spineItems.length; i++) {
                     let item = spineItems[i];
                     try {
-                        let doc = await book.archive.getXml(item.href);
-                        if (!doc) continue;
-                        let body = doc.querySelector('body');
+                        // 【強化提取邏輯】使用 ePub 官方原生的載入方法，解決路徑與資料夾結構問題
+                        await item.load(book.load.bind(book));
+                        let body = item.document ? item.document.querySelector('body') : null;
+
+                        // 防呆機制：如果原生方法抓不到，退回使用 archive 抓取
+                        if (!body && book.archive) {
+                            let doc = await book.archive.getXml(item.href);
+                            body = doc ? doc.querySelector('body') : null;
+                        }
+
                         if (!body) continue;
 
+                        // 處理圖片相對路徑
                         const images = body.querySelectorAll('img, image');
                         for (let img of images) {
                             let src = img.getAttribute('src') || img.getAttribute('href');
@@ -566,10 +580,16 @@
                                 }
                             }
                         }
+                        
+                        // 將內容塞入列印區塊
                         let chapterDiv = document.createElement('div');
                         chapterDiv.className = 'print-chapter';
                         chapterDiv.innerHTML = body.innerHTML;
                         printArea.appendChild(chapterDiv);
+
+                        // 釋放記憶體，避免大書造成瀏覽器當機
+                        item.unload();
+
                     } catch (err) {
                         console.warn(`無法解析章節: ${item.href}`, err);
                     }
