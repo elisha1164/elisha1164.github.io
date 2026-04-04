@@ -298,8 +298,8 @@
     <!-- 隱藏的列印區塊 -->
     <div id="print-area"></div>
     
-    <!-- 部署追蹤用版號 (v1.5: 移除 srcset 干擾，拆解 SVG 封面，引入 ZIP 檔案掃描與視覺化除錯) -->
-    <div class="version-tag">v1.5</div>
+    <!-- 部署追蹤用版號 (v1.6: 完美修復圖片 OPF 資料夾偏移問題與 Blob 誤判) -->
+    <div class="version-tag">v1.6</div>
 
     <script>
         let book = null;
@@ -351,7 +351,6 @@
 
             modalActionBtn.textContent = options.actionText || '確認';
             
-            // 綁定確認按鈕行為
             currentModalAction = () => {
                 if (options.onAction) options.onAction();
                 customModal.style.display = 'none';
@@ -540,7 +539,7 @@
         });
 
         // ==========================================
-        // 列印功能 (v1.5 終極圖片提取修復)
+        // 列印功能 (v1.6 終極圖片提取修復)
         // ==========================================
         printBtn.addEventListener('click', async () => {
             if (!book) return;
@@ -550,7 +549,7 @@
             printArea.style.fontSize = `${(currentFontSize / 100) * 12}pt`; 
             printArea.style.lineHeight = currentLineHeight;
 
-            let failedImagesLogs = []; // 收集解析失敗的圖片日誌
+            let failedImagesLogs = []; 
 
             try {
                 const spineItems = book.spine.spineItems;
@@ -570,7 +569,7 @@
                         // ========================================
                         // 處理地雷 1：強制拆解 SVG 封面包裝 (解決空白頁)
                         // ========================================
-                        const svgs = body.querySelectorAll('svg');
+                        const svgs = Array.from(body.querySelectorAll('svg'));
                         for (let svg of svgs) {
                             const svgImage = svg.querySelector('image');
                             if (svgImage) {
@@ -578,61 +577,84 @@
                                 if (src) {
                                     const newImg = document.createElement('img');
                                     newImg.setAttribute('src', src);
+                                    
+                                    // 繼承 class 避免排版錯亂
+                                    if(svg.className && svg.className.baseVal !== undefined) {
+                                        newImg.className = svg.className.baseVal;
+                                    } else if (svg.className) {
+                                        newImg.className = svg.className;
+                                    }
+                                    
                                     svg.parentNode.replaceChild(newImg, svg);
                                 }
                             }
                         }
 
                         // ========================================
-                        // 處理地雷 2：提取所有圖片與處理相對路徑
+                        // 處理地雷 2：提取所有圖片與智慧路徑還原
                         // ========================================
-                        const images = body.querySelectorAll('img');
+                        const images = body.querySelectorAll('img, image');
                         for (let img of images) {
                             
-                            // 拔除 srcset，避免瀏覽器忽略我們的 src 跑去網路抓圖導致破圖
                             img.removeAttribute('srcset'); 
                             
-                            let src = img.getAttribute('src');
-                            if (src && !src.startsWith('http') && !src.startsWith('data:')) {
+                            let src = img.getAttribute('src') || img.getAttribute('href') || img.getAttribute('xlink:href');
+                            
+                            // 關鍵修復：必須排除 'blob:' 網址，因為有些圖片早就被 ePub.js 成功轉成 blob 了！
+                            if (src && !src.startsWith('http') && !src.startsWith('data:') && !src.startsWith('blob:')) {
                                 
-                                // 清除網址參數
                                 let cleanSrc = src.split('#')[0].split('?')[0];
                                 let absolutePath = "";
 
                                 try {
-                                    // 確保利用 URL 物件正確解析 "../" 這種相對路徑
                                     const base = new URL(item.href, 'http://dummy.com/');
                                     const target = new URL(cleanSrc, base);
-                                    
-                                    // 解碼 URL (解決檔名包含空白或中文字導致的找不到檔案問題)
                                     absolutePath = decodeURIComponent(target.pathname.substring(1));
                                 } catch (e) {
                                     absolutePath = decodeURIComponent(cleanSrc);
                                 }
                                 
                                 try {
-                                    let blob = await book.archive.getBlob(absolutePath);
+                                    let blob = null;
                                     
-                                    // 【全域掃描機制】如果正常路徑抓不到，直接全域搜尋檔名
-                                    if (!blob && book.archive.zip && book.archive.zip.files) {
-                                        const filename = absolutePath.split('/').pop();
+                                    // 取得這本書真實的目錄 (例如 'ops/' 或 'OEBPS/')
+                                    let opfDir = (book.path && book.path.directory) ? book.path.directory : "";
+                                    let standardPath = opfDir + absolutePath;
+                                    
+                                    // 嘗試 1：標準結構路徑 (包含目錄)
+                                    try { blob = await book.archive.getBlob(standardPath); } catch(e){}
+                                    
+                                    // 嘗試 2：直接路徑 (無目錄防呆)
+                                    if (!blob) {
+                                        try { blob = await book.archive.getBlob(absolutePath); } catch(e){}
+                                    }
+
+                                    // 嘗試 3：無敵全域掃描 (忽略大小寫、忽略資料夾深淺)
+                                    if (!blob && book.archive && book.archive.zip && book.archive.zip.files) {
+                                        const targetFilename = absolutePath.split('/').pop().toLowerCase();
                                         const zipFiles = Object.keys(book.archive.zip.files);
+                                        
                                         for (let fileKey of zipFiles) {
-                                            if (fileKey.endsWith(filename)) {
-                                                blob = await book.archive.getBlob(fileKey);
-                                                if (blob) {
-                                                    absolutePath = fileKey; // 找到了真正的內部路徑
-                                                    break;
-                                                }
+                                            const zipFilename = fileKey.split('/').pop().toLowerCase();
+                                            if (zipFilename === targetFilename) {
+                                                try {
+                                                    blob = await book.archive.getBlob(fileKey);
+                                                    if (blob) break;
+                                                } catch(e) {}
                                             }
                                         }
                                     }
 
                                     if (blob) {
                                         let objectUrl = URL.createObjectURL(blob);
-                                        img.src = objectUrl; 
+                                        if(img.tagName.toLowerCase() === 'image') {
+                                            img.setAttribute('href', objectUrl); 
+                                            img.setAttributeNS('http://www.w3.org/1999/xlink', 'href', objectUrl);
+                                        } else {
+                                            img.src = objectUrl; 
+                                        }
                                     } else {
-                                        failedImagesLogs.push(`章節: ${item.href}<br>圖片 SRC: ${src}<br>尋找路徑: ${absolutePath}`);
+                                        failedImagesLogs.push(`章節: ${item.href}<br>圖片 SRC: ${src}<br>預期路徑: ${standardPath}`);
                                     }
                                 } catch(imgErr) {
                                     failedImagesLogs.push(`章節: ${item.href}<br>提取錯誤: ${imgErr.toString()}`);
@@ -654,7 +676,6 @@
                 
                 showLoading(false);
                 
-                // 如果有圖片遺失，顯示除錯面板！
                 if (failedImagesLogs.length > 0) {
                     showModal({
                         title: '⚠️ 發現部分圖片遺失',
@@ -666,7 +687,6 @@
                         }
                     });
                 } else {
-                    // 一切順利，直接觸發列印
                     setTimeout(() => { window.print(); }, 1000);
                 }
 
