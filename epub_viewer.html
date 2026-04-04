@@ -4,8 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>純前端 EPUB 閱讀與列印工具</title>
-    <!-- 引入 JSZip (ePub.js 依賴) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <!-- 純 SVG 的書本 Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%230056b3' d='M21 5c-1.11-.35-2.33-.5-3.5-.5-1.95 0-4.05.4-5.5 1.5-1.45-1.1-3.55-1.5-5.5-1.5S2.45 4.9 1 6v14.65c0 .25.25.5.5.5.1 0 .15-.05.25-.05C3.1 20.45 5.05 20 6.5 20c1.95 0 4.05.4 5.5 1.5 1.35-.85 3.8-1.5 5.5-1.5 1.65 0 3.35.3 4.75 1.05.1.05.15.05.25.05.25 0 .5-.25.5-.5V6c-.6-.45-1.25-.75-2-1zM21 18.5c-1.1-.35-2.3-.5-3.5-.5-1.7 0-4.15.65-5.5 1.5V8c1.35-.85 3.8-1.5 5.5-1.5 1.2 0 2.4.15 3.5.5v11.5z'/></svg>" type="image/svg+xml">
+    
+    <!-- 【關鍵修復】降版 JSZip 到 ePub.js 相容性最高的 3.1.5 版本 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.5/jszip.min.js"></script>
     <!-- 引入 ePub.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/epub.js/0.3.93/epub.min.js"></script>
     
@@ -166,7 +169,7 @@
         /* ==========================================
            列印專用樣式 (@media print)
            ========================================== */
-        #print-area { display: none; } /* 螢幕上隱藏列印區塊 */
+        #print-area { display: none; }
 
         @media print {
             body { background: #fff; }
@@ -175,7 +178,6 @@
             #print-area {
                 display: block;
                 width: 100%;
-                /* 基礎值，實際會被 JS 覆蓋以匹配使用者設定 */
                 font-size: 12pt; 
                 line-height: 1.6;
                 color: #000;
@@ -257,16 +259,16 @@
         </div>
     </div>
 
-    <!-- 隱藏的列印區塊 (僅在按下 ctrl+P 時生效) -->
+    <!-- 隱藏的列印區塊 -->
     <div id="print-area"></div>
 
     <script>
         let book = null;
         let rendition = null;
+        let loadingTimeout = null; 
         
-        // 儲存使用者的排版偏好
-        let currentFontSize = 100; // 預設 100%
-        let currentLineHeight = 1.6; // 預設行距 1.6
+        let currentFontSize = 100;
+        let currentLineHeight = 1.6;
 
         const fileInput = document.getElementById('file-input');
         const urlInput = document.getElementById('url-input');
@@ -278,42 +280,32 @@
         const loadingText = document.getElementById('loading-text');
         const printArea = document.getElementById('print-area');
 
-        // Modal 相關元素
         const customModal = document.getElementById('custom-modal');
         const modalDownloadBtn = document.getElementById('modal-download-btn');
         const modalCancelBtn = document.getElementById('modal-cancel-btn');
-        let currentDownloadUrl = ''; // 暫存要下載的網址
+        let currentDownloadUrl = '';
 
-        // 控制載入動畫
         function showLoading(show, text = '載入中，請稍候...') {
             loadingText.textContent = text;
             loadingOverlay.style.display = show ? 'flex' : 'none';
         }
 
-        // ==========================================
-        // Modal 控制邏輯
-        // ==========================================
+        // Modal 邏輯
         function showDownloadModal(url) {
             currentDownloadUrl = url;
             customModal.style.display = 'flex';
         }
-
         function hideDownloadModal() {
             customModal.style.display = 'none';
             currentDownloadUrl = '';
         }
-
         modalCancelBtn.addEventListener('click', hideDownloadModal);
-
         modalDownloadBtn.addEventListener('click', () => {
             if (currentDownloadUrl) {
-                // 在這裡觸發下載！
-                // 因為這是使用者「實體點擊按鈕」的當下，瀏覽器絕對不會阻擋它！
                 const link = document.createElement('a');
                 link.href = currentDownloadUrl;
-                link.target = '_blank'; // 加上 target=_blank 更保險
+                link.target = '_blank';
                 link.download = currentDownloadUrl.split('/').pop() || 'download.epub'; 
-                
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
@@ -321,17 +313,10 @@
             hideDownloadModal();
         });
 
-
-        // ==========================================
-        // 排版套用邏輯 (動態更新 ePub.js 樣式)
-        // ==========================================
+        // 排版套用邏輯
         function applyStyles() {
             if (!rendition) return;
-            
-            // 1. 調整字體大小 (內建 API)
             rendition.themes.fontSize(`${currentFontSize}%`);
-            
-            // 2. 調整行距 (透過注入 custom theme 覆蓋預設 CSS)
             const themeName = `custom-theme-${Date.now()}`;
             rendition.themes.register(themeName, {
                 "body": { "line-height": `${currentLineHeight} !important` },
@@ -341,98 +326,118 @@
             rendition.themes.select(themeName);
         }
 
-        // 綁定排版微調按鈕事件
         document.getElementById('btn-font-dec').addEventListener('click', () => {
-            currentFontSize = Math.max(80, currentFontSize - 10);
-            applyStyles();
+            currentFontSize = Math.max(80, currentFontSize - 10); applyStyles();
         });
         document.getElementById('btn-font-inc').addEventListener('click', () => {
-            currentFontSize = Math.min(200, currentFontSize + 10);
-            applyStyles();
+            currentFontSize = Math.min(200, currentFontSize + 10); applyStyles();
         });
         document.getElementById('btn-line-dec').addEventListener('click', () => {
-            currentLineHeight = Math.max(1.2, parseFloat((currentLineHeight - 0.2).toFixed(1)));
-            applyStyles();
+            currentLineHeight = Math.max(1.2, parseFloat((currentLineHeight - 0.2).toFixed(1))); applyStyles();
         });
         document.getElementById('btn-line-inc').addEventListener('click', () => {
-            currentLineHeight = Math.min(2.4, parseFloat((currentLineHeight + 0.2).toFixed(1)));
-            applyStyles();
+            currentLineHeight = Math.min(2.4, parseFloat((currentLineHeight + 0.2).toFixed(1))); applyStyles();
         });
 
         // ==========================================
-        // 從網址手動下載 EPUB 資料 
+        // 【關鍵修復】使用最嚴謹的電子書初始化流程
         // ==========================================
-        async function loadBookFromUrl(url) {
-            showLoading(true, '正在下載電子書 (視檔案大小可能需要一些時間)...');
-            try {
-                const response = await fetch(url);
-                if (!response.ok) {
-                    throw new Error(`伺服器回應錯誤: ${response.status}`);
-                }
-                const arrayBuffer = await response.arrayBuffer();
-                initBook(arrayBuffer);
-            } catch (error) {
-                console.error("下載或 CORS 錯誤:", error);
-                showLoading(false);
-                // 使用我們精美的自訂 Modal 替代 confirm()
-                showDownloadModal(url);
-            }
-        }
-
-        // ==========================================
-        // 初始化書籍並渲染
-        // ==========================================
-        function initBook(bookData) {
-            showLoading(true, '正在解析電子書...');
+        function initBook(bookData, isBinary = false) {
+            showLoading(true, '正在解析電子書結構...');
             
             if (book) { book.destroy(); }
             if (rendition) { viewer.innerHTML = ''; }
             tocSelect.innerHTML = '<option value="">請選擇章節...</option>';
             tocSelect.disabled = true;
             printBtn.disabled = true;
-            
             document.querySelectorAll('.tool-btn').forEach(btn => btn.disabled = true);
 
-            book = ePub(bookData);
-            
-            book.opened.catch(err => {
-                showLoading(false);
-                console.error("電子書解析失敗:", err);
-                alert("檔案解析失敗，請確認是否為完整的 EPUB 檔案。");
-            });
+            if(loadingTimeout) clearTimeout(loadingTimeout);
 
-            rendition = book.renderTo("viewer", {
-                width: "100%",
-                height: "100%",
-                spread: "none"
-            });
-
-            rendition.display().then(() => {
-                showLoading(false);
-                printBtn.disabled = false;
-                document.querySelectorAll('.tool-btn').forEach(btn => btn.disabled = false);
-                applyStyles();
-            }).catch(() => {
-                showLoading(false);
-            });
-
-            book.loaded.navigation.then((nav) => {
-                const generateToc = (tocList, level = 0) => {
-                    tocList.forEach((navItem) => {
-                        let option = document.createElement('option');
-                        option.value = navItem.href;
-                        option.textContent = "\u00A0\u00A0".repeat(level * 2) + navItem.label;
-                        tocSelect.appendChild(option);
-                        if (navItem.subitems && navItem.subitems.length > 0) {
-                            generateToc(navItem.subitems, level + 1);
-                        }
-                    });
-                };
-                if (nav && nav.toc) {
-                    generateToc(nav.toc);
-                    tocSelect.disabled = false;
+            // 20秒防呆：通常卡死都是因為 DRM 加密
+            loadingTimeout = setTimeout(() => {
+                if (loadingOverlay.style.display !== 'none') {
+                    showLoading(false);
+                    alert("⚠️ 解析逾時！\n\n若這些檔案是從 Kobo / 官方電子書店下載的，它們高機率帶有「DRM 數位版權加密」。\n\n純前端網頁無法解密 DRM，請嘗試上傳「無 DRM」的標準 EPUB 檔案進行測試。");
+                    if (book) book.destroy();
                 }
-            });
+            }, 20000);
+
+            try {
+                // 1. 初始化空物件
+                book = ePub();
+                
+                // 2. 嚴謹處理資料：若是二進位資料(ArrayBuffer)，強制標示為 binary
+                let openPromise;
+                if (isBinary || bookData instanceof ArrayBuffer) {
+                    openPromise = book.open(bookData, "binary");
+                } else {
+                    openPromise = book.open(bookData);
+                }
+
+                // 3. 處理 Promise 鏈，捕捉所有異常
+                openPromise.then(() => {
+                    showLoading(true, '結構讀取成功，正在準備畫面...');
+                    rendition = book.renderTo("viewer", {
+                        width: "100%",
+                        height: "100%",
+                        spread: "none"
+                    });
+                    return rendition.display();
+                }).then(() => {
+                    clearTimeout(loadingTimeout); // 成功載入，取消計時器
+                    showLoading(false);
+                    printBtn.disabled = false;
+                    document.querySelectorAll('.tool-btn').forEach(btn => btn.disabled = false);
+                    applyStyles();
+                    
+                    // 載入目錄
+                    return book.loaded.navigation;
+                }).then((nav) => {
+                    const generateToc = (tocList, level = 0) => {
+                        tocList.forEach((navItem) => {
+                            let option = document.createElement('option');
+                            option.value = navItem.href;
+                            option.textContent = "\u00A0\u00A0".repeat(level * 2) + navItem.label;
+                            tocSelect.appendChild(option);
+                            if (navItem.subitems && navItem.subitems.length > 0) {
+                                generateToc(navItem.subitems, level + 1);
+                            }
+                        });
+                    };
+                    if (nav && nav.toc) {
+                        generateToc(nav.toc);
+                        tocSelect.disabled = false;
+                    }
+                }).catch((err) => {
+                    clearTimeout(loadingTimeout);
+                    showLoading(false);
+                    console.error("解析失敗，可能為 DRM 或結構錯誤:", err);
+                    alert("電子書開啟失敗 ❌\n\n常見原因：\n1. 檔案受 DRM (數位版權保護) 限制（通常發生於各大書城的官方下載檔）。\n2. 檔案內部結構不符合標準 EPUB 規範。");
+                });
+                
+            } catch (err) {
+                clearTimeout(loadingTimeout);
+                showLoading(false);
+                console.error("執行 ePub 初始化發生致命錯誤:", err);
+                alert("初始化發生致命錯誤。");
+            }
+        }
+
+        // 從網址手動下載
+        async function loadBookFromUrl(url) {
+            showLoading(true, '正在下載電子書 (視檔案大小可能需要一些時間)...');
+            try {
+                const response = await fetch(url);
+                if (!response.ok) { throw new Error(`伺服器回應錯誤: ${response.status}`); }
+                const arrayBuffer = await response.arrayBuffer();
+                // 下載完畢，明確告知函式庫這是二進位資料
+                initBook(arrayBuffer, true);
+            } catch (error) {
+                console.error("下載或 CORS 錯誤:", error);
+                showLoading(false);
+                showDownloadModal(url);
+            }
         }
 
         // 監聽本機檔案上傳
@@ -449,7 +454,10 @@
 
             if (window.FileReader) {
                 const reader = new FileReader();
-                reader.onload = (event) => { initBook(event.target.result); };
+                reader.onload = (event) => { 
+                    // 檔案讀取完畢，明確告知函式庫這是二進位資料
+                    initBook(event.target.result, true); 
+                };
                 reader.readAsArrayBuffer(file);
             }
         });
@@ -469,47 +477,37 @@
             if (e.key === 'Enter') { loadUrlBtn.click(); }
         });
 
-        // 目錄選擇跳轉
+        // 目錄選擇與翻頁
         tocSelect.addEventListener('change', (e) => {
             if (e.target.value) { rendition.display(e.target.value); }
         });
-
-        // 翻頁功能
         document.getElementById('prev-btn').addEventListener('click', () => rendition && rendition.prev());
         document.getElementById('next-btn').addEventListener('click', () => rendition && rendition.next());
-
         document.addEventListener('keyup', (e) => {
             if (!rendition) return;
             if (e.key === 'ArrowLeft') rendition.prev();
             if (e.key === 'ArrowRight') rendition.next();
         });
 
-        // ==========================================
-        // 核心難點：客製化「完整書籍列印」功能
-        // ==========================================
+        // 列印功能
         printBtn.addEventListener('click', async () => {
             if (!book) return;
-            
             if (!book.archive) {
                 alert("目前載入的電子書格式無法列印（需包含完整 ZIP 結構）。");
                 return;
             }
-
             showLoading(true, '正在提取全書內容以供列印，請稍候...');
             printArea.innerHTML = ''; 
-            
             printArea.style.fontSize = `${(currentFontSize / 100) * 12}pt`; 
             printArea.style.lineHeight = currentLineHeight;
 
             try {
                 const spineItems = book.spine.spineItems;
-                
                 for (let i = 0; i < spineItems.length; i++) {
                     let item = spineItems[i];
                     try {
                         let doc = await book.archive.getXml(item.href);
                         if (!doc) continue;
-
                         let body = doc.querySelector('body');
                         if (!body) continue;
 
@@ -544,20 +542,16 @@
                                 }
                             }
                         }
-
                         let chapterDiv = document.createElement('div');
                         chapterDiv.className = 'print-chapter';
                         chapterDiv.innerHTML = body.innerHTML;
                         printArea.appendChild(chapterDiv);
-
                     } catch (err) {
                         console.warn(`無法解析章節: ${item.href}`, err);
                     }
                 }
-
                 showLoading(false);
                 setTimeout(() => { window.print(); }, 1000);
-
             } catch (error) {
                 console.error("列印處理發生錯誤：", error);
                 alert("列印處理失敗，請查看開發者工具(F12)的 Console。");
