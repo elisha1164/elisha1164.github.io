@@ -341,9 +341,10 @@
         });
 
         // ==========================================
-        // 初始化書籍流程 (已修正 ePub.js 處理 ArrayBuffer 的致命錯誤)
+        // 初始化書籍流程 (已加入強大的 Debug 輸出與 Base64 支援)
         // ==========================================
         function initBook(bookData) {
+            console.log("👉 [Debug] 1. 收到資料，準備初始化 ePub...");
             showLoading(true, '正在解析電子書結構...');
             
             // 清理舊環境
@@ -359,6 +360,7 @@
             // 30秒防呆保護
             loadingTimeout = setTimeout(() => {
                 if (loadingOverlay.style.display !== 'none') {
+                    console.warn("👉 [Debug] 警告：處理超過 30 秒，觸發逾時警告");
                     showLoading(false);
                     alert("⚠️ 解析逾時！\n\n這本書的結構可能有損毀，或是檔案過大導致瀏覽器無法負荷。");
                     if (book) book.destroy();
@@ -366,11 +368,12 @@
             }, 30000);
 
             try {
-                // 【核心修復】：不將 ArrayBuffer 放入 ePub() 建構子，而是建立空物件後用 open 載入
-                book = ePub();
+                // 將資料交給 ePub。因為我們現在傳入的是 Data URL (Base64) 字串，ePub 會將其視為標準網址處理
+                book = ePub(bookData);
+                console.log("👉 [Debug] 2. ePub 核心物件已建立，等待 ready...");
                 
-                // 採用標準 Promise 鏈接收所有非同步回傳
-                book.open(bookData, "binary").then(() => {
+                book.ready.then(() => {
+                    console.log("👉 [Debug] 3. 書本結構解析成功 (ready)，開始準備渲染畫面...");
                     rendition = book.renderTo("viewer", {
                         width: "100%",
                         height: "100%",
@@ -378,6 +381,7 @@
                     });
                     return rendition.display();
                 }).then(() => {
+                    console.log("👉 [Debug] 4. 畫面渲染完成！解開 UI 鎖定。");
                     clearTimeout(loadingTimeout); 
                     showLoading(false);
                     printBtn.disabled = false;
@@ -386,6 +390,7 @@
                     
                     return book.loaded.navigation;
                 }).then((nav) => {
+                    console.log("👉 [Debug] 5. 開始生成目錄 (TOC)...");
                     const generateToc = (tocList, level = 0) => {
                         tocList.forEach((navItem) => {
                             let option = document.createElement('option');
@@ -402,18 +407,19 @@
                         tocSelect.disabled = false;
                     }
                 }).catch((err) => {
-                    // 若過程中發生任何解析錯誤、毀損或超時，都會在這裡被乾淨地捕捉
                     clearTimeout(loadingTimeout);
                     showLoading(false);
-                    console.error("電子書解析失敗:", err);
-                    alert("電子書開啟失敗 ❌\n請確認檔案是否為標準格式。");
+                    const errMsg = err ? (err.message || err.toString() || JSON.stringify(err)) : "未知錯誤";
+                    console.error("👉 [Debug] 電子書解析過程中失敗:", err);
+                    alert("電子書開啟失敗 ❌\n\n【錯誤詳細內容】\n" + errMsg);
                 });
                 
             } catch (err) {
                 clearTimeout(loadingTimeout);
                 showLoading(false);
-                console.error("執行 ePub 初始化發生致命錯誤:", err);
-                alert("初始化發生致命錯誤。");
+                const errMsg = err ? (err.message || err.toString() || JSON.stringify(err)) : "未知錯誤";
+                console.error("👉 [Debug] 執行 ePub 初始化發生致命錯誤:", err);
+                alert("初始化發生致命錯誤 ❌\n\n請將這段訊息回報給開發者：\n" + errMsg);
             }
         }
 
@@ -423,10 +429,19 @@
             try {
                 const response = await fetch(url);
                 if (!response.ok) { throw new Error(`伺服器回應錯誤: ${response.status}`); }
-                const arrayBuffer = await response.arrayBuffer();
-                initBook(arrayBuffer);
+                
+                console.log("👉 [Debug] 網路下載完畢，準備轉換為 Blob -> Base64");
+                const blob = await response.blob();
+                
+                // 將下載的 Blob 轉為 Data URL (Base64) 格式以確保 ePub.js 穩定解析
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    initBook(reader.result);
+                };
+                reader.readAsDataURL(blob);
+
             } catch (error) {
-                console.error("下載或 CORS 錯誤:", error);
+                console.error("👉 [Debug] 下載或 CORS 錯誤:", error);
                 showLoading(false);
                 showDownloadModal(url);
             }
@@ -447,9 +462,12 @@
             if (window.FileReader) {
                 const reader = new FileReader();
                 reader.onload = (event) => { 
+                    console.log("👉 [Debug] 本機檔案讀取完畢，已轉換為 Data URL (Base64) 格式");
                     initBook(event.target.result); 
                 };
-                reader.readAsArrayBuffer(file);
+                
+                // 【核心修復】不再使用容易引起錯誤的 readAsArrayBuffer，全面改用 Data URL
+                reader.readAsDataURL(file);
             }
         });
 
