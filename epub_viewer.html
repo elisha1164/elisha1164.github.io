@@ -183,7 +183,6 @@
         #print-area { display: none; }
 
         @media print {
-            /* 【修復列印空白】覆蓋原有的 100vh 高度與 flex 排版，讓瀏覽器能正常延伸分頁 */
             html, body { 
                 height: auto !important; 
                 display: block !important; 
@@ -204,15 +203,22 @@
                 color: #000;
             }
 
-            #print-area img {
+            /* 【修復列印破版與空白頁】確保圖片和 SVG 不會無限延伸跨頁 */
+            #print-area img, #print-area svg, #print-area image {
                 max-width: 100% !important;
+                max-height: 980px !important; /* 約 A4 紙最大高度，防爆版 */
                 height: auto !important;
+                width: auto !important; /* 優先保持原本比例 */
                 break-inside: avoid;
+                page-break-inside: avoid;
+                display: block; 
+                margin: 0 auto; /* 置中對齊 */
             }
 
             .print-chapter {
                 break-before: page;
                 padding-top: 20px;
+                overflow: hidden; /* 防止極端內容爆出邊界 */
             }
 
             h1, h2, h3 { break-after: avoid; }
@@ -283,8 +289,8 @@
     <!-- 隱藏的列印區塊 -->
     <div id="print-area"></div>
     
-    <!-- 部署追蹤用版號 (v1.3: 修復 CSS 列印空白 Bug, 強化提取演算法) -->
-    <div class="version-tag">v1.3</div>
+    <!-- 部署追蹤用版號 (v1.4: 修復 URL編碼導致破圖 與 SVG封面導致空白頁 Bug) -->
+    <div class="version-tag">v1.4</div>
 
     <script>
         let book = null;
@@ -367,17 +373,14 @@
         // 初始化書籍流程
         // ==========================================
         function initBook(bookData) {
-            // 防禦性檢查
             if (typeof ePub === 'undefined') {
                 showLoading(false);
                 alert("⚠️ 核心套件載入失敗 (ePub is not defined)！\n\n請嘗試重新整理網頁，或檢查網路環境。");
                 return;
             }
 
-            console.log("👉 [Debug] 1. 收到資料，準備初始化 ePub...");
             showLoading(true, '正在解析電子書結構...');
             
-            // 清理舊環境
             if (book) { book.destroy(); }
             if (rendition) { viewer.innerHTML = ''; }
             tocSelect.innerHTML = '<option value="">請選擇章節...</option>';
@@ -387,10 +390,8 @@
 
             if(loadingTimeout) clearTimeout(loadingTimeout);
 
-            // 30秒防呆保護
             loadingTimeout = setTimeout(() => {
                 if (loadingOverlay.style.display !== 'none') {
-                    console.warn("👉 [Debug] 警告：處理超過 30 秒，觸發逾時警告");
                     showLoading(false);
                     alert("⚠️ 解析逾時！\n\n這本書的結構可能有損毀，或是檔案過大導致瀏覽器無法負荷。");
                     if (book) book.destroy();
@@ -399,10 +400,8 @@
 
             try {
                 book = ePub(bookData);
-                console.log("👉 [Debug] 2. ePub 核心物件已建立，等待 ready...");
                 
                 book.ready.then(() => {
-                    console.log("👉 [Debug] 3. 書本結構解析成功 (ready)，開始準備渲染畫面...");
                     rendition = book.renderTo("viewer", {
                         width: "100%",
                         height: "100%",
@@ -410,7 +409,6 @@
                     });
                     return rendition.display();
                 }).then(() => {
-                    console.log("👉 [Debug] 4. 畫面渲染完成！解開 UI 鎖定。");
                     clearTimeout(loadingTimeout); 
                     showLoading(false);
                     printBtn.disabled = false;
@@ -419,7 +417,6 @@
                     
                     return book.loaded.navigation;
                 }).then((nav) => {
-                    console.log("👉 [Debug] 5. 開始生成目錄 (TOC)...");
                     const generateToc = (tocList, level = 0) => {
                         tocList.forEach((navItem) => {
                             let option = document.createElement('option');
@@ -439,7 +436,7 @@
                     clearTimeout(loadingTimeout);
                     showLoading(false);
                     const errMsg = err ? (err.message || err.toString() || JSON.stringify(err)) : "未知錯誤";
-                    console.error("👉 [Debug] 電子書解析過程中失敗:", err);
+                    console.error("電子書解析過程中失敗:", err);
                     alert("電子書開啟失敗 ❌\n\n【錯誤詳細內容】\n" + errMsg);
                 });
                 
@@ -447,7 +444,7 @@
                 clearTimeout(loadingTimeout);
                 showLoading(false);
                 const errMsg = err ? (err.message || err.toString() || JSON.stringify(err)) : "未知錯誤";
-                console.error("👉 [Debug] 執行 ePub 初始化發生致命錯誤:", err);
+                console.error("執行 ePub 初始化發生致命錯誤:", err);
                 alert("初始化發生致命錯誤 ❌\n\n請將這段訊息回報給開發者：\n" + errMsg);
             }
         }
@@ -459,12 +456,11 @@
                 const response = await fetch(url);
                 if (!response.ok) { throw new Error(`伺服器回應錯誤: ${response.status}`); }
                 
-                console.log("👉 [Debug] 網路下載完畢，準備轉換為 ArrayBuffer");
                 const arrayBuffer = await response.arrayBuffer();
                 initBook(arrayBuffer);
 
             } catch (error) {
-                console.error("👉 [Debug] 下載或 CORS 錯誤:", error);
+                console.error("下載或 CORS 錯誤:", error);
                 showLoading(false);
                 showDownloadModal(url);
             }
@@ -485,7 +481,6 @@
             if (window.FileReader) {
                 const reader = new FileReader();
                 reader.onload = (event) => { 
-                    console.log("👉 [Debug] 本機檔案讀取完畢，已成功取得 ArrayBuffer 格式");
                     initBook(event.target.result); 
                 };
                 reader.readAsArrayBuffer(file);
@@ -520,7 +515,7 @@
         });
 
         // ==========================================
-        // 列印功能 (強化版內容提取)
+        // 列印功能 (強化版內容提取，修復破圖與空白頁)
         // ==========================================
         printBtn.addEventListener('click', async () => {
             if (!book) return;
@@ -536,11 +531,9 @@
                 for (let i = 0; i < spineItems.length; i++) {
                     let item = spineItems[i];
                     try {
-                        // 【強化提取邏輯】使用 ePub 官方原生的載入方法，解決路徑與資料夾結構問題
                         await item.load(book.load.bind(book));
                         let body = item.document ? item.document.querySelector('body') : null;
 
-                        // 防呆機制：如果原生方法抓不到，退回使用 archive 抓取
                         if (!body && book.archive) {
                             let doc = await book.archive.getXml(item.href);
                             body = doc ? doc.querySelector('body') : null;
@@ -548,11 +541,20 @@
 
                         if (!body) continue;
 
-                        // 處理圖片相對路徑
+                        // 【修復】擴大抓取範圍，支援標準 <img> 與 SVG 的 <image>
                         const images = body.querySelectorAll('img, image');
                         for (let img of images) {
-                            let src = img.getAttribute('src') || img.getAttribute('href');
+                            // 兼容各種屬性寫法，特別是舊版 epub 常用的 xlink:href
+                            let src = img.getAttribute('src') || img.getAttribute('href') || img.getAttributeNS('http://www.w3.org/1999/xlink', 'href') || img.getAttribute('xlink:href');
+                            
                             if (src && !src.startsWith('http') && !src.startsWith('data:')) {
+                                
+                                // 【修復破圖 1】清除非必要的錨點(hash)和查詢參數(query)
+                                src = src.split('#')[0].split('?')[0];
+                                
+                                // 【修復破圖 2】解碼 URL，解決檔名包含空白(%20)或中文的問題
+                                src = decodeURIComponent(src);
+
                                 const resolvePath = (base, relative) => {
                                     const stack = base.split('/');
                                     stack.pop(); 
@@ -565,15 +567,20 @@
                                     return stack.join('/');
                                 };
                                 let absolutePath = resolvePath(item.href, src);
+                                
                                 try {
                                     let blob = await book.archive.getBlob(absolutePath);
                                     if (blob) {
                                         let objectUrl = URL.createObjectURL(blob);
+                                        // 【修復空白頁】寫回時也要兼容 SVG 特殊屬性
                                         if(img.tagName.toLowerCase() === 'image') {
                                             img.setAttribute('href', objectUrl); 
+                                            img.setAttributeNS('http://www.w3.org/1999/xlink', 'href', objectUrl); // 雙管齊下確保相容
                                         } else {
                                             img.src = objectUrl; 
                                         }
+                                    } else {
+                                        console.warn('ZIP 內找不到該圖片:', absolutePath);
                                     }
                                 } catch(imgErr) {
                                     console.warn('提取列印圖片失敗:', absolutePath, imgErr);
@@ -595,7 +602,9 @@
                     }
                 }
                 showLoading(false);
-                setTimeout(() => { window.print(); }, 1000);
+                
+                // 加長等待時間，確保替換後的 Blob URL 圖片有足夠的時間在 DOM 中渲染完畢
+                setTimeout(() => { window.print(); }, 1500);
             } catch (error) {
                 console.error("列印處理發生錯誤：", error);
                 alert("列印處理失敗，請查看開發者工具(F12)的 Console。");
