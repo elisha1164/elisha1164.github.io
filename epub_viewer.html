@@ -4,11 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>純前端 EPUB 閱讀與列印工具</title>
-    <!-- 純 SVG 的書本 Favicon -->
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%230056b3' d='M21 5c-1.11-.35-2.33-.5-3.5-.5-1.95 0-4.05.4-5.5 1.5-1.45-1.1-3.55-1.5-5.5-1.5S2.45 4.9 1 6v14.65c0 .25.25.5.5.5.1 0 .15-.05.25-.05C3.1 20.45 5.05 20 6.5 20c1.95 0 4.05.4 5.5 1.5 1.35-.85 3.8-1.5 5.5-1.5 1.2 0 2.4.15 3.5.5v11.5z'/></svg>" type="image/svg+xml">
     
-    <!-- 引入 JSZip (ePub.js 依賴) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.5/jszip.min.js"></script>
+    <!-- 雙色書本 Favicon (左藍、右白) -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%230056b3' d='M12 21.33V6.2C10.6 5.4 9 5 7.5 5 5 5 2 6 2 6v15s3-1 5.5-1c2 0 4 .67 4.5 1.33z'/><path fill='%23ffffff' stroke='%230056b3' stroke-width='1.5' stroke-linejoin='round' d='M12 21.33V6.2C13.4 5.4 15 5 16.5 5 19 5 22 6 22 6v15s-3-1-5.5-1c-2 0-4 .67-4.5 1.33z'/></svg>" type="image/svg+xml">
+
+    <!-- 引入 JSZip (ePub.js 依賴) - 使用效能更好且穩定的 3.10.1 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <!-- 引入 ePub.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/epub.js/0.3.93/epub.min.js"></script>
     
@@ -340,10 +341,9 @@
         });
 
         // ==========================================
-        // 初始化書籍流程 (已修復：移除強制 binary 避免死結，並加入 Debug 日誌)
+        // 初始化書籍流程 (已修正 ePub.js 處理 ArrayBuffer 的致命錯誤)
         // ==========================================
         function initBook(bookData) {
-            console.log("👉 [Debug] 1. 收到資料，準備初始化 ePub...");
             showLoading(true, '正在解析電子書結構...');
             
             // 清理舊環境
@@ -359,7 +359,6 @@
             // 30秒防呆保護
             loadingTimeout = setTimeout(() => {
                 if (loadingOverlay.style.display !== 'none') {
-                    console.warn("👉 [Debug] 警告：處理超過 30 秒，觸發逾時警告");
                     showLoading(false);
                     alert("⚠️ 解析逾時！\n\n這本書的結構可能有損毀，或是檔案過大導致瀏覽器無法負荷。");
                     if (book) book.destroy();
@@ -367,12 +366,11 @@
             }, 30000);
 
             try {
-                // 直接將資料交給 ePub，讓其自動判斷是否為 ArrayBuffer
-                book = ePub(bookData);
-                console.log("👉 [Debug] 2. ePub 核心物件已建立，等待 ready...");
-
-                book.ready.then(() => {
-                    console.log("👉 [Debug] 3. 書本結構解析成功 (ready)，開始準備渲染畫面...");
+                // 【核心修復】：不將 ArrayBuffer 放入 ePub() 建構子，而是建立空物件後用 open 載入
+                book = ePub();
+                
+                // 採用標準 Promise 鏈接收所有非同步回傳
+                book.open(bookData, "binary").then(() => {
                     rendition = book.renderTo("viewer", {
                         width: "100%",
                         height: "100%",
@@ -380,17 +378,14 @@
                     });
                     return rendition.display();
                 }).then(() => {
-                    console.log("👉 [Debug] 4. 畫面渲染完成！解開 UI 鎖定。");
                     clearTimeout(loadingTimeout); 
                     showLoading(false);
                     printBtn.disabled = false;
                     document.querySelectorAll('.tool-btn').forEach(btn => btn.disabled = false);
                     applyStyles();
                     
-                    // 繼續嘗試載入目錄
                     return book.loaded.navigation;
                 }).then((nav) => {
-                    console.log("👉 [Debug] 5. 開始生成目錄 (TOC)...");
                     const generateToc = (tocList, level = 0) => {
                         tocList.forEach((navItem) => {
                             let option = document.createElement('option');
@@ -407,16 +402,17 @@
                         tocSelect.disabled = false;
                     }
                 }).catch((err) => {
-                    console.error("👉 [Debug] 發生錯誤:", err);
+                    // 若過程中發生任何解析錯誤、毀損或超時，都會在這裡被乾淨地捕捉
                     clearTimeout(loadingTimeout);
                     showLoading(false);
-                    alert("電子書開啟失敗 ❌\n請按 F12 開啟開發者工具查看詳細錯誤訊息。");
+                    console.error("電子書解析失敗:", err);
+                    alert("電子書開啟失敗 ❌\n請確認檔案是否為標準格式。");
                 });
                 
             } catch (err) {
                 clearTimeout(loadingTimeout);
                 showLoading(false);
-                console.error("👉 [Debug] 執行 ePub 初始化發生致命錯誤:", err);
+                console.error("執行 ePub 初始化發生致命錯誤:", err);
                 alert("初始化發生致命錯誤。");
             }
         }
@@ -451,7 +447,6 @@
             if (window.FileReader) {
                 const reader = new FileReader();
                 reader.onload = (event) => { 
-                    // 檔案讀取完畢，得到 ArrayBuffer 交給 initBook
                     initBook(event.target.result); 
                 };
                 reader.readAsArrayBuffer(file);
