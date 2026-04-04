@@ -151,12 +151,21 @@
         }
         .modal-box {
             background: #fff; padding: 25px 30px; border-radius: 10px;
-            max-width: 400px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            max-width: 500px; width: 90%; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2);
             animation: modalFadeIn 0.3s ease;
         }
         @keyframes modalFadeIn { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
         .modal-box h3 { margin-top: 0; color: #d9534f; font-size: 20px; }
-        .modal-box p { font-size: 15px; color: #555; line-height: 1.6; margin-bottom: 25px; text-align: left; }
+        .modal-box p { font-size: 15px; color: #555; line-height: 1.6; margin-bottom: 15px; text-align: left; }
+        
+        /* 圖片除錯清單區塊 */
+        #debug-log-area {
+            background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb;
+            padding: 10px; border-radius: 4px; text-align: left; font-size: 12px;
+            max-height: 150px; overflow-y: auto; margin-bottom: 20px; font-family: monospace;
+            word-break: break-all;
+        }
+
         .modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
         .modal-actions button {
             padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; transition: background 0.2s;
@@ -203,22 +212,22 @@
                 color: #000;
             }
 
-            /* 【修復列印破版與空白頁】確保圖片和 SVG 不會無限延伸跨頁 */
+            /* 確保圖片不破版 */
             #print-area img, #print-area svg, #print-area image {
                 max-width: 100% !important;
                 max-height: 980px !important; /* 約 A4 紙最大高度，防爆版 */
                 height: auto !important;
-                width: auto !important; /* 優先保持原本比例 */
+                width: auto !important; 
                 break-inside: avoid;
                 page-break-inside: avoid;
                 display: block; 
-                margin: 0 auto; /* 置中對齊 */
+                margin: 0 auto; 
             }
 
             .print-chapter {
                 break-before: page;
                 padding-top: 20px;
-                overflow: hidden; /* 防止極端內容爆出邊界 */
+                overflow: hidden; 
             }
 
             h1, h2, h3 { break-after: avoid; }
@@ -276,12 +285,12 @@
     <!-- 自訂彈出視窗 (Modal) -->
     <div id="custom-modal" class="modal-overlay">
         <div class="modal-box">
-            <h3>⚠️ 無法直接載入此網址</h3>
-            <p>因為目標網站的安全設定 (未開放 CORS)，瀏覽器阻止了我們的載入請求。</p>
-            <p><strong>解決方案：</strong><br>您可以透過瀏覽器直接將檔案下載下來，然後點擊左上角的【📂 上傳】來閱讀它！</p>
-            <div class="modal-actions">
+            <h3 id="modal-title">⚠️ 錯誤提示</h3>
+            <p id="modal-desc">發生錯誤，請查看詳細內容。</p>
+            <div id="debug-log-area" style="display: none;"></div>
+            <div class="modal-actions" id="modal-actions">
                 <button id="modal-cancel-btn" class="btn-cancel">取消</button>
-                <button id="modal-download-btn" class="btn-download">⬇️ 直接下載</button>
+                <button id="modal-action-btn" class="btn-download">確認</button>
             </div>
         </div>
     </div>
@@ -289,8 +298,8 @@
     <!-- 隱藏的列印區塊 -->
     <div id="print-area"></div>
     
-    <!-- 部署追蹤用版號 (v1.4: 修復 URL編碼導致破圖 與 SVG封面導致空白頁 Bug) -->
-    <div class="version-tag">v1.4</div>
+    <!-- 部署追蹤用版號 (v1.5: 移除 srcset 干擾，拆解 SVG 封面，引入 ZIP 檔案掃描與視覺化除錯) -->
+    <div class="version-tag">v1.5</div>
 
     <script>
         let book = null;
@@ -310,37 +319,50 @@
         const loadingText = document.getElementById('loading-text');
         const printArea = document.getElementById('print-area');
 
+        // Modal 元素
         const customModal = document.getElementById('custom-modal');
-        const modalDownloadBtn = document.getElementById('modal-download-btn');
+        const modalTitle = document.getElementById('modal-title');
+        const modalDesc = document.getElementById('modal-desc');
+        const debugLogArea = document.getElementById('debug-log-area');
         const modalCancelBtn = document.getElementById('modal-cancel-btn');
-        let currentDownloadUrl = '';
+        const modalActionBtn = document.getElementById('modal-action-btn');
+
+        let currentModalAction = null;
 
         function showLoading(show, text = '載入中，請稍候...') {
             loadingText.textContent = text;
             loadingOverlay.style.display = show ? 'flex' : 'none';
         }
 
-        // Modal 邏輯
-        function showDownloadModal(url) {
-            currentDownloadUrl = url;
+        // ==========================================
+        // 彈出視窗 (Modal) 共用邏輯
+        // ==========================================
+        function showModal(options) {
+            modalTitle.textContent = options.title || '提示';
+            modalDesc.innerHTML = options.desc || '';
+            
+            if (options.debugLogs && options.debugLogs.length > 0) {
+                debugLogArea.style.display = 'block';
+                debugLogArea.innerHTML = options.debugLogs.join('<br><br>');
+            } else {
+                debugLogArea.style.display = 'none';
+                debugLogArea.innerHTML = '';
+            }
+
+            modalActionBtn.textContent = options.actionText || '確認';
+            
+            // 綁定確認按鈕行為
+            currentModalAction = () => {
+                if (options.onAction) options.onAction();
+                customModal.style.display = 'none';
+            };
+            modalActionBtn.onclick = currentModalAction;
+            
             customModal.style.display = 'flex';
         }
-        function hideDownloadModal() {
+
+        modalCancelBtn.addEventListener('click', () => {
             customModal.style.display = 'none';
-            currentDownloadUrl = '';
-        }
-        modalCancelBtn.addEventListener('click', hideDownloadModal);
-        modalDownloadBtn.addEventListener('click', () => {
-            if (currentDownloadUrl) {
-                const link = document.createElement('a');
-                link.href = currentDownloadUrl;
-                link.target = '_blank';
-                link.download = currentDownloadUrl.split('/').pop() || 'download.epub'; 
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-            }
-            hideDownloadModal();
         });
 
         // 排版套用邏輯
@@ -435,17 +457,15 @@
                 }).catch((err) => {
                     clearTimeout(loadingTimeout);
                     showLoading(false);
-                    const errMsg = err ? (err.message || err.toString() || JSON.stringify(err)) : "未知錯誤";
                     console.error("電子書解析過程中失敗:", err);
-                    alert("電子書開啟失敗 ❌\n\n【錯誤詳細內容】\n" + errMsg);
+                    alert("電子書開啟失敗 ❌\n請確認檔案格式是否受損。");
                 });
                 
             } catch (err) {
                 clearTimeout(loadingTimeout);
                 showLoading(false);
-                const errMsg = err ? (err.message || err.toString() || JSON.stringify(err)) : "未知錯誤";
                 console.error("執行 ePub 初始化發生致命錯誤:", err);
-                alert("初始化發生致命錯誤 ❌\n\n請將這段訊息回報給開發者：\n" + errMsg);
+                alert("初始化發生致命錯誤 ❌");
             }
         }
 
@@ -455,18 +475,27 @@
             try {
                 const response = await fetch(url);
                 if (!response.ok) { throw new Error(`伺服器回應錯誤: ${response.status}`); }
-                
                 const arrayBuffer = await response.arrayBuffer();
                 initBook(arrayBuffer);
-
             } catch (error) {
-                console.error("下載或 CORS 錯誤:", error);
                 showLoading(false);
-                showDownloadModal(url);
+                showModal({
+                    title: '⚠️ 無法直接載入此網址',
+                    desc: '因為目標網站的安全設定 (未開放 CORS)，瀏覽器阻止了我們的載入請求。<br><br><strong>解決方案：</strong><br>您可以直接下載該檔案，再透過【📂 上傳】來閱讀它！',
+                    actionText: '⬇️ 直接下載',
+                    onAction: () => {
+                        const link = document.createElement('a');
+                        link.href = url;
+                        link.target = '_blank';
+                        link.download = url.split('/').pop() || 'download.epub'; 
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                    }
+                });
             }
         }
 
-        // 監聽本機檔案上傳
         fileInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) return;
@@ -480,14 +509,11 @@
 
             if (window.FileReader) {
                 const reader = new FileReader();
-                reader.onload = (event) => { 
-                    initBook(event.target.result); 
-                };
+                reader.onload = (event) => { initBook(event.target.result); };
                 reader.readAsArrayBuffer(file);
             }
         });
 
-        // 監聽網址載入
         loadUrlBtn.addEventListener('click', () => {
             const url = urlInput.value.trim();
             if (url) { 
@@ -502,7 +528,6 @@
             if (e.key === 'Enter') { loadUrlBtn.click(); }
         });
 
-        // 目錄選擇與翻頁
         tocSelect.addEventListener('change', (e) => {
             if (e.target.value) { rendition.display(e.target.value); }
         });
@@ -515,16 +540,17 @@
         });
 
         // ==========================================
-        // 列印功能 (強化版內容提取，修復破圖與空白頁)
+        // 列印功能 (v1.5 終極圖片提取修復)
         // ==========================================
         printBtn.addEventListener('click', async () => {
             if (!book) return;
             showLoading(true, '正在提取全書內容以供列印，可能需要數十秒的時間，請稍候...');
             printArea.innerHTML = ''; 
             
-            // 套用使用者選擇的排版
             printArea.style.fontSize = `${(currentFontSize / 100) * 12}pt`; 
             printArea.style.lineHeight = currentLineHeight;
+
+            let failedImagesLogs = []; // 收集解析失敗的圖片日誌
 
             try {
                 const spineItems = book.spine.spineItems;
@@ -541,70 +567,109 @@
 
                         if (!body) continue;
 
-                        // 【修復】擴大抓取範圍，支援標準 <img> 與 SVG 的 <image>
-                        const images = body.querySelectorAll('img, image');
+                        // ========================================
+                        // 處理地雷 1：強制拆解 SVG 封面包裝 (解決空白頁)
+                        // ========================================
+                        const svgs = body.querySelectorAll('svg');
+                        for (let svg of svgs) {
+                            const svgImage = svg.querySelector('image');
+                            if (svgImage) {
+                                let src = svgImage.getAttribute('href') || svgImage.getAttribute('xlink:href') || svgImage.getAttributeNS('http://www.w3.org/1999/xlink', 'href');
+                                if (src) {
+                                    const newImg = document.createElement('img');
+                                    newImg.setAttribute('src', src);
+                                    svg.parentNode.replaceChild(newImg, svg);
+                                }
+                            }
+                        }
+
+                        // ========================================
+                        // 處理地雷 2：提取所有圖片與處理相對路徑
+                        // ========================================
+                        const images = body.querySelectorAll('img');
                         for (let img of images) {
-                            // 兼容各種屬性寫法，特別是舊版 epub 常用的 xlink:href
-                            let src = img.getAttribute('src') || img.getAttribute('href') || img.getAttributeNS('http://www.w3.org/1999/xlink', 'href') || img.getAttribute('xlink:href');
                             
+                            // 拔除 srcset，避免瀏覽器忽略我們的 src 跑去網路抓圖導致破圖
+                            img.removeAttribute('srcset'); 
+                            
+                            let src = img.getAttribute('src');
                             if (src && !src.startsWith('http') && !src.startsWith('data:')) {
                                 
-                                // 【修復破圖 1】清除非必要的錨點(hash)和查詢參數(query)
-                                src = src.split('#')[0].split('?')[0];
-                                
-                                // 【修復破圖 2】解碼 URL，解決檔名包含空白(%20)或中文的問題
-                                src = decodeURIComponent(src);
+                                // 清除網址參數
+                                let cleanSrc = src.split('#')[0].split('?')[0];
+                                let absolutePath = "";
 
-                                const resolvePath = (base, relative) => {
-                                    const stack = base.split('/');
-                                    stack.pop(); 
-                                    const parts = relative.split('/');
-                                    for (let p of parts) {
-                                        if (p === '.') continue;
-                                        if (p === '..') stack.pop();
-                                        else stack.push(p);
-                                    }
-                                    return stack.join('/');
-                                };
-                                let absolutePath = resolvePath(item.href, src);
+                                try {
+                                    // 確保利用 URL 物件正確解析 "../" 這種相對路徑
+                                    const base = new URL(item.href, 'http://dummy.com/');
+                                    const target = new URL(cleanSrc, base);
+                                    
+                                    // 解碼 URL (解決檔名包含空白或中文字導致的找不到檔案問題)
+                                    absolutePath = decodeURIComponent(target.pathname.substring(1));
+                                } catch (e) {
+                                    absolutePath = decodeURIComponent(cleanSrc);
+                                }
                                 
                                 try {
                                     let blob = await book.archive.getBlob(absolutePath);
+                                    
+                                    // 【全域掃描機制】如果正常路徑抓不到，直接全域搜尋檔名
+                                    if (!blob && book.archive.zip && book.archive.zip.files) {
+                                        const filename = absolutePath.split('/').pop();
+                                        const zipFiles = Object.keys(book.archive.zip.files);
+                                        for (let fileKey of zipFiles) {
+                                            if (fileKey.endsWith(filename)) {
+                                                blob = await book.archive.getBlob(fileKey);
+                                                if (blob) {
+                                                    absolutePath = fileKey; // 找到了真正的內部路徑
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
+
                                     if (blob) {
                                         let objectUrl = URL.createObjectURL(blob);
-                                        // 【修復空白頁】寫回時也要兼容 SVG 特殊屬性
-                                        if(img.tagName.toLowerCase() === 'image') {
-                                            img.setAttribute('href', objectUrl); 
-                                            img.setAttributeNS('http://www.w3.org/1999/xlink', 'href', objectUrl); // 雙管齊下確保相容
-                                        } else {
-                                            img.src = objectUrl; 
-                                        }
+                                        img.src = objectUrl; 
                                     } else {
-                                        console.warn('ZIP 內找不到該圖片:', absolutePath);
+                                        failedImagesLogs.push(`章節: ${item.href}<br>圖片 SRC: ${src}<br>尋找路徑: ${absolutePath}`);
                                     }
                                 } catch(imgErr) {
-                                    console.warn('提取列印圖片失敗:', absolutePath, imgErr);
+                                    failedImagesLogs.push(`章節: ${item.href}<br>提取錯誤: ${imgErr.toString()}`);
                                 }
                             }
                         }
                         
-                        // 將內容塞入列印區塊
                         let chapterDiv = document.createElement('div');
                         chapterDiv.className = 'print-chapter';
                         chapterDiv.innerHTML = body.innerHTML;
                         printArea.appendChild(chapterDiv);
 
-                        // 釋放記憶體，避免大書造成瀏覽器當機
                         item.unload();
 
                     } catch (err) {
                         console.warn(`無法解析章節: ${item.href}`, err);
                     }
                 }
+                
                 showLoading(false);
                 
-                // 加長等待時間，確保替換後的 Blob URL 圖片有足夠的時間在 DOM 中渲染完畢
-                setTimeout(() => { window.print(); }, 1500);
+                // 如果有圖片遺失，顯示除錯面板！
+                if (failedImagesLogs.length > 0) {
+                    showModal({
+                        title: '⚠️ 發現部分圖片遺失',
+                        desc: `在準備列印檔的過程中，有 <strong>${failedImagesLogs.length}</strong> 張圖片無法從檔案中提取。<br>您可以選擇繼續列印，或將下方的除錯資訊截圖回報。`,
+                        debugLogs: failedImagesLogs,
+                        actionText: '🖨️ 忽略並繼續列印',
+                        onAction: () => {
+                            setTimeout(() => { window.print(); }, 500);
+                        }
+                    });
+                } else {
+                    // 一切順利，直接觸發列印
+                    setTimeout(() => { window.print(); }, 1000);
+                }
+
             } catch (error) {
                 console.error("列印處理發生錯誤：", error);
                 alert("列印處理失敗，請查看開發者工具(F12)的 Console。");
