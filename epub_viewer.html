@@ -171,6 +171,29 @@
         .btn-download { background: #0056b3; color: #fff; }
         .btn-download:hover { background: #004494; }
 
+        /* 內建瀏覽器 (IAB) 全螢幕警告攔截 */
+        #iab-warning-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: #f4f4f9; color: #333;
+            display: none; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 9999; padding: 20px; text-align: center;
+        }
+        .iab-card {
+            background: #fff; border-radius: 12px; padding: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            max-width: 90%; width: 450px;
+        }
+        .iab-card h2 { margin-top: 0; color: #d9534f; font-size: 22px; }
+        .iab-card p { line-height: 1.6; font-size: 15px; margin-bottom: 20px; color: #555; text-align: left; }
+        .iab-card .steps { 
+            background: #fff8e1; padding: 15px; border-radius: 8px; text-align: left; 
+            margin-bottom: 20px; color: #856404; border: 1px solid #ffeeba; font-size: 15px; line-height: 1.8;
+        }
+        .copy-btn {
+            background: #0056b3; color: #fff; border: none; padding: 14px 20px; font-size: 16px;
+            border-radius: 6px; cursor: pointer; width: 100%; font-weight: bold; transition: background 0.2s;
+        }
+        .copy-btn:active { background: #004494; }
+
         .version-tag {
             position: fixed; bottom: 5px; right: 5px;
             font-size: 11px; color: #aaa; z-index: 9999; pointer-events: none;
@@ -189,7 +212,7 @@
                 background: #fff !important; 
             }
             
-            #controls, #main-container, #loading-overlay, .modal-overlay, .version-tag { 
+            #controls, #main-container, #loading-overlay, .modal-overlay, .version-tag, #iab-warning-overlay { 
                 display: none !important; 
             }
             
@@ -243,6 +266,21 @@
     </style>
 </head>
 <body>
+
+    <!-- 內建瀏覽器全螢幕警告攔截區塊 -->
+    <div id="iab-warning-overlay">
+        <div class="iab-card">
+            <h2>⚠️ 建議使用預設瀏覽器</h2>
+            <p>偵測到您正在使用社群軟體的內建瀏覽器。受限於系統安全設定，這會導致<strong>「列印為 PDF」與「檔案下載」功能完全失效</strong>。</p>
+            <div class="steps">
+                <strong>💡 解決步驟：</strong><br>
+                1. 點擊畫面右上角或右下角的 <b>[ ⋮ ]</b> 或 <b>[ ⋯ ]</b>。<br>
+                2. 選擇 <b>「以預設瀏覽器開啟」</b> 或 <b>「在 Safari 開啟」</b>。
+            </div>
+            <p>如果您找不到該選項，請點擊下方按鈕複製網址，並手動貼到 <b>Chrome</b> 或 <b>Safari</b> 中開啟：</p>
+            <button class="copy-btn" id="iab-copy-btn">📋 一鍵複製網址</button>
+        </div>
+    </div>
 
     <div id="controls">
         <div>
@@ -299,9 +337,68 @@
 
     <div id="print-area"></div>
     
-    <div class="version-tag">v1.7</div>
+    <!-- 部署追蹤用版號 (v1.8: 加入 In-App Browser 偵測、自動跳轉與防呆引導) -->
+    <div class="version-tag">v1.8</div>
 
     <script>
+        // ==========================================
+        // 內建瀏覽器 (In-App Browser) 偵測與攔截邏輯
+        // ==========================================
+        function checkInAppBrowser() {
+            const ua = navigator.userAgent || navigator.vendor || window.opera;
+            const isLINE = /Line/i.test(ua);
+            const isOtherIAB = /FBAN|FBAV|Instagram|MicroMessenger|Threads|Dcard/i.test(ua);
+
+            if (isLINE) {
+                // 如果是 LINE 且網址尚未帶有自動跳轉參數，加上去並強制重整
+                if (window.location.search.indexOf('openExternalBrowser=1') === -1) {
+                    const newUrl = new URL(window.location.href);
+                    newUrl.searchParams.set('openExternalBrowser', '1');
+                    window.location.href = newUrl.toString();
+                    return true;
+                } else {
+                    // 若已帶有參數卻還在 LINE 裡面，代表跳轉失敗，顯示警告
+                    showIabWarning();
+                    return true;
+                }
+            } else if (isOtherIAB) {
+                showIabWarning();
+                return true;
+            }
+            return false;
+        }
+
+        function showIabWarning() {
+            document.getElementById('iab-warning-overlay').style.display = 'flex';
+            document.getElementById('iab-copy-btn').addEventListener('click', function() {
+                // 產生乾淨的網址 (拔除 LINE 的跳轉參數以免貼到外部也帶著)
+                const cleanUrl = new URL(window.location.href);
+                cleanUrl.searchParams.delete('openExternalBrowser');
+                
+                // 為了突破安全性限制，建立一個隱藏的 input 來執行複製
+                const dummy = document.createElement('input');
+                dummy.style.position = 'absolute';
+                dummy.style.left = '-9999px';
+                dummy.value = cleanUrl.toString();
+                document.body.appendChild(dummy);
+                dummy.select();
+                try {
+                    document.execCommand('copy');
+                    this.textContent = "✅ 已複製，請前往瀏覽器開啟";
+                    this.style.backgroundColor = "#28a745";
+                } catch (err) {
+                    alert("複製失敗，請手動全選上方網址列複製。");
+                }
+                document.body.removeChild(dummy);
+            });
+        }
+
+        // 頁面一載入就先執行檢查，如果是 IAB 就直接攔截，後面的邏輯雖然會跑，但畫面會被完全蓋住
+        checkInAppBrowser();
+
+        // ==========================================
+        // 核心閱讀器與列印邏輯
+        // ==========================================
         let book = null;
         let rendition = null;
         let loadingTimeout = null; 
@@ -309,7 +406,6 @@
         let currentFontSize = 100;
         let currentLineHeight = 1.6;
 
-        // 【新功能變數】用來暫存目錄對照表，供列印時產生頁首使用
         let tocMap = {}; 
 
         const fileInput = document.getElementById('file-input');
@@ -389,7 +485,7 @@
             tocSelect.disabled = true;
             printBtn.disabled = true;
             document.querySelectorAll('.tool-btn').forEach(btn => btn.disabled = true);
-            tocMap = {}; // 清空舊的目錄表
+            tocMap = {}; 
 
             if(loadingTimeout) clearTimeout(loadingTimeout);
             loadingTimeout = setTimeout(() => {
@@ -415,7 +511,6 @@
                 }).then((nav) => {
                     const generateToc = (tocList, level = 0) => {
                         tocList.forEach((navItem) => {
-                            // 建立列印用的目錄對照表 (濾掉 hash)
                             let targetPath = navItem.href.split('#')[0];
                             try { targetPath = decodeURIComponent(targetPath); } catch(e){}
                             if (!tocMap[targetPath]) tocMap[targetPath] = navItem.label.trim();
@@ -496,9 +591,6 @@
             if (e.key === 'ArrowRight') rendition.next();
         });
 
-        // ==========================================
-        // 列印功能 (新增 PDF 錨點跳轉 與 章節頁首)
-        // ==========================================
         printBtn.addEventListener('click', async () => {
             if (!book) return;
             showLoading(true, '正在排版全書內容，可能需要數十秒，請稍候...');
@@ -523,13 +615,11 @@
 
                         if (!body) continue;
 
-                        // [新功能 1] 轉換內部超連結為 PDF 錨點跳轉
                         const links = body.querySelectorAll('a[href]');
                         for (let a of links) {
                             let href = a.getAttribute('href');
-                            // 忽略外部連結與純錨點
                             if (href && !href.startsWith('http') && !href.startsWith('mailto:') && !href.startsWith('data:') && !href.startsWith('#')) {
-                                let cleanSrc = href.split('#')[0]; // 取路徑部分
+                                let cleanSrc = href.split('#')[0]; 
                                 let absolutePath = "";
                                 try {
                                     const base = new URL(item.href, 'http://dummy.com/');
@@ -538,12 +628,10 @@
                                 } catch (e) {
                                     absolutePath = decodeURIComponent(cleanSrc);
                                 }
-                                // 將連結指向章節 ID (會觸發 PDF 的內部書籤跳轉機制)
                                 a.setAttribute('href', '#' + absolutePath); 
                             }
                         }
 
-                        // [圖片處理邏輯維持不變]
                         const svgs = Array.from(body.querySelectorAll('svg'));
                         for (let svg of svgs) {
                             const svgImage = svg.querySelector('image');
@@ -603,19 +691,16 @@
                         let chapterDiv = document.createElement('div');
                         chapterDiv.className = 'print-chapter';
                         
-                        // 【關鍵】給予章節 ID，作為 PDF 內部跳轉的錨點目標
                         let itemPathId = item.href;
                         try { itemPathId = decodeURIComponent(itemPathId); } catch(e){}
                         chapterDiv.id = itemPathId; 
 
-                        // [新功能 2] 加入智慧章節頁首
                         let chapterTitle = tocMap[itemPathId] || `第 ${i + 1} 部分`;
                         let headerDiv = document.createElement('div');
                         headerDiv.className = 'print-chapter-header';
                         headerDiv.innerText = `— ${chapterTitle} —`;
                         chapterDiv.appendChild(headerDiv);
 
-                        // 塞入內文
                         let contentDiv = document.createElement('div');
                         contentDiv.innerHTML = body.innerHTML;
                         chapterDiv.appendChild(contentDiv);
@@ -650,6 +735,9 @@
         });
 
         window.addEventListener('DOMContentLoaded', () => {
+            // 如果是在內建瀏覽器，就不執行自動載入，以免浪費流量
+            if (document.getElementById('iab-warning-overlay').style.display === 'flex') return;
+
             const params = new URLSearchParams(window.location.search);
             const srcUrl = params.get('src');
             if (srcUrl) { urlInput.value = srcUrl; loadBookFromUrl(srcUrl); }
