@@ -303,8 +303,20 @@
                 showLoading(false);
                 // 精確判斷失敗並提供降級方案 (下載)
                 const wantDownload = confirm("⚠️ 無法直接載入此網址 (可能是目標網站未開放 CORS 跨域權限)。\n\n請問是否要透過瀏覽器「直接下載」該檔案？\n(下載完成後，您可以再次點擊左側的【📂 上傳】來閱讀它)");
+                
                 if (wantDownload) {
-                    window.open(url, '_blank');
+                    // 為了避免被快顯封鎖，改用動態建立 <a> 標籤觸發下載
+                    const link = document.createElement('a');
+                    link.href = url;
+                    
+                    // 試圖從網址提取檔名，如果沒有則給個預設值
+                    const fileName = url.split('/').pop() || 'download.epub';
+                    link.download = fileName; 
+                    
+                    // 將連結加入畫面後模擬點擊，接著再移除
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
                 }
             }
         }
