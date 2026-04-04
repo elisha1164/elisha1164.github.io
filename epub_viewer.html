@@ -15,136 +15,323 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
             padding: 0;
-            background-color: #f4f4f9;
+            background-color: #f7f9fc;
             color: #333;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
+            overflow: hidden; /* 防止主畫面捲動，由內部容器處理 */
         }
 
-        /* 頂部控制列 */
-        #controls {
-            background-color: #fff;
-            padding: 15px 20px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        /* ==========================================
+           階段一：書本載入階段 (Welcome Screen)
+           ========================================== */
+        #welcome-screen {
             display: flex;
-            gap: 15px;
+            justify-content: center;
             align-items: center;
-            flex-wrap: wrap;
-            z-index: 10;
+            height: 100vh;
+            width: 100vw;
+            background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+            position: absolute;
+            top: 0; left: 0;
+            z-index: 100;
+            transition: opacity 0.4s ease, visibility 0.4s ease;
         }
 
-        #controls input[type="file"], #controls input[type="text"] {
-            padding: 8px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
+        .welcome-card {
+            background: #fff;
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.05);
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
         }
 
-        #controls button, #controls select {
-            padding: 8px 15px;
+        .welcome-card h1 {
+            margin-top: 0;
+            color: #0056b3;
+            font-size: 24px;
+            margin-bottom: 30px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .input-group label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #555;
+        }
+
+        .input-group input[type="file"], 
+        .input-group input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-sizing: border-box;
+            font-size: 14px;
+            background: #fafafa;
+        }
+
+        .input-group .url-row {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-primary {
+            padding: 12px 20px;
             background-color: #0056b3;
             color: white;
             border: none;
-            border-radius: 4px;
+            border-radius: 8px;
             cursor: pointer;
             font-size: 14px;
-            transition: background-color 0.2s;
+            font-weight: bold;
+            transition: background 0.2s;
+            white-space: nowrap;
         }
 
-        #controls button:hover { background-color: #004494; }
-        #controls button:disabled { background-color: #ccc; cursor: not-allowed; }
-        #controls select { background-color: #fff; color: #333; border: 1px solid #ccc; }
+        .btn-primary:hover { background-color: #004494; }
 
-        /* 排版微調工具列樣式 */
-        .tool-group {
+        .divider {
+            margin: 25px 0;
+            position: relative;
+            text-align: center;
+        }
+
+        .divider::before {
+            content: "";
+            position: absolute;
+            top: 50%; left: 0; right: 0;
+            border-top: 1px solid #ddd;
+            z-index: 1;
+        }
+
+        .divider span {
+            background: #fff;
+            padding: 0 15px;
+            color: #aaa;
+            font-size: 14px;
+            position: relative;
+            z-index: 2;
+        }
+
+        /* ==========================================
+           階段二：閱讀階段 (Reader UI)
+           ========================================== */
+        #reader-ui {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            width: 100vw;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.4s ease, visibility 0.4s ease;
+            position: absolute;
+            top: 0; left: 0;
+        }
+
+        /* 當 body 擁有 is-reading class 時的切換邏輯 */
+        body.is-reading #welcome-screen {
+            opacity: 0;
+            visibility: hidden;
+        }
+
+        body.is-reading #reader-ui {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* 極簡頂部工具列 */
+        #toolbar {
+            background-color: #fff;
+            padding: 10px 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            z-index: 10;
+        }
+
+        .tool-btn {
+            background: transparent;
+            color: #555;
+            border: 1px solid transparent;
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
             display: flex;
             align-items: center;
-            gap: 4px;
-            background: #f4f4f9;
-            padding: 4px 8px;
-            border-radius: 6px;
-            border: 1px solid #e0e0e0;
+            justify-content: center;
         }
-        .tool-group span {
-            font-size: 13px;
-            color: #666;
-            margin-right: 4px;
-            font-weight: bold;
-        }
-        .tool-btn {
-            background: #fff !important;
-            color: #333 !important;
-            border: 1px solid #ccc !important;
-            padding: 4px 10px !important;
-            font-weight: bold;
-        }
-        .tool-btn:hover:not(:disabled) { background: #e0e0e0 !important; }
 
-        /* 閱讀器主體區塊 */
+        .tool-btn:hover {
+            background: #f0f0f0;
+            border-color: #ddd;
+            color: #000;
+        }
+
+        #btn-close {
+            color: #d9534f;
+            font-size: 18px;
+        }
+        #btn-close:hover { background: #fdf2f2; border-color: #f5c6cb; }
+
+        #print-btn { font-size: 18px; }
+
+        /* 閱讀器主體 */
         #main-container {
             flex: 1;
-            display: flex;
             position: relative;
+            display: flex;
+            background: #fff;
             overflow: hidden;
-            padding: 20px;
         }
 
         #viewer {
             flex: 1;
-            background: #fff;
-            box-shadow: 0 0 10px rgba(0,0,0,0.05);
-            border-radius: 8px;
-            overflow: hidden;
             position: relative;
+            overflow: hidden;
         }
 
-        /* 翻頁按鈕 */
         .nav-btn {
             position: absolute;
             top: 50%;
             transform: translateY(-50%);
-            background: rgba(0,0,0,0.1);
+            background: rgba(0,0,0,0.03);
             border: none;
-            font-size: 24px;
-            padding: 20px 10px;
+            font-size: 28px;
+            color: #888;
+            padding: 30px 15px;
             cursor: pointer;
             z-index: 5;
-            transition: background 0.3s;
+            transition: all 0.3s;
         }
-        .nav-btn:hover { background: rgba(0,0,0,0.2); }
+        .nav-btn:hover { background: rgba(0,0,0,0.08); color: #333; }
         #prev-btn { left: 0; border-radius: 0 8px 8px 0; }
         #next-btn { right: 0; border-radius: 8px 0 0 8px; }
 
-        /* 載入中遮罩 */
-        #loading-overlay {
+        /* ==========================================
+           滑出式側邊目錄 (Off-canvas TOC)
+           ========================================== */
+        #toc-tab {
             position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(255,255,255,0.9);
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #0056b3;
+            color: white;
+            padding: 15px 8px;
+            border-radius: 0 8px 8px 0;
+            cursor: pointer;
+            z-index: 20;
+            font-size: 18px;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+            transition: left 0.3s;
+            opacity: 0;
+            visibility: hidden;
+        }
+        body.is-reading #toc-tab { opacity: 1; visibility: visible; }
+        #toc-tab:hover { background: #004494; }
+
+        #toc-sidebar {
+            position: fixed;
+            top: 0;
+            left: -320px;
+            width: 300px;
+            height: 100vh;
+            background: #fff;
+            box-shadow: 2px 0 15px rgba(0,0,0,0.15);
+            z-index: 30;
+            transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             display: flex;
             flex-direction: column;
-            justify-content: center;
+        }
+
+        #toc-sidebar.open { left: 0; }
+
+        .toc-header {
+            padding: 20px;
+            font-size: 18px;
+            font-weight: bold;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
             align-items: center;
-            z-index: 1000;
-            display: none; 
+        }
+
+        .toc-close-btn {
+            background: none; border: none; font-size: 20px; color: #888; cursor: pointer;
+        }
+        .toc-close-btn:hover { color: #333; }
+
+        .toc-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px 0;
+        }
+
+        .toc-content ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .toc-content li a {
+            display: block;
+            padding: 12px 20px;
+            color: #444;
+            text-decoration: none;
+            border-bottom: 1px solid #f9f9f9;
+            transition: background 0.2s;
+            font-size: 15px;
+        }
+
+        .toc-content li a:hover {
+            background: #f0f7ff;
+            color: #0056b3;
+        }
+
+        .toc-content ul ul { padding-left: 20px; }
+        .toc-content ul ul a { font-size: 14px; color: #666; border-bottom: none; padding: 8px 20px;}
+
+        /* 目錄背景遮罩 */
+        #toc-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.4);
+            z-index: 25;
+            opacity: 0; visibility: hidden;
+            transition: opacity 0.3s;
+        }
+        #toc-overlay.open { opacity: 1; visibility: visible; }
+
+
+        /* ==========================================
+           全域共用 UI 
+           ========================================== */
+        #loading-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255,255,255,0.9);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 1000; display: none; 
         }
         .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #0056b3;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin-bottom: 15px;
+            border: 4px solid #f3f3f3; border-top: 4px solid #0056b3; border-radius: 50%;
+            width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 15px;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
         /* 自訂彈出視窗 (Modal) */
         .modal-overlay {
             position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.6);
-            display: none; justify-content: center; align-items: center;
-            z-index: 2000;
-            backdrop-filter: blur(2px);
+            background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center;
+            z-index: 2000; backdrop-filter: blur(2px);
         }
         .modal-box {
             background: #fff; padding: 25px 30px; border-radius: 10px;
@@ -206,13 +393,13 @@
 
         @media print {
             html, body { 
-                height: auto !important; 
-                display: block !important; 
-                overflow: visible !important;
-                background: #fff !important; 
+                height: auto !important; display: block !important; 
+                overflow: visible !important; background: #fff !important; 
             }
             
-            #controls, #main-container, #loading-overlay, .modal-overlay, .version-tag, #iab-warning-overlay { 
+            /* 列印時隱藏所有 UI 介面 */
+            #welcome-screen, #reader-ui, #toc-tab, #toc-sidebar, #toc-overlay,
+            #loading-overlay, .modal-overlay, .version-tag, #iab-warning-overlay { 
                 display: none !important; 
             }
             
@@ -225,41 +412,23 @@
                 color: #000;
             }
 
-            /* 隱藏預設列印的超連結網址，避免曝光 GitHub 帳號 */
             a { text-decoration: none; color: inherit; }
             a[href]:after { content: none !important; }
 
-            /* 章節整理標題樣式 */
             .print-chapter-header {
-                text-align: center;
-                font-size: 1.3em;
-                font-weight: bold;
-                color: #555;
-                margin-top: 10px;
-                margin-bottom: 25px;
-                padding-bottom: 10px;
-                border-bottom: 2px dashed #ddd;
-                break-after: avoid;
-                page-break-after: avoid;
+                text-align: center; font-size: 1.3em; font-weight: bold; color: #555;
+                margin-top: 10px; margin-bottom: 25px; padding-bottom: 10px; border-bottom: 2px dashed #ddd;
+                break-after: avoid; page-break-after: avoid;
             }
 
             #print-area img, #print-area svg, #print-area image {
-                max-width: 100% !important;
-                max-height: 980px !important; 
-                height: auto !important;
-                width: auto !important; 
-                break-inside: avoid;
-                page-break-inside: avoid;
-                display: block; 
-                margin: 0 auto; 
+                max-width: 100% !important; max-height: 980px !important; 
+                height: auto !important; width: auto !important; 
+                break-inside: avoid; page-break-inside: avoid;
+                display: block; margin: 0 auto; 
             }
 
-            .print-chapter {
-                break-before: page;
-                padding-top: 20px;
-                overflow: hidden; 
-            }
-
+            .print-chapter { break-before: page; padding-top: 20px; overflow: hidden; }
             h1, h2, h3 { break-after: avoid; }
             p { orphans: 3; widows: 3; }
         }
@@ -267,57 +436,79 @@
 </head>
 <body>
 
-    <!-- 內建瀏覽器全螢幕警告攔截區塊 -->
+    <!-- 內建瀏覽器攔截 -->
     <div id="iab-warning-overlay">
         <div class="iab-card">
             <h2>⚠️ 建議使用預設瀏覽器</h2>
             <p>偵測到您正在使用社群軟體的內建瀏覽器。受限於系統安全設定，這會導致<strong>「列印為 PDF」與「檔案下載」功能完全失效</strong>。</p>
             <div class="steps">
                 <strong>💡 解決步驟：</strong><br>
-                1. 點擊畫面右上角或右下角的 <b>[ ⋮ ]</b> 或 <b>[ ⋯ ]</b>。<br>
+                1. 點擊畫面邊緣的 <b>[ ⋮ ]</b> 或 <b>[ ⋯ ]</b>。<br>
                 2. 選擇 <b>「以預設瀏覽器開啟」</b> 或 <b>「在 Safari 開啟」</b>。
             </div>
-            <p>如果您找不到該選項，請點擊下方按鈕複製網址，並手動貼到 <b>Chrome</b> 或 <b>Safari</b> 中開啟：</p>
+            <p>若找不到該選項，請複製網址並手動貼到 Chrome/Safari：</p>
             <button class="copy-btn" id="iab-copy-btn">📋 一鍵複製網址</button>
         </div>
     </div>
 
-    <div id="controls">
-        <div>
-            <label for="file-input">📂 上傳：</label>
-            <input type="file" id="file-input" accept=".epub" style="width: 180px;">
+    <!-- ==========================================
+         階段一：歡迎卡片 (載入區)
+         ========================================== -->
+    <div id="welcome-screen">
+        <div class="welcome-card">
+            <h1>📖 EPUB 閱讀器</h1>
+            <div class="input-group">
+                <label for="file-input">📂 上傳本機檔案</label>
+                <input type="file" id="file-input" accept=".epub">
+            </div>
+            <div class="divider"><span>或</span></div>
+            <div class="input-group">
+                <label for="url-input">🌐 透過網址載入</label>
+                <div class="url-row">
+                    <input type="text" id="url-input" placeholder="輸入 EPUB 網址 (需支援 CORS)">
+                    <button id="load-url-btn" class="btn-primary">載入</button>
+                </div>
+            </div>
         </div>
-        <div>
-            <label for="url-input">🌐 網址：</label>
-            <input type="text" id="url-input" placeholder="輸入 EPUB 網址" style="width: 150px;">
-            <button id="load-url-btn">載入</button>
-        </div>
-        
-        <div class="tool-group">
-            <span>文字</span>
-            <button id="btn-font-dec" class="tool-btn" disabled>A-</button>
-            <button id="btn-font-inc" class="tool-btn" disabled>A+</button>
-        </div>
-        <div class="tool-group">
-            <span>行距</span>
-            <button id="btn-line-dec" class="tool-btn" disabled>≡-</button>
-            <button id="btn-line-inc" class="tool-btn" disabled>≡+</button>
-        </div>
-
-        <div style="flex-grow: 1;"></div>
-        
-        <select id="toc-select" disabled>
-            <option value="">目錄 (載入中...)</option>
-        </select>
-        <button id="print-btn" disabled>🖨️ 產生完整列印檔</button>
     </div>
 
-    <div id="main-container">
-        <div id="viewer"></div>
-        <button id="prev-btn" class="nav-btn">‹</button>
-        <button id="next-btn" class="nav-btn">›</button>
+    <!-- ==========================================
+         階段二：閱讀器 UI (載入後顯示)
+         ========================================== -->
+    <div id="reader-ui">
+        <!-- 極簡工具列 -->
+        <div id="toolbar">
+            <button id="btn-close" class="tool-btn" title="關閉並返回首頁">✕</button>
+            <div style="flex-grow: 1;"></div>
+            <button id="btn-font-dec" class="tool-btn" title="縮小文字">A-</button>
+            <button id="btn-font-inc" class="tool-btn" title="放大文字">A+</button>
+            <button id="btn-line-dec" class="tool-btn" title="縮小行距">≡-</button>
+            <button id="btn-line-inc" class="tool-btn" title="放大行距">≡+</button>
+            <button id="print-btn" class="tool-btn" title="產生完整列印檔">🖨️</button>
+        </div>
+
+        <!-- 內容區 -->
+        <div id="main-container">
+            <div id="viewer"></div>
+            <button id="prev-btn" class="nav-btn">‹</button>
+            <button id="next-btn" class="nav-btn">›</button>
+        </div>
+
+        <!-- 滑出式目錄 -->
+        <div id="toc-tab" title="開啟目錄">☰</div>
+        <div id="toc-overlay"></div>
+        <div id="toc-sidebar">
+            <div class="toc-header">
+                章節目錄
+                <button id="close-toc-btn" class="toc-close-btn">✕</button>
+            </div>
+            <div class="toc-content" id="toc-content">
+                <!-- 目錄樹將動態生成於此 -->
+            </div>
+        </div>
     </div>
 
+    <!-- 共用元件 -->
     <div id="loading-overlay">
         <div class="spinner"></div>
         <div id="loading-text">載入中，請稍候...</div>
@@ -335,35 +526,25 @@
         </div>
     </div>
 
+    <!-- 隱藏列印區 -->
     <div id="print-area"></div>
     
-    <!-- 部署追蹤用版號 (v1.8: 加入 In-App Browser 偵測、自動跳轉與防呆引導) -->
-    <div class="version-tag">v1.8</div>
+    <!-- 版號 (v2.0: 兩階段全螢幕沉浸 UX 改造) -->
+    <div class="version-tag">v2.0</div>
 
     <script>
-        // ==========================================
-        // 內建瀏覽器 (In-App Browser) 偵測與攔截邏輯
-        // ==========================================
+        // IAB 攔截
         function checkInAppBrowser() {
             const ua = navigator.userAgent || navigator.vendor || window.opera;
-            const isLINE = /Line/i.test(ua);
-            const isOtherIAB = /FBAN|FBAV|Instagram|MicroMessenger|Threads|Dcard/i.test(ua);
-
-            if (isLINE) {
-                // 如果是 LINE 且網址尚未帶有自動跳轉參數，加上去並強制重整
+            if (/Line/i.test(ua)) {
                 if (window.location.search.indexOf('openExternalBrowser=1') === -1) {
                     const newUrl = new URL(window.location.href);
                     newUrl.searchParams.set('openExternalBrowser', '1');
                     window.location.href = newUrl.toString();
                     return true;
-                } else {
-                    // 若已帶有參數卻還在 LINE 裡面，代表跳轉失敗，顯示警告
-                    showIabWarning();
-                    return true;
-                }
-            } else if (isOtherIAB) {
-                showIabWarning();
-                return true;
+                } else { showIabWarning(); return true; }
+            } else if (/FBAN|FBAV|Instagram|MicroMessenger|Threads|Dcard/i.test(ua)) {
+                showIabWarning(); return true;
             }
             return false;
         }
@@ -371,60 +552,52 @@
         function showIabWarning() {
             document.getElementById('iab-warning-overlay').style.display = 'flex';
             document.getElementById('iab-copy-btn').addEventListener('click', function() {
-                // 產生乾淨的網址 (拔除 LINE 的跳轉參數以免貼到外部也帶著)
                 const cleanUrl = new URL(window.location.href);
                 cleanUrl.searchParams.delete('openExternalBrowser');
-                
-                // 為了突破安全性限制，建立一個隱藏的 input 來執行複製
                 const dummy = document.createElement('input');
-                dummy.style.position = 'absolute';
-                dummy.style.left = '-9999px';
+                dummy.style.position = 'absolute'; dummy.style.left = '-9999px';
                 dummy.value = cleanUrl.toString();
-                document.body.appendChild(dummy);
-                dummy.select();
-                try {
-                    document.execCommand('copy');
-                    this.textContent = "✅ 已複製，請前往瀏覽器開啟";
-                    this.style.backgroundColor = "#28a745";
-                } catch (err) {
-                    alert("複製失敗，請手動全選上方網址列複製。");
-                }
+                document.body.appendChild(dummy); dummy.select();
+                try { document.execCommand('copy'); this.textContent = "✅ 已複製，請前往瀏覽器開啟"; this.style.backgroundColor = "#28a745"; } 
+                catch (err) { alert("複製失敗，請手動複製上方網址列。"); }
                 document.body.removeChild(dummy);
             });
         }
-
-        // 頁面一載入就先執行檢查，如果是 IAB 就直接攔截，後面的邏輯雖然會跑，但畫面會被完全蓋住
         checkInAppBrowser();
 
         // ==========================================
-        // 核心閱讀器與列印邏輯
+        // 核心邏輯
         // ==========================================
         let book = null;
         let rendition = null;
         let loadingTimeout = null; 
-        
         let currentFontSize = 100;
         let currentLineHeight = 1.6;
-
         let tocMap = {}; 
 
         const fileInput = document.getElementById('file-input');
         const urlInput = document.getElementById('url-input');
         const loadUrlBtn = document.getElementById('load-url-btn');
-        const tocSelect = document.getElementById('toc-select');
         const printBtn = document.getElementById('print-btn');
         const viewer = document.getElementById('viewer');
         const loadingOverlay = document.getElementById('loading-overlay');
         const loadingText = document.getElementById('loading-text');
         const printArea = document.getElementById('print-area');
+        
+        // 目錄面板元素
+        const tocTab = document.getElementById('toc-tab');
+        const tocSidebar = document.getElementById('toc-sidebar');
+        const tocOverlay = document.getElementById('toc-overlay');
+        const closeTocBtn = document.getElementById('close-toc-btn');
+        const tocContent = document.getElementById('toc-content');
 
+        // Modal 元素
         const customModal = document.getElementById('custom-modal');
         const modalTitle = document.getElementById('modal-title');
         const modalDesc = document.getElementById('modal-desc');
         const debugLogArea = document.getElementById('debug-log-area');
         const modalCancelBtn = document.getElementById('modal-cancel-btn');
         const modalActionBtn = document.getElementById('modal-action-btn');
-
         let currentModalAction = null;
 
         function showLoading(show, text = '載入中，請稍候...') {
@@ -436,23 +609,40 @@
             modalTitle.textContent = options.title || '提示';
             modalDesc.innerHTML = options.desc || '';
             if (options.debugLogs && options.debugLogs.length > 0) {
-                debugLogArea.style.display = 'block';
-                debugLogArea.innerHTML = options.debugLogs.join('<br><br>');
-            } else {
-                debugLogArea.style.display = 'none';
-                debugLogArea.innerHTML = '';
-            }
+                debugLogArea.style.display = 'block'; debugLogArea.innerHTML = options.debugLogs.join('<br><br>');
+            } else { debugLogArea.style.display = 'none'; debugLogArea.innerHTML = ''; }
             modalActionBtn.textContent = options.actionText || '確認';
-            currentModalAction = () => {
-                if (options.onAction) options.onAction();
-                customModal.style.display = 'none';
-            };
+            currentModalAction = () => { if (options.onAction) options.onAction(); customModal.style.display = 'none'; };
             modalActionBtn.onclick = currentModalAction;
             customModal.style.display = 'flex';
         }
-
         modalCancelBtn.addEventListener('click', () => customModal.style.display = 'none');
 
+        // 目錄面板開關邏輯
+        function openToc() { tocSidebar.classList.add('open'); tocOverlay.classList.add('open'); }
+        function closeToc() { tocSidebar.classList.remove('open'); tocOverlay.classList.remove('open'); }
+        tocTab.addEventListener('click', openToc);
+        closeTocBtn.addEventListener('click', closeToc);
+        tocOverlay.addEventListener('click', closeToc);
+
+        // 關閉並返回首頁
+        document.getElementById('btn-close').addEventListener('click', () => {
+            if (confirm("確定要關閉目前的書本，返回首頁嗎？\n(未列印的內容將會遺失)")) {
+                document.body.classList.remove('is-reading');
+                if (book) { book.destroy(); book = null; }
+                if (rendition) { viewer.innerHTML = ''; rendition = null; }
+                tocContent.innerHTML = '';
+                tocMap = {};
+                fileInput.value = '';
+                urlInput.value = '';
+                // 拔除網址 src 參數
+                const newUrl = new URL(window.location);
+                newUrl.searchParams.delete('src');
+                window.history.pushState({}, '', newUrl);
+            }
+        });
+
+        // 排版套用
         function applyStyles() {
             if (!rendition) return;
             rendition.themes.fontSize(`${currentFontSize}%`);
@@ -473,25 +663,20 @@
         function initBook(bookData) {
             if (typeof ePub === 'undefined') {
                 showLoading(false);
-                alert("⚠️ 核心套件載入失敗 (ePub is not defined)！\n\n請嘗試重新整理網頁，或檢查網路環境。");
+                alert("⚠️ 核心套件載入失敗！\n請檢查網路連線。");
                 return;
             }
 
-            showLoading(true, '正在解析電子書結構...');
-            
+            showLoading(true, '正在準備沉浸式閱讀體驗...');
             if (book) book.destroy(); 
             if (rendition) viewer.innerHTML = ''; 
-            tocSelect.innerHTML = '<option value="">請選擇章節...</option>';
-            tocSelect.disabled = true;
-            printBtn.disabled = true;
-            document.querySelectorAll('.tool-btn').forEach(btn => btn.disabled = true);
+            tocContent.innerHTML = '';
             tocMap = {}; 
 
             if(loadingTimeout) clearTimeout(loadingTimeout);
             loadingTimeout = setTimeout(() => {
                 if (loadingOverlay.style.display !== 'none') {
-                    showLoading(false);
-                    alert("⚠️ 解析逾時！這本書的結構可能有損毀，或是檔案過大。");
+                    showLoading(false); alert("⚠️ 解析逾時！");
                     if (book) book.destroy();
                 }
             }, 30000);
@@ -504,36 +689,52 @@
                 }).then(() => {
                     clearTimeout(loadingTimeout); 
                     showLoading(false);
-                    printBtn.disabled = false;
-                    document.querySelectorAll('.tool-btn').forEach(btn => btn.disabled = false);
+                    
+                    // 【切換階段】給 body 加上狀態，觸發全螢幕切換動畫
+                    document.body.classList.add('is-reading');
+                    
                     applyStyles();
                     return book.loaded.navigation;
                 }).then((nav) => {
-                    const generateToc = (tocList, level = 0) => {
-                        tocList.forEach((navItem) => {
-                            let targetPath = navItem.href.split('#')[0];
+                    // 【新版 TOC 生成】使用 ul/li 建立美觀的側邊目錄
+                    const generateToc = (tocItems, container) => {
+                        const ul = document.createElement('ul');
+                        tocItems.forEach((item) => {
+                            // 儲存至 Map 供列印時使用
+                            let targetPath = item.href.split('#')[0];
                             try { targetPath = decodeURIComponent(targetPath); } catch(e){}
-                            if (!tocMap[targetPath]) tocMap[targetPath] = navItem.label.trim();
+                            if (!tocMap[targetPath]) tocMap[targetPath] = item.label.trim();
 
-                            let option = document.createElement('option');
-                            option.value = navItem.href;
-                            option.textContent = "\u00A0\u00A0".repeat(level * 2) + navItem.label;
-                            tocSelect.appendChild(option);
-                            if (navItem.subitems && navItem.subitems.length > 0) generateToc(navItem.subitems, level + 1);
+                            // 建立 DOM
+                            const li = document.createElement('li');
+                            const a = document.createElement('a');
+                            a.href = "#";
+                            a.textContent = item.label;
+                            a.onclick = (e) => {
+                                e.preventDefault();
+                                rendition.display(item.href);
+                                closeToc(); // 跳轉後自動收合目錄
+                            };
+                            li.appendChild(a);
+                            
+                            // 遞迴子目錄
+                            if (item.subitems && item.subitems.length > 0) {
+                                generateToc(item.subitems, li);
+                            }
+                            ul.appendChild(li);
                         });
+                        container.appendChild(ul);
                     };
+                    
                     if (nav && nav.toc) {
-                        generateToc(nav.toc);
-                        tocSelect.disabled = false;
+                        generateToc(nav.toc, tocContent);
                     }
                 }).catch((err) => {
-                    clearTimeout(loadingTimeout);
-                    showLoading(false);
+                    clearTimeout(loadingTimeout); showLoading(false);
                     alert("電子書開啟失敗 ❌");
                 });
             } catch (err) {
-                clearTimeout(loadingTimeout);
-                showLoading(false);
+                clearTimeout(loadingTimeout); showLoading(false);
                 alert("初始化發生致命錯誤 ❌");
             }
         }
@@ -582,7 +783,6 @@
         });
 
         urlInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') loadUrlBtn.click(); });
-        tocSelect.addEventListener('change', (e) => { if (e.target.value) rendition.display(e.target.value); });
         document.getElementById('prev-btn').addEventListener('click', () => rendition && rendition.prev());
         document.getElementById('next-btn').addEventListener('click', () => rendition && rendition.next());
         document.addEventListener('keyup', (e) => {
@@ -735,9 +935,7 @@
         });
 
         window.addEventListener('DOMContentLoaded', () => {
-            // 如果是在內建瀏覽器，就不執行自動載入，以免浪費流量
             if (document.getElementById('iab-warning-overlay').style.display === 'flex') return;
-
             const params = new URLSearchParams(window.location.search);
             const srcUrl = params.get('src');
             if (srcUrl) { urlInput.value = srcUrl; loadBookFromUrl(srcUrl); }
