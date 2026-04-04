@@ -54,6 +54,31 @@
         #controls button:disabled { background-color: #ccc; cursor: not-allowed; }
         #controls select { background-color: #fff; color: #333; border: 1px solid #ccc; }
 
+        /* 排版微調工具列樣式 */
+        .tool-group {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            background: #f4f4f9;
+            padding: 4px 8px;
+            border-radius: 6px;
+            border: 1px solid #e0e0e0;
+        }
+        .tool-group span {
+            font-size: 13px;
+            color: #666;
+            margin-right: 4px;
+            font-weight: bold;
+        }
+        .tool-btn {
+            background: #fff !important;
+            color: #333 !important;
+            border: 1px solid #ccc !important;
+            padding: 4px 10px !important;
+            font-weight: bold;
+        }
+        .tool-btn:hover:not(:disabled) { background: #e0e0e0 !important; }
+
         /* 閱讀器主體區塊 */
         #main-container {
             flex: 1;
@@ -119,33 +144,31 @@
         #print-area { display: none; } /* 螢幕上隱藏列印區塊 */
 
         @media print {
-            /* 隱藏所有 UI 元素 */
             body { background: #fff; }
             #controls, #main-container, #loading-overlay { display: none !important; }
             
-            /* 顯示列印區塊 */
             #print-area {
                 display: block;
                 width: 100%;
-                font-size: 12pt;
+                /* 基礎值，實際會被 JS 覆蓋以匹配使用者設定 */
+                font-size: 12pt; 
                 line-height: 1.6;
                 color: #000;
             }
 
-            /* 控制列印排版 */
             #print-area img {
                 max-width: 100% !important;
                 height: auto !important;
-                break-inside: avoid; /* 防止圖片被切斷 */
+                break-inside: avoid;
             }
 
             .print-chapter {
-                break-before: page; /* 確保每個章節從新的一頁開始 */
+                break-before: page;
                 padding-top: 20px;
             }
 
-            h1, h2, h3 { break-after: avoid; } /* 標題後不換頁 */
-            p { orphans: 3; widows: 3; } /* 防止孤行/寡行 */
+            h1, h2, h3 { break-after: avoid; }
+            p { orphans: 3; widows: 3; }
         }
     </style>
 </head>
@@ -154,15 +177,29 @@
     <!-- 頂部控制列 -->
     <div id="controls">
         <div>
-            <label for="file-input">📂 本機上傳：</label>
-            <input type="file" id="file-input" accept=".epub">
+            <label for="file-input">📂 上傳：</label>
+            <input type="file" id="file-input" accept=".epub" style="width: 180px;">
         </div>
         <div>
-            <label for="url-input">🌐 網址載入：</label>
-            <input type="text" id="url-input" placeholder="輸入 EPUB 網址 (需支援 CORS)">
+            <label for="url-input">🌐 網址：</label>
+            <input type="text" id="url-input" placeholder="輸入 EPUB 網址" style="width: 150px;">
             <button id="load-url-btn">載入</button>
         </div>
+        
+        <!-- 排版微調工具 -->
+        <div class="tool-group">
+            <span>文字</span>
+            <button id="btn-font-dec" class="tool-btn" disabled>A-</button>
+            <button id="btn-font-inc" class="tool-btn" disabled>A+</button>
+        </div>
+        <div class="tool-group">
+            <span>行距</span>
+            <button id="btn-line-dec" class="tool-btn" disabled>≡-</button>
+            <button id="btn-line-inc" class="tool-btn" disabled>≡+</button>
+        </div>
+
         <div style="flex-grow: 1;"></div>
+        
         <select id="toc-select" disabled>
             <option value="">目錄 (載入中...)</option>
         </select>
@@ -188,6 +225,10 @@
     <script>
         let book = null;
         let rendition = null;
+        
+        // 儲存使用者的排版偏好
+        let currentFontSize = 100; // 預設 100%
+        let currentLineHeight = 1.6; // 預設行距 1.6
 
         const fileInput = document.getElementById('file-input');
         const urlInput = document.getElementById('url-input');
@@ -205,6 +246,44 @@
             loadingOverlay.style.display = show ? 'flex' : 'none';
         }
 
+        // ==========================================
+        // 排版套用邏輯 (動態更新 ePub.js 樣式)
+        // ==========================================
+        function applyStyles() {
+            if (!rendition) return;
+            
+            // 1. 調整字體大小 (內建 API)
+            rendition.themes.fontSize(`${currentFontSize}%`);
+            
+            // 2. 調整行距 (透過注入 custom theme 覆蓋預設 CSS)
+            // 為了讓它強制即時生效，我們每次都註冊一個新的隨機主題名稱
+            const themeName = `custom-theme-${Date.now()}`;
+            rendition.themes.register(themeName, {
+                "body": { "line-height": `${currentLineHeight} !important` },
+                "p": { "line-height": `${currentLineHeight} !important` },
+                "div": { "line-height": `${currentLineHeight} !important` }
+            });
+            rendition.themes.select(themeName);
+        }
+
+        // 綁定排版微調按鈕事件
+        document.getElementById('btn-font-dec').addEventListener('click', () => {
+            currentFontSize = Math.max(80, currentFontSize - 10); // 下限 80%
+            applyStyles();
+        });
+        document.getElementById('btn-font-inc').addEventListener('click', () => {
+            currentFontSize = Math.min(200, currentFontSize + 10); // 上限 200%
+            applyStyles();
+        });
+        document.getElementById('btn-line-dec').addEventListener('click', () => {
+            currentLineHeight = Math.max(1.2, parseFloat((currentLineHeight - 0.2).toFixed(1))); // 下限 1.2
+            applyStyles();
+        });
+        document.getElementById('btn-line-inc').addEventListener('click', () => {
+            currentLineHeight = Math.min(2.4, parseFloat((currentLineHeight + 0.2).toFixed(1))); // 上限 2.4
+            applyStyles();
+        });
+
         // 初始化書籍並渲染
         function initBook(bookData) {
             showLoading(true, '正在解析電子書...');
@@ -215,6 +294,9 @@
             tocSelect.innerHTML = '<option value="">請選擇章節...</option>';
             tocSelect.disabled = true;
             printBtn.disabled = true;
+            
+            // 停用工具列按鈕直到載入完成
+            document.querySelectorAll('.tool-btn').forEach(btn => btn.disabled = true);
 
             // 建立新的 ePub 實例
             book = ePub(bookData);
@@ -223,15 +305,9 @@
             book.opened.catch(err => {
                 showLoading(false);
                 console.error("電子書載入失敗:", err);
-                
-                // 判斷使用者是不是輸入網址
                 if (typeof bookData === 'string' && (bookData.startsWith('http://') || bookData.startsWith('https://'))) {
                     const wantDownload = confirm("⚠️ 無法直接載入此網址 (可能是目標網站未開放 CORS 跨域權限)。\n\n請問是否要透過瀏覽器「直接下載」該檔案？\n(下載完成後，您可以再次點擊左側的【📂 本機上傳】來閱讀它)");
-                    
-                    if (wantDownload) {
-                        // 開啟新分頁，利用瀏覽器原生行為直接下載 EPUB 檔
-                        window.open(bookData, '_blank'); 
-                    }
+                    if (wantDownload) { window.open(bookData, '_blank'); }
                 } else {
                     alert("檔案解析失敗，請確認是否為完整的 EPUB 檔案。");
                 }
@@ -247,29 +323,26 @@
             rendition.display().then(() => {
                 showLoading(false);
                 printBtn.disabled = false;
+                // 啟用排版工具按鈕並套用偏好設定
+                document.querySelectorAll('.tool-btn').forEach(btn => btn.disabled = false);
+                applyStyles();
             }).catch(() => {
-                showLoading(false); // 確保失敗時隱藏載入動畫
+                showLoading(false);
             });
 
-            // 解析並產生目錄 (Table of Contents)
+            // 解析並產生目錄
             book.loaded.navigation.then((nav) => {
-                // 建立遞迴函數，支援多層級(章、節)的目錄
                 const generateToc = (tocList, level = 0) => {
                     tocList.forEach((navItem) => {
                         let option = document.createElement('option');
                         option.value = navItem.href;
-                        // 依據層級加上空白縮排，讓選單更有層次感
                         option.textContent = "\u00A0\u00A0".repeat(level * 2) + navItem.label;
                         tocSelect.appendChild(option);
-                        
-                        // 如果有子目錄，遞迴處理
                         if (navItem.subitems && navItem.subitems.length > 0) {
                             generateToc(navItem.subitems, level + 1);
                         }
                     });
                 };
-                
-                // ePub.js 中，目錄陣列放在 nav.toc 裡面
                 if (nav && nav.toc) {
                     generateToc(nav.toc);
                     tocSelect.disabled = false;
@@ -282,7 +355,6 @@
             const file = e.target.files[0];
             if (!file) return;
 
-            // 清除網址上的 src 參數，避免切換為本機檔案時造成混淆
             const newUrl = new URL(window.location);
             if (newUrl.searchParams.has('src')) {
                 newUrl.searchParams.delete('src');
@@ -292,10 +364,7 @@
 
             if (window.FileReader) {
                 const reader = new FileReader();
-                reader.onload = (event) => {
-                    // 將檔案轉為 ArrayBuffer 交給 ePub.js
-                    initBook(event.target.result); 
-                };
+                reader.onload = (event) => { initBook(event.target.result); };
                 reader.readAsArrayBuffer(file);
             }
         });
@@ -304,20 +373,15 @@
         loadUrlBtn.addEventListener('click', () => {
             const url = urlInput.value.trim();
             if (url) { 
-                // 更新網址列加上 ?src=... (不重新整理頁面)
                 const newUrl = new URL(window.location);
                 newUrl.searchParams.set('src', url);
                 window.history.pushState({}, '', newUrl);
-                
                 initBook(url); 
             }
         });
 
-        // 讓使用者在網址輸入框按 Enter 也可以載入
         urlInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                loadUrlBtn.click();
-            }
+            if (e.key === 'Enter') { loadUrlBtn.click(); }
         });
 
         // 目錄選擇跳轉
@@ -329,7 +393,6 @@
         document.getElementById('prev-btn').addEventListener('click', () => rendition && rendition.prev());
         document.getElementById('next-btn').addEventListener('click', () => rendition && rendition.next());
 
-        // 綁定鍵盤左右鍵翻頁
         document.addEventListener('keyup', (e) => {
             if (!rendition) return;
             if (e.key === 'ArrowLeft') rendition.prev();
@@ -342,42 +405,38 @@
         printBtn.addEventListener('click', async () => {
             if (!book) return;
             
-            // 防呆：從網址讀取的可能沒有 archive 物件，無法輕易提取全書
             if (!book.archive) {
                 alert("目前列印功能僅支援「本機上傳」的 EPUB 檔案（需包含完整 ZIP 結構）。");
                 return;
             }
 
             showLoading(true, '正在提取全書內容以供列印，請稍候...');
-            printArea.innerHTML = ''; // 清空上次的列印內容
+            printArea.innerHTML = ''; 
+            
+            // 將使用者的排版偏好套用到列印區塊！
+            // 將 % 轉換為 pt 單位 (假設 100% 約等於 12pt 適合列印)
+            printArea.style.fontSize = `${(currentFontSize / 100) * 12}pt`; 
+            printArea.style.lineHeight = currentLineHeight;
 
             try {
-                // 取得電子書的章節列表 (Spine)
                 const spineItems = book.spine.spineItems;
                 
                 for (let i = 0; i < spineItems.length; i++) {
                     let item = spineItems[i];
-                    
                     try {
-                        // 使用 archive.getXml 取出該章節的 DOM 結構
                         let doc = await book.archive.getXml(item.href);
                         if (!doc) continue;
 
                         let body = doc.querySelector('body');
                         if (!body) continue;
 
-                        // 處理圖片路徑問題
                         const images = body.querySelectorAll('img, image');
                         for (let img of images) {
                             let src = img.getAttribute('src') || img.getAttribute('href');
-                            
-                            // 忽略已經是絕對網址或 Base64 的圖片
                             if (src && !src.startsWith('http') && !src.startsWith('data:')) {
-                                
-                                // 自製相對路徑解析函數
                                 const resolvePath = (base, relative) => {
                                     const stack = base.split('/');
-                                    stack.pop(); // 移除檔名
+                                    stack.pop(); 
                                     const parts = relative.split('/');
                                     for (let p of parts) {
                                         if (p === '.') continue;
@@ -386,18 +445,15 @@
                                     }
                                     return stack.join('/');
                                 };
-
                                 let absolutePath = resolvePath(item.href, src);
-                                
                                 try {
-                                    // 從壓縮檔中提取該圖片的 Blob
                                     let blob = await book.archive.getBlob(absolutePath);
                                     if (blob) {
                                         let objectUrl = URL.createObjectURL(blob);
                                         if(img.tagName.toLowerCase() === 'image') {
-                                            img.setAttribute('href', objectUrl); // SVG 處理
+                                            img.setAttribute('href', objectUrl); 
                                         } else {
-                                            img.src = objectUrl; // IMG 處理
+                                            img.src = objectUrl; 
                                         }
                                     }
                                 } catch(imgErr) {
@@ -406,7 +462,6 @@
                             }
                         }
 
-                        // 建立章節的容器，方便列印時控制分頁
                         let chapterDiv = document.createElement('div');
                         chapterDiv.className = 'print-chapter';
                         chapterDiv.innerHTML = body.innerHTML;
@@ -418,11 +473,7 @@
                 }
 
                 showLoading(false);
-                
-                // 稍微延遲讓圖片有時間載入，然後呼叫瀏覽器列印
-                setTimeout(() => {
-                    window.print();
-                }, 1000);
+                setTimeout(() => { window.print(); }, 1000);
 
             } catch (error) {
                 console.error("列印處理發生錯誤：", error);
@@ -431,14 +482,10 @@
             }
         });
 
-        // ==========================================
-        // 網址參數解析 (自動載入 ?src=...)
-        // ==========================================
+        // 自動載入 ?src=...
         window.addEventListener('DOMContentLoaded', () => {
             const params = new URLSearchParams(window.location.search);
             const srcUrl = params.get('src');
-            
-            // 如果網址帶有 src 參數，自動填入並觸發載入
             if (srcUrl) {
                 urlInput.value = srcUrl;
                 initBook(srcUrl);
