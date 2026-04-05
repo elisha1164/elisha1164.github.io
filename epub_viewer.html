@@ -100,6 +100,14 @@
         #prev-btn { left: 0; border-radius: 0 8px 8px 0; }
         #next-btn { right: 0; border-radius: 8px 0 0 8px; }
 
+        /* 底部透明進度拉桿 */
+        #progress-container {
+            position: absolute; bottom: 15px; left: 10%; right: 10%;
+            z-index: 20; opacity: 0.2; transition: opacity 0.3s ease;
+        }
+        #progress-container:hover, #progress-container:focus-within { opacity: 1; }
+        #progress-slider { width: 100%; cursor: pointer; }
+
         /* ==========================================
            滑出式側邊目錄 (Off-canvas TOC)
            ========================================== */
@@ -180,7 +188,7 @@
 
         @media print {
             html, body { height: auto !important; display: block !important; overflow: visible !important; background: #fff !important; }
-            #welcome-screen, #reader-ui, #toc-tab, #toc-sidebar, #toc-overlay, #loading-overlay, .modal-overlay, .version-tag, #iab-warning-overlay { display: none !important; }
+            #welcome-screen, #reader-ui, #toc-tab, #toc-sidebar, #toc-overlay, #loading-overlay, .modal-overlay, .version-tag, #iab-warning-overlay, #progress-container { display: none !important; }
             #print-area { display: block !important; position: relative; width: 100%; font-size: 12pt; line-height: 1.6; color: #000; }
             a { text-decoration: none; color: inherit; } a[href]:after { content: none !important; }
             #print-area img, #print-area svg, #print-area image { max-width: 100% !important; max-height: 980px !important; height: auto !important; width: auto !important; break-inside: avoid; page-break-inside: avoid; display: block; margin: 0 auto; }
@@ -229,6 +237,10 @@
             <div id="viewer"></div>
             <button id="prev-btn" class="nav-btn">‹</button>
             <button id="next-btn" class="nav-btn">›</button>
+            <!-- 新增底部進度拉桿 -->
+            <div id="progress-container">
+                <input type="range" id="progress-slider" min="0" max="100" value="0" step="0.1" disabled title="閱讀進度">
+            </div>
         </div>
 
         <div id="toc-tab" title="開啟目錄">☰</div>
@@ -251,8 +263,8 @@
 
     <div id="print-area"></div>
     
-    <!-- 版號 (v2.3: 修正 Edge 的神經網路語音引擎權重判定) -->
-    <div class="version-tag">v2.3</div>
+    <!-- 版號 (v2.4: 翻頁功能進化 - 底部非同步進度拉桿與三層防誤觸左右點擊翻頁) -->
+    <div class="version-tag">v2.4</div>
 
     <script>
         // IAB 攔截
@@ -308,6 +320,7 @@
         const closeTocBtn = document.getElementById('close-toc-btn');
         const tocContent = document.getElementById('toc-content');
         const btnTts = document.getElementById('btn-tts');
+        const progressSlider = document.getElementById('progress-slider');
 
         const customModal = document.getElementById('custom-modal');
         const modalTitle = document.getElementById('modal-title');
@@ -334,6 +347,8 @@
                 stopTTS(); 
                 document.body.classList.remove('is-reading');
                 document.title = DEFAULT_TITLE; 
+                progressSlider.value = 0;
+                progressSlider.disabled = true;
                 if (book) { book.destroy(); book = null; }
                 if (rendition) { viewer.innerHTML = ''; rendition = null; }
                 tocContent.innerHTML = ''; fileInput.value = ''; urlInput.value = '';
@@ -354,8 +369,17 @@
         document.getElementById('btn-line-dec').addEventListener('click', () => { currentLineHeight = Math.max(1.2, parseFloat((currentLineHeight - 0.2).toFixed(1))); applyStyles(); });
         document.getElementById('btn-line-inc').addEventListener('click', () => { currentLineHeight = Math.min(2.4, parseFloat((currentLineHeight + 0.2).toFixed(1))); applyStyles(); });
 
+        // 拉桿拖曳事件
+        progressSlider.addEventListener('input', (e) => {
+            if (book && book.locations && book.locations.length > 0) {
+                const percentage = e.target.value / 100;
+                const cfi = book.locations.cfiFromPercentage(percentage);
+                rendition.display(cfi);
+            }
+        });
+
         // ==========================================
-        // 初始化書籍與動態 Title
+        // 初始化書籍
         // ==========================================
         function initBook(bookData) {
             if (typeof ePub === 'undefined') { showLoading(false); alert("⚠️ 核心套件載入失敗！\n請檢查網路連線。"); return; }
@@ -363,6 +387,7 @@
             if (book) book.destroy(); 
             if (rendition) viewer.innerHTML = ''; 
             tocContent.innerHTML = ''; stopTTS();
+            progressSlider.value = 0; progressSlider.disabled = true;
 
             if(loadingTimeout) clearTimeout(loadingTimeout);
             loadingTimeout = setTimeout(() => {
@@ -374,12 +399,67 @@
                 book.ready.then(() => {
                     rendition = book.renderTo("viewer", { width: "100%", height: "100%", spread: "none" });
                     
+                    // 背景運算電子書分頁定位點，供底部拉桿使用
+                    book.locations.generate(1600).then((locations) => {
+                        progressSlider.disabled = false;
+                    });
+
+                    // 綁定翻頁監聽與進度同步
                     rendition.on('relocated', (location) => {
+                        // 1. 同步底部拉桿
+                        if (book.locations && book.locations.length > 0) {
+                            const percentage = book.locations.percentageFromCfi(location.start.cfi);
+                            progressSlider.value = percentage * 100;
+                        }
+                        
+                        // 2. 處理 TTS 朗讀邏輯
                         if (isPlayingTTS && !isAutoTurning) {
                             window.speechSynthesis.cancel();
                             setTimeout(readCurrentPage, 300); 
                         }
                     });
+
+                    // 【核心邏輯】綁定畫面點擊翻頁，並設置三道防誤觸機制
+                    let touchStartX = 0; let touchStartY = 0; let touchStartTime = 0;
+                    
+                    const handleInteractionStart = (e) => {
+                        touchStartX = e.screenX || (e.changedTouches && e.changedTouches[0].screenX) || 0;
+                        touchStartY = e.screenY || (e.changedTouches && e.changedTouches[0].screenY) || 0;
+                        touchStartTime = Date.now();
+                    };
+
+                    const handleInteractionEnd = (e) => {
+                        const touchEndX = e.screenX || (e.changedTouches && e.changedTouches[0].screenX) || 0;
+                        const touchEndY = e.screenY || (e.changedTouches && e.changedTouches[0].screenY) || 0;
+                        const touchEndTime = Date.now();
+
+                        // 1. 防線一：排除滑動/拖曳 (時間差 > 200ms 或 座標偏移 > 10px)
+                        if (touchEndTime - touchStartTime > 200) return;
+                        if (Math.abs(touchEndX - touchStartX) > 10 || Math.abs(touchEndY - touchStartY) > 10) return;
+
+                        // 2. 防線二：排除文字圈選 (檢查 window.getSelection)
+                        const contents = rendition.getContents()[0];
+                        if (contents) {
+                            const selection = contents.window.getSelection();
+                            if (selection && selection.toString().length > 0) return;
+                        }
+
+                        // 3. 防線三：排除點擊超連結或多媒體元素
+                        const target = e.target;
+                        if (target && (target.closest('a') || target.closest('img') || target.closest('video'))) return;
+
+                        // 驗證通過，執行翻頁！
+                        const clientX = e.clientX || (e.changedTouches && e.changedTouches[0].clientX) || 0;
+                        const width = contents ? contents.window.innerWidth : window.innerWidth;
+
+                        if (clientX < width / 2) rendition.prev();
+                        else rendition.next();
+                    };
+
+                    rendition.on('touchstart', handleInteractionStart);
+                    rendition.on('touchend', handleInteractionEnd);
+                    rendition.on('mousedown', handleInteractionStart);
+                    rendition.on('mouseup', handleInteractionEnd);
 
                     return rendition.display();
                 }).then(() => {
@@ -435,25 +515,13 @@
 
         window.speechSynthesis.onvoiceschanged = () => {}; 
 
-        // 修正：調整語音品質的選擇權重演算法，對應 Edge 與 Apple 裝置的最佳體驗
         function getBestVoice() {
             const voices = window.speechSynthesis.getVoices();
-            
-            // 1. 優先尋找 Edge 的高品質雲端神經網路語音 (Natural)
             let voice = voices.find(v => v.lang.includes('zh-TW') && v.name.includes('Natural'));
-            
-            // 2. 次優先尋找 iOS/macOS 的高品質原生語音 (Siri 或 Premium)
             if (!voice) voice = voices.find(v => v.lang.includes('zh-TW') && (v.name.includes('Premium') || v.name.includes('Siri') || v.name.includes('Mei-Jia')));
-            
-            // 3. 第三順位尋找 Android 或一般系統標記為本機的高品質語音
             if (!voice) voice = voices.find(v => v.lang.includes('zh-TW') && v.localService);
-            
-            // 4. 防呆降級：任何台灣繁體語音
             if (!voice) voice = voices.find(v => v.lang.includes('zh-TW'));
-            
-            // 5. 最終防呆降級：任何中文語音
             if (!voice) voice = voices.find(v => v.lang.includes('zh'));
-            
             return voice;
         }
 
