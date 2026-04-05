@@ -70,7 +70,7 @@
             display: flex; gap: 8px; align-items: center; z-index: 10;
         }
         
-        /* 動態閱讀進度顯示區 (防爆版設計) */
+        /* 動態章節名稱顯示區 (防爆版設計) */
         #reading-progress {
             flex-grow: 1;
             min-width: 0; /* Flexbox 子元素內縮省略號的關鍵 */
@@ -82,6 +82,7 @@
             text-overflow: ellipsis;
             padding: 0 10px;
             user-select: none;
+            font-weight: bold;
         }
 
         .tool-btn {
@@ -114,6 +115,20 @@
         .nav-btn:hover { background: rgba(0,0,0,0.08); color: #333; }
         #prev-btn { left: 0; border-radius: 0 8px 8px 0; }
         #next-btn { right: 0; border-radius: 8px 0 0 8px; }
+
+        /* 底部發光進度條 */
+        #glowing-progress-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 3px;
+            background-color: #007bff;
+            box-shadow: 0 -1px 8px rgba(0, 123, 255, 0.8), 0 0 4px rgba(0, 123, 255, 0.5);
+            width: 0%;
+            z-index: 50;
+            transition: width 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+            pointer-events: none;
+        }
 
         /* ==========================================
            滑出式側邊目錄 (Off-canvas TOC)
@@ -195,7 +210,7 @@
 
         @media print {
             html, body { height: auto !important; display: block !important; overflow: visible !important; background: #fff !important; }
-            #welcome-screen, #reader-ui, #toc-tab, #toc-sidebar, #toc-overlay, #loading-overlay, .modal-overlay, .version-tag, #iab-warning-overlay { display: none !important; }
+            #welcome-screen, #reader-ui, #toc-tab, #toc-sidebar, #toc-overlay, #loading-overlay, .modal-overlay, .version-tag, #iab-warning-overlay, #glowing-progress-bar { display: none !important; }
             #print-area { display: block !important; position: relative; width: 100%; font-size: 12pt; line-height: 1.6; color: #000; }
             a { text-decoration: none; color: inherit; } a[href]:after { content: none !important; }
             #print-area img, #print-area svg, #print-area image { max-width: 100% !important; max-height: 980px !important; height: auto !important; width: auto !important; break-inside: avoid; page-break-inside: avoid; display: block; margin: 0 auto; }
@@ -231,7 +246,7 @@
     <div id="reader-ui">
         <div id="toolbar">
             <button id="btn-close" class="tool-btn" title="關閉並返回首頁">✕</button>
-            <div id="reading-progress" title="閱讀進度">全書進度載入中...</div>
+            <div id="reading-progress" title="當前章節">章節標題載入中...</div>
             <button id="btn-tts" class="tool-btn" title="朗讀本頁 (自動翻頁)">▶</button>
             <button id="btn-font-dec" class="tool-btn" title="縮小文字">A-</button>
             <button id="btn-font-inc" class="tool-btn" title="放大文字">A+</button>
@@ -252,6 +267,9 @@
             <div class="toc-header">章節目錄<button id="close-toc-btn" class="toc-close-btn">✕</button></div>
             <div class="toc-content" id="toc-content"></div>
         </div>
+        
+        <!-- 新增：細緻的底部發光進度條 -->
+        <div id="glowing-progress-bar"></div>
     </div>
 
     <div id="loading-overlay"><div class="spinner"></div><div id="loading-text">載入中，請稍候...</div></div>
@@ -266,8 +284,7 @@
 
     <div id="print-area"></div>
     
-    <!-- 版號 (v2.9: 修正進度百分比算法顆粒度與提早100%的問題) -->
-    <div class="version-tag">v2.9</div>
+    <div class="version-tag">v2.10</div>
 
     <script>
         // IAB 攔截
@@ -328,6 +345,7 @@
         const tocContent = document.getElementById('toc-content');
         const btnTts = document.getElementById('btn-tts');
         const progressDisplay = document.getElementById('reading-progress');
+        const glowingProgressBar = document.getElementById('glowing-progress-bar');
 
         const customModal = document.getElementById('custom-modal');
         const modalTitle = document.getElementById('modal-title');
@@ -354,7 +372,8 @@
                 stopTTS(); 
                 document.body.classList.remove('is-reading');
                 document.title = DEFAULT_TITLE; 
-                progressDisplay.textContent = "全書進度載入中...";
+                progressDisplay.textContent = "章節標題載入中...";
+                glowingProgressBar.style.width = '0%';
                 if (book) { book.destroy(); book = null; }
                 if (rendition) { viewer.innerHTML = ''; rendition = null; }
                 tocContent.innerHTML = ''; fileInput.value = ''; urlInput.value = '';
@@ -377,7 +396,7 @@
         document.getElementById('btn-line-inc').addEventListener('click', () => { currentLineHeight = Math.min(2.4, parseFloat((currentLineHeight + 0.2).toFixed(1))); applyStyles(); });
 
         // ==========================================
-        // 頂端進度與章節名稱更新邏輯
+        // 頂端章節名稱與底部進度條更新邏輯
         // ==========================================
         function updateProgressDisplay(location) {
             if (!location) return;
@@ -389,7 +408,6 @@
                 let cleanHref = currentHref.split('#')[0];
                 try { cleanHref = decodeURIComponent(cleanHref); } catch(e) {}
                 
-                // 比對擷取好的 tocMap
                 if (tocMap[cleanHref]) {
                     chapterTitle = tocMap[cleanHref];
                 } else {
@@ -402,22 +420,22 @@
                 }
             }
 
-            let percentageText = "計算中...";
+            // 更新底部發光進度條
             if (locationsGenerated && book.locations) {
                 const percentage = book.locations.percentageFromCfi(location.start.cfi);
                 let p = Math.round(percentage * 100);
                 
-                // 修正：防止 epub.js 的推算提早到達 100%
                 if (p >= 100 && !location.atEnd) {
                     p = 99;
                 } else if (location.atEnd) {
                     p = 100;
                 }
                 
-                percentageText = p + "%";
+                glowingProgressBar.style.width = p + "%";
             }
 
-            progressDisplay.textContent = `全書${percentageText}：${chapterTitle}`;
+            // 僅顯示章節標題
+            progressDisplay.textContent = chapterTitle;
         }
 
         // ==========================================
@@ -430,7 +448,8 @@
             if (rendition) viewer.innerHTML = ''; 
             tocContent.innerHTML = ''; stopTTS();
             tocMap = {}; locationsGenerated = false;
-            progressDisplay.textContent = "全書計算中...";
+            progressDisplay.textContent = "章節標題載入中...";
+            glowingProgressBar.style.width = '0%';
 
             if(loadingTimeout) clearTimeout(loadingTimeout);
             loadingTimeout = setTimeout(() => {
@@ -442,7 +461,6 @@
                 book.ready.then(() => {
                     rendition = book.renderTo("viewer", { width: "100%", height: "100%", spread: "none" });
                     
-                    // 背景啟動進度運算，將推算基準從 1600 字元下調至 600 字元，讓進度百分比更精細平滑
                     book.locations.generate(600).then(() => {
                         locationsGenerated = true;
                         if (rendition && rendition.currentLocation()) {
@@ -468,7 +486,6 @@
                     const generateToc = (tocItems, container) => {
                         const ul = document.createElement('ul');
                         tocItems.forEach((item) => {
-                            // 記錄純淨路徑，供給上方進度文字查找
                             let targetPath = item.href.split('#')[0];
                             try { targetPath = decodeURIComponent(targetPath); } catch(e){}
                             if (!tocMap[targetPath]) tocMap[targetPath] = item.label.trim();
@@ -484,7 +501,6 @@
                     };
                     if (nav && nav.toc) generateToc(nav.toc, tocContent);
                     
-                    // 確保初次載入時如果已經抓到 tocMap，順便更新一下畫面上可能為「未知章節」的文字
                     if (rendition && rendition.currentLocation()) {
                         updateProgressDisplay(rendition.currentLocation());
                     }
