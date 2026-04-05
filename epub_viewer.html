@@ -415,12 +415,6 @@
             a { text-decoration: none; color: inherit; }
             a[href]:after { content: none !important; }
 
-            .print-chapter-header {
-                text-align: center; font-size: 1.3em; font-weight: bold; color: #555;
-                margin-top: 10px; margin-bottom: 25px; padding-bottom: 10px; border-bottom: 2px dashed #ddd;
-                break-after: avoid; page-break-after: avoid;
-            }
-
             #print-area img, #print-area svg, #print-area image {
                 max-width: 100% !important; max-height: 980px !important; 
                 height: auto !important; width: auto !important; 
@@ -529,8 +523,8 @@
     <!-- 隱藏列印區 -->
     <div id="print-area"></div>
     
-    <!-- 版號 (v2.0: 兩階段全螢幕沉浸 UX 改造) -->
-    <div class="version-tag">v2.0</div>
+    <!-- 版號 (v2.1: 移除列印時的自動章節頁首標題，保持純淨排版) -->
+    <div class="version-tag">v2.1</div>
 
     <script>
         // IAB 攔截
@@ -573,7 +567,6 @@
         let loadingTimeout = null; 
         let currentFontSize = 100;
         let currentLineHeight = 1.6;
-        let tocMap = {}; 
 
         const fileInput = document.getElementById('file-input');
         const urlInput = document.getElementById('url-input');
@@ -632,7 +625,6 @@
                 if (book) { book.destroy(); book = null; }
                 if (rendition) { viewer.innerHTML = ''; rendition = null; }
                 tocContent.innerHTML = '';
-                tocMap = {};
                 fileInput.value = '';
                 urlInput.value = '';
                 // 拔除網址 src 參數
@@ -671,7 +663,6 @@
             if (book) book.destroy(); 
             if (rendition) viewer.innerHTML = ''; 
             tocContent.innerHTML = '';
-            tocMap = {}; 
 
             if(loadingTimeout) clearTimeout(loadingTimeout);
             loadingTimeout = setTimeout(() => {
@@ -700,11 +691,6 @@
                     const generateToc = (tocItems, container) => {
                         const ul = document.createElement('ul');
                         tocItems.forEach((item) => {
-                            // 儲存至 Map 供列印時使用
-                            let targetPath = item.href.split('#')[0];
-                            try { targetPath = decodeURIComponent(targetPath); } catch(e){}
-                            if (!tocMap[targetPath]) tocMap[targetPath] = item.label.trim();
-
                             // 建立 DOM
                             const li = document.createElement('li');
                             const a = document.createElement('a');
@@ -891,15 +877,10 @@
                         let chapterDiv = document.createElement('div');
                         chapterDiv.className = 'print-chapter';
                         
+                        // 保留給 PDF 內部跳轉書籤使用的 ID 錨點
                         let itemPathId = item.href;
                         try { itemPathId = decodeURIComponent(itemPathId); } catch(e){}
                         chapterDiv.id = itemPathId; 
-
-                        let chapterTitle = tocMap[itemPathId] || `第 ${i + 1} 部分`;
-                        let headerDiv = document.createElement('div');
-                        headerDiv.className = 'print-chapter-header';
-                        headerDiv.innerText = `— ${chapterTitle} —`;
-                        chapterDiv.appendChild(headerDiv);
 
                         let contentDiv = document.createElement('div');
                         contentDiv.innerHTML = body.innerHTML;
