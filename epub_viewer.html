@@ -17,201 +17,86 @@
             padding: 0;
             background-color: #f7f9fc;
             color: #333;
-            overflow: hidden; /* 防止主畫面捲動，由內部容器處理 */
+            overflow: hidden;
+            /* 修正 1：導入 100dvh 解決手機瀏覽器下方被吃掉的問題 */
+            height: 100vh;
+            height: 100dvh; 
         }
 
         /* ==========================================
            階段一：書本載入階段 (Welcome Screen)
            ========================================== */
         #welcome-screen {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            width: 100vw;
+            display: flex; justify-content: center; align-items: center;
+            height: 100vh; height: 100dvh; width: 100vw;
             background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
-            position: absolute;
-            top: 0; left: 0;
-            z-index: 100;
+            position: absolute; top: 0; left: 0; z-index: 100;
             transition: opacity 0.4s ease, visibility 0.4s ease;
         }
-
         .welcome-card {
-            background: #fff;
-            padding: 40px;
-            border-radius: 16px;
-            box-shadow: 0 15px 35px rgba(0,0,0,0.05);
-            max-width: 400px;
-            width: 90%;
-            text-align: center;
+            background: #fff; padding: 40px; border-radius: 16px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.05); max-width: 400px; width: 90%; text-align: center;
         }
-
-        .welcome-card h1 {
-            margin-top: 0;
-            color: #0056b3;
-            font-size: 24px;
-            margin-bottom: 30px;
+        .welcome-card h1 { margin-top: 0; color: #0056b3; font-size: 24px; margin-bottom: 30px; }
+        .input-group { margin-bottom: 20px; text-align: left; }
+        .input-group label { display: block; font-weight: bold; margin-bottom: 8px; color: #555; }
+        .input-group input[type="file"], .input-group input[type="text"] {
+            width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 14px; background: #fafafa;
         }
-
-        .input-group {
-            margin-bottom: 20px;
-            text-align: left;
-        }
-
-        .input-group label {
-            display: block;
-            font-weight: bold;
-            margin-bottom: 8px;
-            color: #555;
-        }
-
-        .input-group input[type="file"], 
-        .input-group input[type="text"] {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            box-sizing: border-box;
-            font-size: 14px;
-            background: #fafafa;
-        }
-
-        .input-group .url-row {
-            display: flex;
-            gap: 10px;
-        }
-
+        .input-group .url-row { display: flex; gap: 10px; }
         .btn-primary {
-            padding: 12px 20px;
-            background-color: #0056b3;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: bold;
-            transition: background 0.2s;
-            white-space: nowrap;
+            padding: 12px 20px; background-color: #0056b3; color: white; border: none; border-radius: 8px;
+            cursor: pointer; font-size: 14px; font-weight: bold; transition: background 0.2s; white-space: nowrap;
         }
-
         .btn-primary:hover { background-color: #004494; }
-
-        .divider {
-            margin: 25px 0;
-            position: relative;
-            text-align: center;
-        }
-
-        .divider::before {
-            content: "";
-            position: absolute;
-            top: 50%; left: 0; right: 0;
-            border-top: 1px solid #ddd;
-            z-index: 1;
-        }
-
-        .divider span {
-            background: #fff;
-            padding: 0 15px;
-            color: #aaa;
-            font-size: 14px;
-            position: relative;
-            z-index: 2;
-        }
+        .divider { margin: 25px 0; position: relative; text-align: center; }
+        .divider::before { content: ""; position: absolute; top: 50%; left: 0; right: 0; border-top: 1px solid #ddd; z-index: 1; }
+        .divider span { background: #fff; padding: 0 15px; color: #aaa; font-size: 14px; position: relative; z-index: 2; }
 
         /* ==========================================
            階段二：閱讀階段 (Reader UI)
            ========================================== */
         #reader-ui {
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            width: 100vw;
-            opacity: 0;
-            visibility: hidden;
-            transition: opacity 0.4s ease, visibility 0.4s ease;
-            position: absolute;
-            top: 0; left: 0;
+            display: flex; flex-direction: column;
+            height: 100vh; height: 100dvh; width: 100vw;
+            opacity: 0; visibility: hidden; transition: opacity 0.4s ease, visibility 0.4s ease;
+            position: absolute; top: 0; left: 0;
         }
-
-        /* 當 body 擁有 is-reading class 時的切換邏輯 */
-        body.is-reading #welcome-screen {
-            opacity: 0;
-            visibility: hidden;
-        }
-
-        body.is-reading #reader-ui {
-            opacity: 1;
-            visibility: visible;
-        }
+        body.is-reading #welcome-screen { opacity: 0; visibility: hidden; }
+        body.is-reading #reader-ui { opacity: 1; visibility: visible; }
 
         /* 極簡頂部工具列 */
         #toolbar {
-            background-color: #fff;
-            padding: 10px 15px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            z-index: 10;
+            background-color: #fff; padding: 10px 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            display: flex; gap: 8px; align-items: center; z-index: 10;
         }
-
         .tool-btn {
-            background: transparent;
-            color: #555;
-            border: 1px solid transparent;
-            border-radius: 6px;
-            padding: 8px 12px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            background: transparent; color: #555; border: 1px solid transparent; border-radius: 6px;
+            padding: 8px 12px; font-size: 16px; font-weight: bold; cursor: pointer; transition: all 0.2s;
+            display: flex; align-items: center; justify-content: center;
         }
-
-        .tool-btn:hover {
-            background: #f0f0f0;
-            border-color: #ddd;
-            color: #000;
-        }
-
-        #btn-close {
-            color: #d9534f;
-            font-size: 18px;
-        }
+        .tool-btn:hover { background: #f0f0f0; border-color: #ddd; color: #000; }
+        #btn-close { color: #d9534f; font-size: 18px; }
         #btn-close:hover { background: #fdf2f2; border-color: #f5c6cb; }
-
         #print-btn { font-size: 18px; }
+        
+        /* 朗讀按鈕特殊樣式 */
+        #btn-tts { color: #0056b3; width: 40px; }
+        #btn-tts.playing { background: #e0f0ff; border-color: #b3d7ff; color: #004494; animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(0, 86, 179, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(0, 86, 179, 0); } 100% { box-shadow: 0 0 0 0 rgba(0, 86, 179, 0); } }
 
         /* 閱讀器主體 */
         #main-container {
-            flex: 1;
-            position: relative;
-            display: flex;
-            background: #fff;
-            overflow: hidden;
+            flex: 1; position: relative; display: flex; background: #fff; overflow: hidden;
         }
-
         #viewer {
-            flex: 1;
-            position: relative;
-            overflow: hidden;
+            flex: 1; position: relative; overflow: hidden;
+            /* 修正 2：加入左右安全留白，避免文字被 Tab 或邊框擋住 */
+            padding: 0 15px; box-sizing: border-box;
         }
-
         .nav-btn {
-            position: absolute;
-            top: 50%;
-            transform: translateY(-50%);
-            background: rgba(0,0,0,0.03);
-            border: none;
-            font-size: 28px;
-            color: #888;
-            padding: 30px 15px;
-            cursor: pointer;
-            z-index: 5;
-            transition: all 0.3s;
+            position: absolute; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.03);
+            border: none; font-size: 28px; color: #888; padding: 30px 15px; cursor: pointer; z-index: 5; transition: all 0.3s;
         }
         .nav-btn:hover { background: rgba(0,0,0,0.08); color: #333; }
         #prev-btn { left: 0; border-radius: 0 8px 8px 0; }
@@ -221,170 +106,75 @@
            滑出式側邊目錄 (Off-canvas TOC)
            ========================================== */
         #toc-tab {
-            position: fixed;
-            left: 0;
-            top: 50%;
-            transform: translateY(-50%);
-            background: #0056b3;
-            color: white;
-            padding: 15px 8px;
-            border-radius: 0 8px 8px 0;
-            cursor: pointer;
-            z-index: 20;
-            font-size: 18px;
-            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
-            transition: left 0.3s;
-            opacity: 0;
-            visibility: hidden;
+            position: fixed; left: 0; top: 50%; transform: translateY(-50%);
+            /* 修正 3：半透明 Tab 避免干擾閱讀 */
+            background: rgba(0, 86, 179, 0.6); color: white;
+            padding: 15px 8px; border-radius: 0 8px 8px 0; cursor: pointer; z-index: 20;
+            font-size: 18px; box-shadow: 2px 0 5px rgba(0,0,0,0.1); transition: all 0.3s;
+            opacity: 0; visibility: hidden;
         }
         body.is-reading #toc-tab { opacity: 1; visibility: visible; }
-        #toc-tab:hover { background: #004494; }
+        #toc-tab:hover { background: rgba(0, 86, 179, 1); padding-left: 12px; }
 
         #toc-sidebar {
-            position: fixed;
-            top: 0;
-            left: -320px;
-            width: 300px;
-            height: 100vh;
-            background: #fff;
-            box-shadow: 2px 0 15px rgba(0,0,0,0.15);
-            z-index: 30;
-            transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            display: flex;
-            flex-direction: column;
+            position: fixed; top: 0; left: -320px; width: 300px;
+            height: 100vh; height: 100dvh; background: #fff;
+            box-shadow: 2px 0 15px rgba(0,0,0,0.15); z-index: 30; transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex; flex-direction: column;
         }
-
         #toc-sidebar.open { left: 0; }
-
-        .toc-header {
-            padding: 20px;
-            font-size: 18px;
-            font-weight: bold;
-            border-bottom: 1px solid #eee;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .toc-close-btn {
-            background: none; border: none; font-size: 20px; color: #888; cursor: pointer;
-        }
+        .toc-header { padding: 20px; font-size: 18px; font-weight: bold; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+        .toc-close-btn { background: none; border: none; font-size: 20px; color: #888; cursor: pointer; }
         .toc-close-btn:hover { color: #333; }
-
-        .toc-content {
-            flex: 1;
-            overflow-y: auto;
-            padding: 10px 0;
-        }
-
-        .toc-content ul {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-
-        .toc-content li a {
-            display: block;
-            padding: 12px 20px;
-            color: #444;
-            text-decoration: none;
-            border-bottom: 1px solid #f9f9f9;
-            transition: background 0.2s;
-            font-size: 15px;
-        }
-
-        .toc-content li a:hover {
-            background: #f0f7ff;
-            color: #0056b3;
-        }
-
+        .toc-content { flex: 1; overflow-y: auto; padding: 10px 0; }
+        .toc-content ul { list-style: none; padding: 0; margin: 0; }
+        .toc-content li a { display: block; padding: 12px 20px; color: #444; text-decoration: none; border-bottom: 1px solid #f9f9f9; transition: background 0.2s; font-size: 15px; }
+        .toc-content li a:hover { background: #f0f7ff; color: #0056b3; }
         .toc-content ul ul { padding-left: 20px; }
         .toc-content ul ul a { font-size: 14px; color: #666; border-bottom: none; padding: 8px 20px;}
-
-        /* 目錄背景遮罩 */
         #toc-overlay {
-            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.4);
-            z-index: 25;
-            opacity: 0; visibility: hidden;
-            transition: opacity 0.3s;
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4);
+            z-index: 25; opacity: 0; visibility: hidden; transition: opacity 0.3s;
         }
         #toc-overlay.open { opacity: 1; visibility: visible; }
 
-
         /* ==========================================
-           全域共用 UI 
+           全域共用 UI & Modal
            ========================================== */
         #loading-overlay {
-            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(255,255,255,0.9);
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-            z-index: 1000; display: none; 
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.9);
+            display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; display: none; 
         }
-        .spinner {
-            border: 4px solid #f3f3f3; border-top: 4px solid #0056b3; border-radius: 50%;
-            width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 15px;
-        }
+        .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #0056b3; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 15px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        /* 自訂彈出視窗 (Modal) */
         .modal-overlay {
-            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center;
-            z-index: 2000; backdrop-filter: blur(2px);
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 2000; backdrop-filter: blur(2px);
         }
         .modal-box {
-            background: #fff; padding: 25px 30px; border-radius: 10px;
-            max-width: 500px; width: 90%; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2);
-            animation: modalFadeIn 0.3s ease;
+            background: #fff; padding: 25px 30px; border-radius: 10px; max-width: 500px; width: 90%; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); animation: modalFadeIn 0.3s ease;
         }
         @keyframes modalFadeIn { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
         .modal-box h3 { margin-top: 0; color: #d9534f; font-size: 20px; }
         .modal-box p { font-size: 15px; color: #555; line-height: 1.6; margin-bottom: 15px; text-align: left; }
-        
-        #debug-log-area {
-            background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb;
-            padding: 10px; border-radius: 4px; text-align: left; font-size: 12px;
-            max-height: 150px; overflow-y: auto; margin-bottom: 20px; font-family: monospace;
-            word-break: break-all;
-        }
-
+        #debug-log-area { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; padding: 10px; border-radius: 4px; text-align: left; font-size: 12px; max-height: 150px; overflow-y: auto; margin-bottom: 20px; font-family: monospace; word-break: break-all; }
         .modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
-        .modal-actions button {
-            padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; transition: background 0.2s;
-        }
-        .btn-cancel { background: #e0e0e0; color: #333; }
-        .btn-cancel:hover { background: #ccc; }
-        .btn-download { background: #0056b3; color: #fff; }
-        .btn-download:hover { background: #004494; }
+        .modal-actions button { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; transition: background 0.2s; }
+        .btn-cancel { background: #e0e0e0; color: #333; } .btn-cancel:hover { background: #ccc; }
+        .btn-download { background: #0056b3; color: #fff; } .btn-download:hover { background: #004494; }
 
-        /* 內建瀏覽器 (IAB) 全螢幕警告攔截 */
         #iab-warning-overlay {
-            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-            background: #f4f4f9; color: #333;
-            display: none; flex-direction: column; justify-content: center; align-items: center;
-            z-index: 9999; padding: 20px; text-align: center;
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: #f4f4f9; color: #333;
+            display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; padding: 20px; text-align: center;
         }
-        .iab-card {
-            background: #fff; border-radius: 12px; padding: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.15);
-            max-width: 90%; width: 450px;
-        }
+        .iab-card { background: #fff; border-radius: 12px; padding: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); max-width: 90%; width: 450px; }
         .iab-card h2 { margin-top: 0; color: #d9534f; font-size: 22px; }
         .iab-card p { line-height: 1.6; font-size: 15px; margin-bottom: 20px; color: #555; text-align: left; }
-        .iab-card .steps { 
-            background: #fff8e1; padding: 15px; border-radius: 8px; text-align: left; 
-            margin-bottom: 20px; color: #856404; border: 1px solid #ffeeba; font-size: 15px; line-height: 1.8;
-        }
-        .copy-btn {
-            background: #0056b3; color: #fff; border: none; padding: 14px 20px; font-size: 16px;
-            border-radius: 6px; cursor: pointer; width: 100%; font-weight: bold; transition: background 0.2s;
-        }
+        .iab-card .steps { background: #fff8e1; padding: 15px; border-radius: 8px; text-align: left; margin-bottom: 20px; color: #856404; border: 1px solid #ffeeba; font-size: 15px; line-height: 1.8; }
+        .copy-btn { background: #0056b3; color: #fff; border: none; padding: 14px 20px; font-size: 16px; border-radius: 6px; cursor: pointer; width: 100%; font-weight: bold; transition: background 0.2s; }
         .copy-btn:active { background: #004494; }
 
-        .version-tag {
-            position: fixed; bottom: 5px; right: 5px;
-            font-size: 11px; color: #aaa; z-index: 9999; pointer-events: none;
-        }
+        .version-tag { position: fixed; bottom: 5px; right: 5px; font-size: 11px; color: #aaa; z-index: 9999; pointer-events: none; }
 
         /* ==========================================
            列印專用樣式 (@media print)
@@ -392,88 +182,45 @@
         #print-area { display: none; }
 
         @media print {
-            html, body { 
-                height: auto !important; display: block !important; 
-                overflow: visible !important; background: #fff !important; 
-            }
-            
-            /* 列印時隱藏所有 UI 介面 */
-            #welcome-screen, #reader-ui, #toc-tab, #toc-sidebar, #toc-overlay,
-            #loading-overlay, .modal-overlay, .version-tag, #iab-warning-overlay { 
-                display: none !important; 
-            }
-            
-            #print-area {
-                display: block !important;
-                position: relative;
-                width: 100%;
-                font-size: 12pt; 
-                line-height: 1.6;
-                color: #000;
-            }
-
-            a { text-decoration: none; color: inherit; }
-            a[href]:after { content: none !important; }
-
-            #print-area img, #print-area svg, #print-area image {
-                max-width: 100% !important; max-height: 980px !important; 
-                height: auto !important; width: auto !important; 
-                break-inside: avoid; page-break-inside: avoid;
-                display: block; margin: 0 auto; 
-            }
-
+            html, body { height: auto !important; display: block !important; overflow: visible !important; background: #fff !important; }
+            #welcome-screen, #reader-ui, #toc-tab, #toc-sidebar, #toc-overlay, #loading-overlay, .modal-overlay, .version-tag, #iab-warning-overlay { display: none !important; }
+            #print-area { display: block !important; position: relative; width: 100%; font-size: 12pt; line-height: 1.6; color: #000; }
+            a { text-decoration: none; color: inherit; } a[href]:after { content: none !important; }
+            #print-area img, #print-area svg, #print-area image { max-width: 100% !important; max-height: 980px !important; height: auto !important; width: auto !important; break-inside: avoid; page-break-inside: avoid; display: block; margin: 0 auto; }
             .print-chapter { break-before: page; padding-top: 20px; overflow: hidden; }
-            h1, h2, h3 { break-after: avoid; }
-            p { orphans: 3; widows: 3; }
+            h1, h2, h3 { break-after: avoid; } p { orphans: 3; widows: 3; }
         }
     </style>
 </head>
 <body>
 
-    <!-- 內建瀏覽器攔截 -->
     <div id="iab-warning-overlay">
         <div class="iab-card">
             <h2>⚠️ 建議使用預設瀏覽器</h2>
             <p>偵測到您正在使用社群軟體的內建瀏覽器。受限於系統安全設定，這會導致<strong>「列印為 PDF」與「檔案下載」功能完全失效</strong>。</p>
-            <div class="steps">
-                <strong>💡 解決步驟：</strong><br>
-                1. 點擊畫面邊緣的 <b>[ ⋮ ]</b> 或 <b>[ ⋯ ]</b>。<br>
-                2. 選擇 <b>「以預設瀏覽器開啟」</b> 或 <b>「在 Safari 開啟」</b>。
-            </div>
+            <div class="steps"><strong>💡 解決步驟：</strong><br>1. 點擊畫面邊緣的 <b>[ ⋮ ]</b> 或 <b>[ ⋯ ]</b>。<br>2. 選擇 <b>「以預設瀏覽器開啟」</b> 或 <b>「在 Safari 開啟」</b>。</div>
             <p>若找不到該選項，請複製網址並手動貼到 Chrome/Safari：</p>
             <button class="copy-btn" id="iab-copy-btn">📋 一鍵複製網址</button>
         </div>
     </div>
 
-    <!-- ==========================================
-         階段一：歡迎卡片 (載入區)
-         ========================================== -->
     <div id="welcome-screen">
         <div class="welcome-card">
             <h1>📖 EPUB 閱讀器</h1>
-            <div class="input-group">
-                <label for="file-input">📂 上傳本機檔案</label>
-                <input type="file" id="file-input" accept=".epub">
-            </div>
+            <div class="input-group"><label for="file-input">📂 上傳本機檔案</label><input type="file" id="file-input" accept=".epub"></div>
             <div class="divider"><span>或</span></div>
             <div class="input-group">
                 <label for="url-input">🌐 透過網址載入</label>
-                <div class="url-row">
-                    <input type="text" id="url-input" placeholder="輸入 EPUB 網址 (需支援 CORS)">
-                    <button id="load-url-btn" class="btn-primary">載入</button>
-                </div>
+                <div class="url-row"><input type="text" id="url-input" placeholder="輸入 EPUB 網址 (需支援 CORS)"><button id="load-url-btn" class="btn-primary">載入</button></div>
             </div>
         </div>
     </div>
 
-    <!-- ==========================================
-         階段二：閱讀器 UI (載入後顯示)
-         ========================================== -->
     <div id="reader-ui">
-        <!-- 極簡工具列 -->
         <div id="toolbar">
             <button id="btn-close" class="tool-btn" title="關閉並返回首頁">✕</button>
             <div style="flex-grow: 1;"></div>
+            <button id="btn-tts" class="tool-btn" title="朗讀本頁 (自動翻頁)">▶</button>
             <button id="btn-font-dec" class="tool-btn" title="縮小文字">A-</button>
             <button id="btn-font-inc" class="tool-btn" title="放大文字">A+</button>
             <button id="btn-line-dec" class="tool-btn" title="縮小行距">≡-</button>
@@ -481,50 +228,33 @@
             <button id="print-btn" class="tool-btn" title="產生完整列印檔">🖨️</button>
         </div>
 
-        <!-- 內容區 -->
         <div id="main-container">
             <div id="viewer"></div>
             <button id="prev-btn" class="nav-btn">‹</button>
             <button id="next-btn" class="nav-btn">›</button>
         </div>
 
-        <!-- 滑出式目錄 -->
         <div id="toc-tab" title="開啟目錄">☰</div>
         <div id="toc-overlay"></div>
         <div id="toc-sidebar">
-            <div class="toc-header">
-                章節目錄
-                <button id="close-toc-btn" class="toc-close-btn">✕</button>
-            </div>
-            <div class="toc-content" id="toc-content">
-                <!-- 目錄樹將動態生成於此 -->
-            </div>
+            <div class="toc-header">章節目錄<button id="close-toc-btn" class="toc-close-btn">✕</button></div>
+            <div class="toc-content" id="toc-content"></div>
         </div>
     </div>
 
-    <!-- 共用元件 -->
-    <div id="loading-overlay">
-        <div class="spinner"></div>
-        <div id="loading-text">載入中，請稍候...</div>
-    </div>
+    <div id="loading-overlay"><div class="spinner"></div><div id="loading-text">載入中，請稍候...</div></div>
 
     <div id="custom-modal" class="modal-overlay">
         <div class="modal-box">
-            <h3 id="modal-title">⚠️ 錯誤提示</h3>
-            <p id="modal-desc">發生錯誤，請查看詳細內容。</p>
+            <h3 id="modal-title">⚠️ 錯誤提示</h3><p id="modal-desc">發生錯誤，請查看詳細內容。</p>
             <div id="debug-log-area" style="display: none;"></div>
-            <div class="modal-actions" id="modal-actions">
-                <button id="modal-cancel-btn" class="btn-cancel">取消</button>
-                <button id="modal-action-btn" class="btn-download">確認</button>
-            </div>
+            <div class="modal-actions" id="modal-actions"><button id="modal-cancel-btn" class="btn-cancel">取消</button><button id="modal-action-btn" class="btn-download">確認</button></div>
         </div>
     </div>
 
-    <!-- 隱藏列印區 -->
     <div id="print-area"></div>
     
-    <!-- 版號 (v2.1: 移除列印時的自動章節頁首標題，保持純淨排版) -->
-    <div class="version-tag">v2.1</div>
+    <div class="version-tag">v2.2</div>
 
     <script>
         // IAB 攔截
@@ -532,41 +262,38 @@
             const ua = navigator.userAgent || navigator.vendor || window.opera;
             if (/Line/i.test(ua)) {
                 if (window.location.search.indexOf('openExternalBrowser=1') === -1) {
-                    const newUrl = new URL(window.location.href);
-                    newUrl.searchParams.set('openExternalBrowser', '1');
-                    window.location.href = newUrl.toString();
-                    return true;
+                    const newUrl = new URL(window.location.href); newUrl.searchParams.set('openExternalBrowser', '1'); window.location.href = newUrl.toString(); return true;
                 } else { showIabWarning(); return true; }
-            } else if (/FBAN|FBAV|Instagram|MicroMessenger|Threads|Dcard/i.test(ua)) {
-                showIabWarning(); return true;
-            }
+            } else if (/FBAN|FBAV|Instagram|MicroMessenger|Threads|Dcard/i.test(ua)) { showIabWarning(); return true; }
             return false;
         }
-
         function showIabWarning() {
             document.getElementById('iab-warning-overlay').style.display = 'flex';
             document.getElementById('iab-copy-btn').addEventListener('click', function() {
-                const cleanUrl = new URL(window.location.href);
-                cleanUrl.searchParams.delete('openExternalBrowser');
-                const dummy = document.createElement('input');
-                dummy.style.position = 'absolute'; dummy.style.left = '-9999px';
-                dummy.value = cleanUrl.toString();
+                const cleanUrl = new URL(window.location.href); cleanUrl.searchParams.delete('openExternalBrowser');
+                const dummy = document.createElement('input'); dummy.style.position = 'absolute'; dummy.style.left = '-9999px'; dummy.value = cleanUrl.toString();
                 document.body.appendChild(dummy); dummy.select();
-                try { document.execCommand('copy'); this.textContent = "✅ 已複製，請前往瀏覽器開啟"; this.style.backgroundColor = "#28a745"; } 
-                catch (err) { alert("複製失敗，請手動複製上方網址列。"); }
+                try { document.execCommand('copy'); this.textContent = "✅ 已複製，請前往瀏覽器開啟"; this.style.backgroundColor = "#28a745"; } catch (err) { alert("複製失敗，請手動複製上方網址列。"); }
                 document.body.removeChild(dummy);
             });
         }
         checkInAppBrowser();
 
         // ==========================================
-        // 核心邏輯
+        // 核心邏輯變數
         // ==========================================
         let book = null;
         let rendition = null;
         let loadingTimeout = null; 
         let currentFontSize = 100;
         let currentLineHeight = 1.6;
+
+        // TTS 狀態與防休眠
+        let isPlayingTTS = false;
+        let isAutoTurning = false;
+        let ttsQueue = [];
+        let wakeLock = null;
+        const DEFAULT_TITLE = "純前端 EPUB 閱讀與列印工具";
 
         const fileInput = document.getElementById('file-input');
         const urlInput = document.getElementById('url-input');
@@ -577,73 +304,50 @@
         const loadingText = document.getElementById('loading-text');
         const printArea = document.getElementById('print-area');
         
-        // 目錄面板元素
         const tocTab = document.getElementById('toc-tab');
         const tocSidebar = document.getElementById('toc-sidebar');
         const tocOverlay = document.getElementById('toc-overlay');
         const closeTocBtn = document.getElementById('close-toc-btn');
         const tocContent = document.getElementById('toc-content');
+        const btnTts = document.getElementById('btn-tts');
 
-        // Modal 元素
         const customModal = document.getElementById('custom-modal');
         const modalTitle = document.getElementById('modal-title');
         const modalDesc = document.getElementById('modal-desc');
         const debugLogArea = document.getElementById('debug-log-area');
         const modalCancelBtn = document.getElementById('modal-cancel-btn');
         const modalActionBtn = document.getElementById('modal-action-btn');
-        let currentModalAction = null;
 
-        function showLoading(show, text = '載入中，請稍候...') {
-            loadingText.textContent = text;
-            loadingOverlay.style.display = show ? 'flex' : 'none';
-        }
-
+        function showLoading(show, text = '載入中，請稍候...') { loadingText.textContent = text; loadingOverlay.style.display = show ? 'flex' : 'none'; }
         function showModal(options) {
-            modalTitle.textContent = options.title || '提示';
-            modalDesc.innerHTML = options.desc || '';
-            if (options.debugLogs && options.debugLogs.length > 0) {
-                debugLogArea.style.display = 'block'; debugLogArea.innerHTML = options.debugLogs.join('<br><br>');
-            } else { debugLogArea.style.display = 'none'; debugLogArea.innerHTML = ''; }
-            modalActionBtn.textContent = options.actionText || '確認';
-            currentModalAction = () => { if (options.onAction) options.onAction(); customModal.style.display = 'none'; };
-            modalActionBtn.onclick = currentModalAction;
+            modalTitle.textContent = options.title || '提示'; modalDesc.innerHTML = options.desc || '';
+            if (options.debugLogs && options.debugLogs.length > 0) { debugLogArea.style.display = 'block'; debugLogArea.innerHTML = options.debugLogs.join('<br><br>'); } else { debugLogArea.style.display = 'none'; debugLogArea.innerHTML = ''; }
+            modalActionBtn.textContent = options.actionText || '確認'; modalActionBtn.onclick = () => { if (options.onAction) options.onAction(); customModal.style.display = 'none'; };
             customModal.style.display = 'flex';
         }
         modalCancelBtn.addEventListener('click', () => customModal.style.display = 'none');
 
-        // 目錄面板開關邏輯
         function openToc() { tocSidebar.classList.add('open'); tocOverlay.classList.add('open'); }
         function closeToc() { tocSidebar.classList.remove('open'); tocOverlay.classList.remove('open'); }
-        tocTab.addEventListener('click', openToc);
-        closeTocBtn.addEventListener('click', closeToc);
-        tocOverlay.addEventListener('click', closeToc);
+        tocTab.addEventListener('click', openToc); closeTocBtn.addEventListener('click', closeToc); tocOverlay.addEventListener('click', closeToc);
 
-        // 關閉並返回首頁
         document.getElementById('btn-close').addEventListener('click', () => {
             if (confirm("確定要關閉目前的書本，返回首頁嗎？\n(未列印的內容將會遺失)")) {
+                stopTTS(); // 離開時停止朗讀與釋放鎖定
                 document.body.classList.remove('is-reading');
+                document.title = DEFAULT_TITLE; // 修正 4：恢復預設 Title
                 if (book) { book.destroy(); book = null; }
                 if (rendition) { viewer.innerHTML = ''; rendition = null; }
-                tocContent.innerHTML = '';
-                fileInput.value = '';
-                urlInput.value = '';
-                // 拔除網址 src 參數
-                const newUrl = new URL(window.location);
-                newUrl.searchParams.delete('src');
-                window.history.pushState({}, '', newUrl);
+                tocContent.innerHTML = ''; fileInput.value = ''; urlInput.value = '';
+                const newUrl = new URL(window.location); newUrl.searchParams.delete('src'); window.history.pushState({}, '', newUrl);
             }
         });
 
-        // 排版套用
         function applyStyles() {
             if (!rendition) return;
             rendition.themes.fontSize(`${currentFontSize}%`);
             const themeName = `custom-theme-${Date.now()}`;
-            rendition.themes.register(themeName, {
-                "body": { "line-height": `${currentLineHeight} !important` },
-                "p": { "line-height": `${currentLineHeight} !important` },
-                "div": { "line-height": `${currentLineHeight} !important` }
-            });
+            rendition.themes.register(themeName, { "body": { "line-height": `${currentLineHeight} !important` }, "p": { "line-height": `${currentLineHeight} !important` }, "div": { "line-height": `${currentLineHeight} !important` } });
             rendition.themes.select(themeName);
         }
 
@@ -652,79 +356,217 @@
         document.getElementById('btn-line-dec').addEventListener('click', () => { currentLineHeight = Math.max(1.2, parseFloat((currentLineHeight - 0.2).toFixed(1))); applyStyles(); });
         document.getElementById('btn-line-inc').addEventListener('click', () => { currentLineHeight = Math.min(2.4, parseFloat((currentLineHeight + 0.2).toFixed(1))); applyStyles(); });
 
+        // ==========================================
+        // 初始化書籍與動態 Title
+        // ==========================================
         function initBook(bookData) {
-            if (typeof ePub === 'undefined') {
-                showLoading(false);
-                alert("⚠️ 核心套件載入失敗！\n請檢查網路連線。");
-                return;
-            }
-
+            if (typeof ePub === 'undefined') { showLoading(false); alert("⚠️ 核心套件載入失敗！\n請檢查網路連線。"); return; }
             showLoading(true, '正在準備沉浸式閱讀體驗...');
             if (book) book.destroy(); 
             if (rendition) viewer.innerHTML = ''; 
-            tocContent.innerHTML = '';
+            tocContent.innerHTML = ''; stopTTS();
 
             if(loadingTimeout) clearTimeout(loadingTimeout);
             loadingTimeout = setTimeout(() => {
-                if (loadingOverlay.style.display !== 'none') {
-                    showLoading(false); alert("⚠️ 解析逾時！");
-                    if (book) book.destroy();
-                }
+                if (loadingOverlay.style.display !== 'none') { showLoading(false); alert("⚠️ 解析逾時！"); if (book) book.destroy(); }
             }, 30000);
 
             try {
                 book = ePub(bookData);
                 book.ready.then(() => {
                     rendition = book.renderTo("viewer", { width: "100%", height: "100%", spread: "none" });
+                    
+                    // 綁定翻頁監聽事件：若手動翻頁且正在朗讀，中斷並重新朗讀新頁面
+                    rendition.on('relocated', (location) => {
+                        if (isPlayingTTS && !isAutoTurning) {
+                            window.speechSynthesis.cancel();
+                            setTimeout(readCurrentPage, 300); // 等待畫面更新後重新啟動朗讀
+                        }
+                    });
+
                     return rendition.display();
                 }).then(() => {
-                    clearTimeout(loadingTimeout); 
-                    showLoading(false);
-                    
-                    // 【切換階段】給 body 加上狀態，觸發全螢幕切換動畫
+                    clearTimeout(loadingTimeout); showLoading(false);
                     document.body.classList.add('is-reading');
-                    
                     applyStyles();
                     return book.loaded.navigation;
                 }).then((nav) => {
-                    // 【新版 TOC 生成】使用 ul/li 建立美觀的側邊目錄
                     const generateToc = (tocItems, container) => {
                         const ul = document.createElement('ul');
                         tocItems.forEach((item) => {
-                            // 建立 DOM
-                            const li = document.createElement('li');
-                            const a = document.createElement('a');
-                            a.href = "#";
-                            a.textContent = item.label;
-                            a.onclick = (e) => {
-                                e.preventDefault();
-                                rendition.display(item.href);
-                                closeToc(); // 跳轉後自動收合目錄
-                            };
+                            const li = document.createElement('li'); const a = document.createElement('a');
+                            a.href = "#"; a.textContent = item.label;
+                            a.onclick = (e) => { e.preventDefault(); rendition.display(item.href); closeToc(); };
                             li.appendChild(a);
-                            
-                            // 遞迴子目錄
-                            if (item.subitems && item.subitems.length > 0) {
-                                generateToc(item.subitems, li);
-                            }
+                            if (item.subitems && item.subitems.length > 0) generateToc(item.subitems, li);
                             ul.appendChild(li);
                         });
                         container.appendChild(ul);
                     };
+                    if (nav && nav.toc) generateToc(nav.toc, tocContent);
                     
-                    if (nav && nav.toc) {
-                        generateToc(nav.toc, tocContent);
+                    // 修正 4：動態修改網頁 Title (供 PDF 檔名使用)
+                    book.loaded.metadata.then(meta => {
+                        if (meta.title && meta.creator) document.title = `${meta.title} by ${meta.creator}`;
+                        else if (meta.title) document.title = meta.title;
+                    });
+
+                }).catch((err) => { clearTimeout(loadingTimeout); showLoading(false); alert("電子書開啟失敗 ❌"); });
+            } catch (err) { clearTimeout(loadingTimeout); showLoading(false); alert("初始化發生致命錯誤 ❌"); }
+        }
+
+        // ==========================================
+        // 朗讀 (TTS) 與 防休眠 (Wake Lock) 核心機制
+        // ==========================================
+        async function requestWakeLock() {
+            try {
+                if ('wakeLock' in navigator && !wakeLock) {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    wakeLock.addEventListener('release', () => { console.log('Screen Wake Lock released'); });
+                }
+            } catch (err) { console.warn('Wake Lock API denied', err); }
+        }
+
+        function releaseWakeLock() {
+            if (wakeLock !== null) { wakeLock.release(); wakeLock = null; }
+        }
+
+        // 當切換分頁時重新申請防休眠
+        document.addEventListener('visibilitychange', async () => {
+            if (wakeLock !== null && document.visibilityState === 'visible' && isPlayingTTS) {
+                await requestWakeLock();
+            }
+        });
+
+        // 確保語音列表已載入
+        window.speechSynthesis.onvoiceschanged = () => {}; 
+
+        function getBestVoice() {
+            const voices = window.speechSynthesis.getVoices();
+            let voice = voices.find(v => v.lang.includes('zh-TW') && v.localService);
+            if (!voice) voice = voices.find(v => v.lang.includes('zh-TW'));
+            if (!voice) voice = voices.find(v => v.lang.includes('zh'));
+            return voice;
+        }
+
+        // 智慧斷句邏輯 (依據標點符號，上限 250 字)
+        function splitTextIntoChunks(text, maxLen = 250) {
+            text = text.replace(/[\r\n\s]+/g, ' ').trim(); // 清除過多空白
+            const regex = /[^。！？.!?]+[。！？.!?]*/g;
+            let sentences = text.match(regex);
+            if (!sentences) return [text];
+            
+            let chunks = [];
+            let currentChunk = "";
+            
+            for (let sentence of sentences) {
+                sentence = sentence.trim();
+                if (!sentence) continue;
+                
+                if ((currentChunk.length + sentence.length) <= maxLen) {
+                    currentChunk += (currentChunk ? " " : "") + sentence;
+                } else {
+                    if (currentChunk) chunks.push(currentChunk);
+                    if (sentence.length > maxLen) {
+                        for (let i = 0; i < sentence.length; i += maxLen) {
+                            chunks.push(sentence.substring(i, i + maxLen));
+                        }
+                        currentChunk = "";
+                    } else {
+                        currentChunk = sentence;
                     }
-                }).catch((err) => {
-                    clearTimeout(loadingTimeout); showLoading(false);
-                    alert("電子書開啟失敗 ❌");
-                });
-            } catch (err) {
-                clearTimeout(loadingTimeout); showLoading(false);
-                alert("初始化發生致命錯誤 ❌");
+                }
+            }
+            if (currentChunk) chunks.push(currentChunk);
+            return chunks;
+        }
+
+        // 從 ePub 提取當前頁面文字
+        async function getCurrentPageText() {
+            const loc = rendition.currentLocation();
+            if (!loc) return "";
+            try {
+                // 使用 Range 精準提取目前可見範圍的純文字
+                const startRange = await book.getRange(loc.start.cfi);
+                const endRange = await book.getRange(loc.end.cfi);
+                const range = startRange.cloneRange();
+                range.setEnd(endRange.endContainer, endRange.endOffset);
+                return range.toString();
+            } catch (e) {
+                console.warn("純文字提取失敗，準備跳下一頁", e);
+                return "";
             }
         }
 
+        async function startTTS() {
+            isPlayingTTS = true;
+            btnTts.textContent = '⏹';
+            btnTts.classList.add('playing');
+            await requestWakeLock();
+            readCurrentPage();
+        }
+
+        function stopTTS() {
+            isPlayingTTS = false;
+            window.speechSynthesis.cancel();
+            releaseWakeLock();
+            btnTts.textContent = '▶';
+            btnTts.classList.remove('playing');
+        }
+
+        async function readCurrentPage() {
+            if (!isPlayingTTS) return;
+            
+            const text = await getCurrentPageText();
+            if (!text || text.trim() === "") {
+                // 若當頁無文字 (可能全是圖片)，自動翻下一頁
+                isAutoTurning = true;
+                rendition.next().then(() => {
+                    setTimeout(() => { isAutoTurning = false; if (isPlayingTTS) readCurrentPage(); }, 500);
+                });
+                return;
+            }
+            
+            ttsQueue = splitTextIntoChunks(text);
+            playNextChunk();
+        }
+
+        function playNextChunk() {
+            if (!isPlayingTTS) return;
+            
+            if (ttsQueue.length === 0) {
+                // 當前頁面讀完，自動翻頁！
+                isAutoTurning = true;
+                rendition.next().then(() => {
+                    // 給予渲染緩衝時間後，繼續朗讀新頁面
+                    setTimeout(() => { isAutoTurning = false; if (isPlayingTTS) readCurrentPage(); }, 500);
+                });
+                return;
+            }
+            
+            const chunk = ttsQueue.shift();
+            const utterance = new SpeechSynthesisUtterance(chunk);
+            const voice = getBestVoice();
+            if (voice) utterance.voice = voice;
+            
+            // 防止瀏覽器過早回收 utterance 導致中斷的經典 Bug 防護
+            window.__currentUtterance = utterance;
+            
+            utterance.onend = () => { playNextChunk(); };
+            utterance.onerror = (e) => { console.warn("TTS Error", e); playNextChunk(); }; // 發生單句錯誤時忽略並繼續
+            
+            window.speechSynthesis.speak(utterance);
+        }
+
+        btnTts.addEventListener('click', () => {
+            if (isPlayingTTS) stopTTS();
+            else startTTS();
+        });
+
+
+        // ==========================================
+        // 載入與列印邏輯
+        // ==========================================
         async function loadBookFromUrl(url) {
             showLoading(true, '正在下載電子書...');
             try {
@@ -779,6 +621,9 @@
 
         printBtn.addEventListener('click', async () => {
             if (!book) return;
+            // 列印前強制暫停朗讀
+            if(isPlayingTTS) stopTTS();
+
             showLoading(true, '正在排版全書內容，可能需要數十秒，請稍候...');
             printArea.innerHTML = ''; 
             printArea.style.fontSize = `${(currentFontSize / 100) * 12}pt`; 
@@ -877,7 +722,6 @@
                         let chapterDiv = document.createElement('div');
                         chapterDiv.className = 'print-chapter';
                         
-                        // 保留給 PDF 內部跳轉書籤使用的 ID 錨點
                         let itemPathId = item.href;
                         try { itemPathId = decodeURIComponent(itemPathId); } catch(e){}
                         chapterDiv.id = itemPathId; 
