@@ -284,9 +284,11 @@
 
     <div id="print-area"></div>
     
-    <div class="version-tag">v2.10</div>
+    <div class="version-tag">v3.1</div>
 
     <script>
+        // v3.1 (核心重構：語音驅動與段落換氣)
+        
         // IAB 攔截
         function checkInAppBrowser() {
             const ua = navigator.userAgent || navigator.vendor || window.opera;
@@ -322,6 +324,7 @@
         let isPlayingTTS = false;
         let isAutoTurning = false;
         let ttsQueue = [];
+        let currentSpeechIndex = 0;
         let wakeLock = null;
         const DEFAULT_TITLE = "純前端 EPUB 閱讀與列印工具";
 
@@ -472,7 +475,10 @@
                         updateProgressDisplay(location);
                         if (isPlayingTTS && !isAutoTurning) {
                             window.speechSynthesis.cancel();
-                            setTimeout(readCurrentPage, 300); 
+                            setTimeout(async () => {
+                                await buildSpeechQueueFromCurrentChapter();
+                                playNextChunk();
+                            }, 350); 
                         }
                     });
 
@@ -548,50 +554,51 @@
             return voice;
         }
 
-        function splitTextIntoChunks(text, maxLen = 250) {
-            text = text.replace(/[\r\n\s]+/g, ' ').trim(); 
-            const regex = /[^。！？.!?]+[。！？.!?]*/g;
-            let sentences = text.match(regex);
-            if (!sentences) return [text];
-            
-            let chunks = [];
-            let currentChunk = "";
-            
-            for (let sentence of sentences) {
-                sentence = sentence.trim();
-                if (!sentence) continue;
-                
-                if ((currentChunk.length + sentence.length) <= maxLen) {
-                    currentChunk += (currentChunk ? " " : "") + sentence;
-                } else {
-                    if (currentChunk) chunks.push(currentChunk);
-                    if (sentence.length > maxLen) {
-                        for (let i = 0; i < sentence.length; i += maxLen) {
-                            chunks.push(sentence.substring(i, i + maxLen));
-                        }
-                        currentChunk = "";
-                    } else {
-                        currentChunk = sentence;
-                    }
-                }
-            }
-            if (currentChunk) chunks.push(currentChunk);
-            return chunks;
-        }
-
-        async function getCurrentPageText() {
+        async function buildSpeechQueueFromCurrentChapter() {
             const loc = rendition.currentLocation();
-            if (!loc) return "";
-            try {
-                const startRange = await book.getRange(loc.start.cfi);
-                const endRange = await book.getRange(loc.end.cfi);
-                const range = startRange.cloneRange();
-                range.setEnd(endRange.endContainer, endRange.endOffset);
-                return range.toString();
-            } catch (e) {
-                console.warn("純文字提取失敗，準備跳下一頁", e);
-                return "";
-            }
+            if (!loc) return;
+
+            const spineItem = book.spine.get(loc.start.cfi);
+            const doc = await spineItem.load(book.load.bind(book));
+            const body = doc.body;
+            
+            let newQueue = [];
+            const walk = (node) => {
+                if (node.nodeType === 3) { 
+                    let text = node.textContent.trim();
+                    if (text.length > 0) {
+                        const sentences = text.match(/[^。！？.!?\n]+[。！？.!?\n]*/g) || [text];
+                        sentences.forEach(s => {
+                            let cleanS = s.trim();
+                            if (cleanS) {
+                                if (!/[。！？.!?]$/.test(cleanS)) cleanS += '。';
+                                const cfi = spineItem.cfiFromElement(node.parentElement);
+                                newQueue.push({ 
+                                    text: cleanS, 
+                                    cfi: cfi, 
+                                    isNewParagraph: /^(P|DIV|H[1-6]|LI)$/i.test(node.parentElement.tagName) 
+                                });
+                            }
+                        });
+                    }
+                } else if (node.nodeType === 1 && !['SCRIPT', 'STYLE', 'SVG', 'IMG'].includes(node.tagName)) {
+                    node.childNodes.forEach(walk);
+                }
+            };
+            walk(body);
+
+            const currentCfi = loc.start.cfi;
+            const cfiHelper = new ePub.CFI();
+            let startIndex = newQueue.findIndex(item => {
+                try {
+                    return cfiHelper.compare(item.cfi, currentCfi) >= 0;
+                } catch(e) {
+                    return true; 
+                }
+            });
+            
+            ttsQueue = newQueue;
+            currentSpeechIndex = startIndex < 0 ? 0 : startIndex;
         }
 
         async function startTTS() {
@@ -599,7 +606,8 @@
             btnTts.textContent = '⏹';
             btnTts.classList.add('playing');
             await requestWakeLock();
-            readCurrentPage();
+            await buildSpeechQueueFromCurrentChapter();
+            playNextChunk();
         }
 
         function stopTTS() {
@@ -608,44 +616,62 @@
             releaseWakeLock();
             btnTts.textContent = '▶';
             btnTts.classList.remove('playing');
+            ttsQueue = [];
         }
 
-        async function readCurrentPage() {
+        async function playNextChunk() {
             if (!isPlayingTTS) return;
             
-            const text = await getCurrentPageText();
-            if (!text || text.trim() === "") {
+            if (currentSpeechIndex >= ttsQueue.length) {
                 isAutoTurning = true;
                 rendition.next().then(() => {
-                    setTimeout(() => { isAutoTurning = false; if (isPlayingTTS) readCurrentPage(); }, 500);
+                    setTimeout(async () => {
+                        isAutoTurning = false;
+                        if (isPlayingTTS) {
+                            await buildSpeechQueueFromCurrentChapter();
+                            playNextChunk();
+                        }
+                    }, 600);
                 });
                 return;
             }
             
-            ttsQueue = splitTextIntoChunks(text);
-            playNextChunk();
-        }
+            const item = ttsQueue[currentSpeechIndex];
+            const loc = rendition.currentLocation();
+            
+            if (loc) {
+                const cfiHelper = new ePub.CFI();
+                let isOutside = false;
+                try {
+                    if (cfiHelper.compare(item.cfi, loc.end.cfi) > 0 || cfiHelper.compare(item.cfi, loc.start.cfi) < 0) {
+                        isOutside = true;
+                    }
+                } catch(e) {}
 
-        function playNextChunk() {
-            if (!isPlayingTTS) return;
-            
-            if (ttsQueue.length === 0) {
-                isAutoTurning = true;
-                rendition.next().then(() => {
-                    setTimeout(() => { isAutoTurning = false; if (isPlayingTTS) readCurrentPage(); }, 500);
-                });
-                return;
+                if (isOutside) {
+                    isAutoTurning = true;
+                    await rendition.display(item.cfi);
+                    isAutoTurning = false;
+                    await new Promise(r => setTimeout(r, 300));
+                }
             }
-            
-            const chunk = ttsQueue.shift();
-            const utterance = new SpeechSynthesisUtterance(chunk);
+
+            const utterance = new SpeechSynthesisUtterance(item.text);
             const voice = getBestVoice();
             if (voice) utterance.voice = voice;
             
             window.__currentUtterance = utterance;
             
-            utterance.onend = () => { playNextChunk(); };
-            utterance.onerror = (e) => { console.warn("TTS Error", e); playNextChunk(); }; 
+            utterance.onend = () => { 
+                currentSpeechIndex++; 
+                const delay = (ttsQueue[currentSpeechIndex] && ttsQueue[currentSpeechIndex].isNewParagraph) ? 500 : 50;
+                setTimeout(playNextChunk, delay); 
+            };
+            utterance.onerror = (e) => { 
+                console.warn("TTS Error", e); 
+                currentSpeechIndex++; 
+                playNextChunk(); 
+            }; 
             
             window.speechSynthesis.speak(utterance);
         }
