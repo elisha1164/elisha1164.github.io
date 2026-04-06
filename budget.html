@@ -659,11 +659,18 @@
     <script>
         function toggleLang() {
             const body = document.body;
+            const url = new URL(window.location);
+            
             if (body.getAttribute('data-lang') === 'zh') {
                 body.setAttribute('data-lang', 'en');
+                url.searchParams.set('en', '1');
             } else {
                 body.setAttribute('data-lang', 'zh');
+                url.searchParams.delete('en');
             }
+            
+            // 使用 replaceState 更新網址，不會產生瀏覽歷史堆疊，也不會重新載入網頁
+            window.history.replaceState({}, '', url);
         }
 
         // 當網頁載入完成時，檢查網址參數 ?en=1
