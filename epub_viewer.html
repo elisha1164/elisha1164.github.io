@@ -284,10 +284,10 @@
 
     <div id="print-area"></div>
     
-    <div class="version-tag">v3.1</div>
+    <div class="version-tag">v3.2</div>
 
     <script>
-        // v3.1 (核心重構：語音驅動與段落換氣)
+        // v3.2 (修復 epub.js 幻覺 API 導致的致命錯誤，正確實現語音驅動與段落換氣)
         
         // IAB 攔截
         function checkInAppBrowser() {
@@ -558,9 +558,10 @@
             const loc = rendition.currentLocation();
             if (!loc) return;
 
-            const spineItem = book.spine.get(loc.start.cfi);
-            const doc = await spineItem.load(book.load.bind(book));
-            const body = doc.body;
+            // v3.2 修復：直接獲取當前已渲染的 DOM，不再背景重新載入避免錯誤與資源浪費
+            const contents = rendition.getContents()[0];
+            if (!contents) return;
+            const body = contents.document.body;
             
             let newQueue = [];
             const walk = (node) => {
@@ -572,30 +573,47 @@
                             let cleanS = s.trim();
                             if (cleanS) {
                                 if (!/[。！？.!?]$/.test(cleanS)) cleanS += '。';
-                                const cfi = spineItem.cfiFromElement(node.parentElement);
-                                newQueue.push({ 
-                                    text: cleanS, 
-                                    cfi: cfi, 
-                                    isNewParagraph: /^(P|DIV|H[1-6]|LI)$/i.test(node.parentElement.tagName) 
-                                });
+                                
+                                let cfi = "";
+                                try {
+                                    cfi = contents.cfiFromNode(node);
+                                } catch(e) {
+                                    try {
+                                        cfi = contents.cfiFromNode(node.parentElement);
+                                    } catch(e2) {}
+                                }
+
+                                if (cfi) {
+                                    newQueue.push({ 
+                                        text: cleanS, 
+                                        cfi: cfi, 
+                                        isNewParagraph: /^(P|DIV|H[1-6]|LI)$/i.test(node.parentElement.tagName) 
+                                    });
+                                }
                             }
                         });
                     }
-                } else if (node.nodeType === 1 && !['SCRIPT', 'STYLE', 'SVG', 'IMG'].includes(node.tagName)) {
-                    node.childNodes.forEach(walk);
+                } else if (node.nodeType === 1 && !['SCRIPT', 'STYLE', 'SVG', 'IMG'].includes(node.tagName.toUpperCase())) {
+                    Array.from(node.childNodes).forEach(walk);
                 }
             };
             walk(body);
 
             const currentCfi = loc.start.cfi;
-            const cfiHelper = new ePub.CFI();
-            let startIndex = newQueue.findIndex(item => {
-                try {
-                    return cfiHelper.compare(item.cfi, currentCfi) >= 0;
-                } catch(e) {
-                    return true; 
-                }
-            });
+            let startIndex = 0;
+            try {
+                const cfiHelper = new ePub.CFI();
+                startIndex = newQueue.findIndex(item => {
+                    try {
+                        return cfiHelper.compare(item.cfi, currentCfi) >= 0;
+                    } catch(e) {
+                        return false; 
+                    }
+                });
+            } catch(e) {
+                // 如果 ePub.CFI 無法呼叫的 fallback 保護
+                startIndex = newQueue.findIndex(item => item.cfi >= currentCfi);
+            }
             
             ttsQueue = newQueue;
             currentSpeechIndex = startIndex < 0 ? 0 : startIndex;
@@ -640,13 +658,15 @@
             const loc = rendition.currentLocation();
             
             if (loc) {
-                const cfiHelper = new ePub.CFI();
                 let isOutside = false;
                 try {
+                    const cfiHelper = new ePub.CFI();
                     if (cfiHelper.compare(item.cfi, loc.end.cfi) > 0 || cfiHelper.compare(item.cfi, loc.start.cfi) < 0) {
                         isOutside = true;
                     }
-                } catch(e) {}
+                } catch(e) {
+                    if (item.cfi > loc.end.cfi || item.cfi < loc.start.cfi) isOutside = true;
+                }
 
                 if (isOutside) {
                     isAutoTurning = true;
