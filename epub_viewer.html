@@ -13,85 +13,223 @@
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0; padding: 0; background-color: #f7f9fc; color: #333; overflow: hidden;
-            height: 100vh; height: 100dvh; 
+            margin: 0;
+            padding: 0;
+            background-color: #f7f9fc;
+            color: #333;
+            overflow: hidden;
+            height: 100vh;
+            height: 100dvh; 
         }
 
-        /* 歡迎與載入介面 */
+        /* ==========================================
+           階段一：書本載入階段 (Welcome Screen)
+           ========================================== */
         #welcome-screen {
-            display: flex; justify-content: center; align-items: center; height: 100dvh; width: 100vw;
-            background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%); position: absolute; top: 0; left: 0; z-index: 100;
+            display: flex; justify-content: center; align-items: center;
+            height: 100vh; height: 100dvh; width: 100vw;
+            background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+            position: absolute; top: 0; left: 0; z-index: 100;
             transition: opacity 0.4s ease, visibility 0.4s ease;
         }
-        .welcome-card { background: #fff; padding: 40px; border-radius: 16px; box-shadow: 0 15px 35px rgba(0,0,0,0.05); max-width: 400px; width: 90%; text-align: center; }
+        .welcome-card {
+            background: #fff; padding: 40px; border-radius: 16px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.05); max-width: 400px; width: 90%; text-align: center;
+        }
         .welcome-card h1 { margin-top: 0; color: #0056b3; font-size: 24px; margin-bottom: 30px; }
         .input-group { margin-bottom: 20px; text-align: left; }
         .input-group label { display: block; font-weight: bold; margin-bottom: 8px; color: #555; }
-        .input-group input[type="file"], .input-group input[type="text"] { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 14px; background: #fafafa; }
+        .input-group input[type="file"], .input-group input[type="text"] {
+            width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 14px; background: #fafafa;
+        }
         .input-group .url-row { display: flex; gap: 10px; }
-        .btn-primary { padding: 12px 20px; background-color: #0056b3; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: bold; transition: background 0.2s; white-space: nowrap; }
+        .btn-primary {
+            padding: 12px 20px; background-color: #0056b3; color: white; border: none; border-radius: 8px;
+            cursor: pointer; font-size: 14px; font-weight: bold; transition: background 0.2s; white-space: nowrap;
+        }
         .btn-primary:hover { background-color: #004494; }
         .divider { margin: 25px 0; position: relative; text-align: center; }
         .divider::before { content: ""; position: absolute; top: 50%; left: 0; right: 0; border-top: 1px solid #ddd; z-index: 1; }
         .divider span { background: #fff; padding: 0 15px; color: #aaa; font-size: 14px; position: relative; z-index: 2; }
 
-        /* 閱讀器介面 */
+        /* ==========================================
+           階段二：閱讀階段 (Reader UI)
+           ========================================== */
         #reader-ui {
-            display: flex; flex-direction: column; height: 100dvh; width: 100vw;
+            display: flex; flex-direction: column;
+            height: 100vh; height: 100dvh; width: 100vw;
             opacity: 0; visibility: hidden; transition: opacity 0.4s ease, visibility 0.4s ease;
             position: absolute; top: 0; left: 0;
         }
         body.is-reading #welcome-screen { opacity: 0; visibility: hidden; }
         body.is-reading #reader-ui { opacity: 1; visibility: visible; }
 
-        #toolbar { background-color: #fff; padding: 10px 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); display: flex; gap: 8px; align-items: center; z-index: 10; }
-        #reading-progress { flex-grow: 1; min-width: 0; text-align: center; font-size: 13px; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 10px; user-select: none; font-weight: bold; }
-        .tool-btn { background: transparent; color: #555; border: 1px solid transparent; border-radius: 6px; padding: 8px 12px; font-size: 16px; font-weight: bold; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        /* 極簡頂部工具列 */
+        #toolbar {
+            background-color: #fff; padding: 10px 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            display: flex; gap: 8px; align-items: center; z-index: 10;
+        }
+        
+        /* 動態章節名稱顯示區 (防爆版設計) */
+        #reading-progress {
+            flex-grow: 1;
+            min-width: 0; /* Flexbox 子元素內縮省略號的關鍵 */
+            text-align: center;
+            font-size: 13px;
+            color: #888;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            padding: 0 10px;
+            user-select: none;
+            font-weight: bold;
+        }
+
+        .tool-btn {
+            background: transparent; color: #555; border: 1px solid transparent; border-radius: 6px;
+            padding: 8px 12px; font-size: 16px; font-weight: bold; cursor: pointer; transition: all 0.2s;
+            display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+        }
         .tool-btn:hover { background: #f0f0f0; border-color: #ddd; color: #000; }
         #btn-close { color: #d9534f; font-size: 18px; }
         #btn-close:hover { background: #fdf2f2; border-color: #f5c6cb; }
+        #print-btn { font-size: 18px; }
+        
+        /* 朗讀按鈕特殊樣式 */
         #btn-tts { color: #0056b3; width: 40px; }
         #btn-tts.playing { background: #e0f0ff; border-color: #b3d7ff; color: #004494; animation: pulse 2s infinite; }
         @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(0, 86, 179, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(0, 86, 179, 0); } 100% { box-shadow: 0 0 0 0 rgba(0, 86, 179, 0); } }
 
-        #main-container { flex: 1; position: relative; display: flex; background: #fff; overflow: hidden; }
-        #viewer { flex: 1; position: relative; overflow: hidden; padding: 0 15px; box-sizing: border-box; }
-        .nav-btn { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.03); border: none; font-size: 28px; color: #888; padding: 30px 15px; cursor: pointer; z-index: 5; transition: all 0.3s; }
+        /* 閱讀器主體 */
+        #main-container {
+            flex: 1; position: relative; display: flex; background: #fff; overflow: hidden;
+        }
+        #viewer {
+            flex: 1; position: relative; overflow: hidden;
+            padding: 0 15px; box-sizing: border-box;
+        }
+        .nav-btn {
+            position: absolute; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.03);
+            border: none; font-size: 28px; color: #888; padding: 30px 15px; cursor: pointer; z-index: 5; transition: all 0.3s;
+        }
         .nav-btn:hover { background: rgba(0,0,0,0.08); color: #333; }
         #prev-btn { left: 0; border-radius: 0 8px 8px 0; }
         #next-btn { right: 0; border-radius: 8px 0 0 8px; }
 
-        #glowing-progress-bar { position: absolute; bottom: 0; left: 0; height: 3px; background-color: #007bff; box-shadow: 0 -1px 8px rgba(0, 123, 255, 0.8), 0 0 4px rgba(0, 123, 255, 0.5); width: 0%; z-index: 50; transition: width 0.4s cubic-bezier(0.25, 0.8, 0.25, 1); pointer-events: none; }
+        /* 底部發光進度條 */
+        #glowing-progress-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 3px;
+            background-color: #007bff;
+            box-shadow: 0 -1px 8px rgba(0, 123, 255, 0.8), 0 0 4px rgba(0, 123, 255, 0.5);
+            width: 0%;
+            z-index: 50;
+            transition: width 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+            pointer-events: none;
+        }
 
-        /* 目錄側邊欄 */
-        #toc-tab { position: fixed; left: 0; top: 50%; transform: translateY(-50%); background: rgba(0, 86, 179, 0.6); color: white; padding: 15px 8px; border-radius: 0 8px 8px 0; cursor: pointer; z-index: 20; font-size: 18px; box-shadow: 2px 0 5px rgba(0,0,0,0.1); transition: all 0.3s; opacity: 0; visibility: hidden; }
+        /* ==========================================
+           滑出式側邊目錄 (Off-canvas TOC)
+           ========================================== */
+        #toc-tab {
+            position: fixed; left: 0; top: 50%; transform: translateY(-50%);
+            background: rgba(0, 86, 179, 0.6); color: white;
+            padding: 15px 8px; border-radius: 0 8px 8px 0; cursor: pointer; z-index: 20;
+            font-size: 18px; box-shadow: 2px 0 5px rgba(0,0,0,0.1); transition: all 0.3s;
+            opacity: 0; visibility: hidden;
+        }
         body.is-reading #toc-tab { opacity: 1; visibility: visible; }
-        #toc-sidebar { position: fixed; top: 0; left: -320px; width: 300px; height: 100dvh; background: #fff; box-shadow: 2px 0 15px rgba(0,0,0,0.15); z-index: 30; transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1); display: flex; flex-direction: column; }
+        #toc-tab:hover { background: rgba(0, 86, 179, 1); padding-left: 12px; }
+
+        #toc-sidebar {
+            position: fixed; top: 0; left: -320px; width: 300px;
+            height: 100vh; height: 100dvh; background: #fff;
+            box-shadow: 2px 0 15px rgba(0,0,0,0.15); z-index: 30; transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex; flex-direction: column;
+        }
         #toc-sidebar.open { left: 0; }
         .toc-header { padding: 20px; font-size: 18px; font-weight: bold; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+        .toc-close-btn { background: none; border: none; font-size: 20px; color: #888; cursor: pointer; }
+        .toc-close-btn:hover { color: #333; }
         .toc-content { flex: 1; overflow-y: auto; padding: 10px 0; }
         .toc-content ul { list-style: none; padding: 0; margin: 0; }
         .toc-content li a { display: block; padding: 12px 20px; color: #444; text-decoration: none; border-bottom: 1px solid #f9f9f9; transition: background 0.2s; font-size: 15px; }
         .toc-content li a:hover { background: #f0f7ff; color: #0056b3; }
-        #toc-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); z-index: 25; opacity: 0; visibility: hidden; transition: opacity 0.3s; }
+        .toc-content ul ul { padding-left: 20px; }
+        .toc-content ul ul a { font-size: 14px; color: #666; border-bottom: none; padding: 8px 20px;}
+        #toc-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4);
+            z-index: 25; opacity: 0; visibility: hidden; transition: opacity 0.3s;
+        }
         #toc-overlay.open { opacity: 1; visibility: visible; }
 
-        /* 列印樣式 */
-        #print-area { display: none; }
-        @media print {
-            html, body { height: auto !important; display: block !important; overflow: visible !important; background: #fff !important; }
-            #welcome-screen, #reader-ui, #toc-tab, #toc-sidebar, #toc-overlay, #glowing-progress-bar { display: none !important; }
-            #print-area { display: block !important; position: relative; width: 100%; font-size: 12pt; line-height: 1.6; color: #000; }
-            .print-chapter { break-before: page; padding-top: 20px; overflow: hidden; }
+        /* ==========================================
+           全域共用 UI & Modal
+           ========================================== */
+        #loading-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.9);
+            display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; display: none; 
         }
-
-        #loading-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.9); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; }
         .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #0056b3; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 15px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 2000; backdrop-filter: blur(2px);
+        }
+        .modal-box {
+            background: #fff; padding: 25px 30px; border-radius: 10px; max-width: 500px; width: 90%; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); animation: modalFadeIn 0.3s ease;
+        }
+        @keyframes modalFadeIn { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+        .modal-box h3 { margin-top: 0; color: #d9534f; font-size: 20px; }
+        .modal-box p { font-size: 15px; color: #555; line-height: 1.6; margin-bottom: 15px; text-align: left; }
+        #debug-log-area { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; padding: 10px; border-radius: 4px; text-align: left; font-size: 12px; max-height: 150px; overflow-y: auto; margin-bottom: 20px; font-family: monospace; word-break: break-all; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
+        .modal-actions button { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; transition: background 0.2s; }
+        .btn-cancel { background: #e0e0e0; color: #333; } .btn-cancel:hover { background: #ccc; }
+        .btn-download { background: #0056b3; color: #fff; } .btn-download:hover { background: #004494; }
+
+        #iab-warning-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: #f4f4f9; color: #333;
+            display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; padding: 20px; text-align: center;
+        }
+        .iab-card { background: #fff; border-radius: 12px; padding: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); max-width: 90%; width: 450px; }
+        .iab-card h2 { margin-top: 0; color: #d9534f; font-size: 22px; }
+        .iab-card p { line-height: 1.6; font-size: 15px; margin-bottom: 20px; color: #555; text-align: left; }
+        .iab-card .steps { background: #fff8e1; padding: 15px; border-radius: 8px; text-align: left; margin-bottom: 20px; color: #856404; border: 1px solid #ffeeba; font-size: 15px; line-height: 1.8; }
+        .copy-btn { background: #0056b3; color: #fff; border: none; padding: 14px 20px; font-size: 16px; border-radius: 6px; cursor: pointer; width: 100%; font-weight: bold; transition: background 0.2s; }
+        .copy-btn:active { background: #004494; }
+
         .version-tag { position: fixed; bottom: 5px; right: 5px; font-size: 11px; color: #aaa; z-index: 9999; pointer-events: none; }
+
+        /* ==========================================
+           列印專用樣式 (@media print)
+           ========================================== */
+        #print-area { display: none; }
+
+        @media print {
+            html, body { height: auto !important; display: block !important; overflow: visible !important; background: #fff !important; }
+            #welcome-screen, #reader-ui, #toc-tab, #toc-sidebar, #toc-overlay, #loading-overlay, .modal-overlay, .version-tag, #iab-warning-overlay, #glowing-progress-bar { display: none !important; }
+            #print-area { display: block !important; position: relative; width: 100%; font-size: 12pt; line-height: 1.6; color: #000; }
+            a { text-decoration: none; color: inherit; } a[href]:after { content: none !important; }
+            #print-area img, #print-area svg, #print-area image { max-width: 100% !important; max-height: 980px !important; height: auto !important; width: auto !important; break-inside: avoid; page-break-inside: avoid; display: block; margin: 0 auto; }
+            .print-chapter { break-before: page; padding-top: 20px; overflow: hidden; }
+            h1, h2, h3 { break-after: avoid; } p { orphans: 3; widows: 3; }
+        }
     </style>
 </head>
 <body>
+
+    <div id="iab-warning-overlay">
+        <div class="iab-card">
+            <h2>⚠️ 建議使用預設瀏覽器</h2>
+            <p>偵測到您正在使用社群軟體的內建瀏覽器。受限於系統安全設定，這會導致<strong>「列印為 PDF」與「檔案下載」功能完全失效</strong>。</p>
+            <div class="steps"><strong>💡 解決步驟：</strong><br>1. 點擊畫面邊緣的 <b>[ ⋮ ]</b> 或 <b>[ ⋯ ]</b>。<br>2. 選擇 <b>「以預設瀏覽器開啟」</b> 或 <b>「在 Safari 開啟」</b>。</div>
+            <p>若找不到該選項，請複製網址並手動貼到 Chrome/Safari：</p>
+            <button class="copy-btn" id="iab-copy-btn">📋 一鍵複製網址</button>
+        </div>
+    </div>
 
     <div id="welcome-screen">
         <div class="welcome-card">
@@ -100,21 +238,21 @@
             <div class="divider"><span>或</span></div>
             <div class="input-group">
                 <label for="url-input">🌐 透過網址載入</label>
-                <div class="url-row"><input type="text" id="url-input" placeholder="輸入 EPUB 網址"><button id="load-url-btn" class="btn-primary">載入</button></div>
+                <div class="url-row"><input type="text" id="url-input" placeholder="輸入 EPUB 網址 (需支援 CORS)"><button id="load-url-btn" class="btn-primary">載入</button></div>
             </div>
         </div>
     </div>
 
     <div id="reader-ui">
         <div id="toolbar">
-            <button id="btn-close" class="tool-btn" title="返回首頁">✕</button>
-            <div id="reading-progress">章節標題載入中...</div>
-            <button id="btn-tts" class="tool-btn" title="朗讀本章 (自動翻頁)">▶</button>
-            <button id="btn-font-dec" class="tool-btn">A-</button>
-            <button id="btn-font-inc" class="tool-btn">A+</button>
-            <button id="btn-line-dec" class="tool-btn">≡-</button>
-            <button id="btn-line-inc" class="tool-btn">≡+</button>
-            <button id="print-btn" class="tool-btn">🖨️</button>
+            <button id="btn-close" class="tool-btn" title="關閉並返回首頁">✕</button>
+            <div id="reading-progress" title="當前章節">章節標題載入中...</div>
+            <button id="btn-tts" class="tool-btn" title="朗讀本頁 (自動翻頁)">▶</button>
+            <button id="btn-font-dec" class="tool-btn" title="縮小文字">A-</button>
+            <button id="btn-font-inc" class="tool-btn" title="放大文字">A+</button>
+            <button id="btn-line-dec" class="tool-btn" title="縮小行距">≡-</button>
+            <button id="btn-line-inc" class="tool-btn" title="放大行距">≡+</button>
+            <button id="print-btn" class="tool-btn" title="產生完整列印檔">🖨️</button>
         </div>
 
         <div id="main-container">
@@ -122,283 +260,601 @@
             <button id="prev-btn" class="nav-btn">‹</button>
             <button id="next-btn" class="nav-btn">›</button>
         </div>
-        <div id="toc-tab">☰</div>
+
+        <div id="toc-tab" title="開啟目錄">☰</div>
         <div id="toc-overlay"></div>
         <div id="toc-sidebar">
-            <div class="toc-header">章節目錄 <button id="close-toc-btn" style="background:none;border:none;font-size:20px;cursor:pointer;">✕</button></div>
+            <div class="toc-header">章節目錄<button id="close-toc-btn" class="toc-close-btn">✕</button></div>
             <div class="toc-content" id="toc-content"></div>
         </div>
+        
+        <!-- 新增：細緻的底部發光進度條 -->
         <div id="glowing-progress-bar"></div>
     </div>
 
-    <div id="loading-overlay"><div class="spinner"></div><div id="loading-text">處理中...</div></div>
+    <div id="loading-overlay"><div class="spinner"></div><div id="loading-text">載入中，請稍候...</div></div>
+
+    <div id="custom-modal" class="modal-overlay">
+        <div class="modal-box">
+            <h3 id="modal-title">⚠️ 錯誤提示</h3><p id="modal-desc">發生錯誤，請查看詳細內容。</p>
+            <div id="debug-log-area" style="display: none;"></div>
+            <div class="modal-actions" id="modal-actions"><button id="modal-cancel-btn" class="btn-cancel">取消</button><button id="modal-action-btn" class="btn-download">確認</button></div>
+        </div>
+    </div>
+
     <div id="print-area"></div>
-    <div class="version-tag">v3.0</div>
+    
+    <div class="version-tag">v2.10</div>
 
     <script>
-        // v3.0 (核心重構：語音驅動與段落換氣)
-        let book = null, rendition = null, currentFontSize = 100, currentLineHeight = 1.6;
-        let isPlayingTTS = false, wakeLock = null, speechQueue = [], currentSpeechIndex = 0;
-        let locationsGenerated = false, tocMap = {};
+        // IAB 攔截
+        function checkInAppBrowser() {
+            const ua = navigator.userAgent || navigator.vendor || window.opera;
+            if (/Line/i.test(ua)) {
+                if (window.location.search.indexOf('openExternalBrowser=1') === -1) {
+                    const newUrl = new URL(window.location.href); newUrl.searchParams.set('openExternalBrowser', '1'); window.location.href = newUrl.toString(); return true;
+                } else { showIabWarning(); return true; }
+            } else if (/FBAN|FBAV|Instagram|MicroMessenger|Threads|Dcard/i.test(ua)) { showIabWarning(); return true; }
+            return false;
+        }
+        function showIabWarning() {
+            document.getElementById('iab-warning-overlay').style.display = 'flex';
+            document.getElementById('iab-copy-btn').addEventListener('click', function() {
+                const cleanUrl = new URL(window.location.href); cleanUrl.searchParams.delete('openExternalBrowser');
+                const dummy = document.createElement('input'); dummy.style.position = 'absolute'; dummy.style.left = '-9999px'; dummy.value = cleanUrl.toString();
+                document.body.appendChild(dummy); dummy.select();
+                try { document.execCommand('copy'); this.textContent = "✅ 已複製，請前往瀏覽器開啟"; this.style.backgroundColor = "#28a745"; } catch (err) { alert("複製失敗，請手動複製上方網址列。"); }
+                document.body.removeChild(dummy);
+            });
+        }
+        checkInAppBrowser();
+
+        // ==========================================
+        // 核心邏輯變數
+        // ==========================================
+        let book = null;
+        let rendition = null;
+        let loadingTimeout = null; 
+        let currentFontSize = 100;
+        let currentLineHeight = 1.6;
+
+        // TTS 狀態與防休眠
+        let isPlayingTTS = false;
+        let isAutoTurning = false;
+        let ttsQueue = [];
+        let wakeLock = null;
         const DEFAULT_TITLE = "純前端 EPUB 閱讀與列印工具";
 
-        const viewer = document.getElementById('viewer'), btnTts = document.getElementById('btn-tts'), progressDisplay = document.getElementById('reading-progress'), glowingBar = document.getElementById('glowing-progress-bar');
+        // 進度追蹤狀態
+        let locationsGenerated = false;
+        let tocMap = {}; 
 
-        // ==========================================
-        // 核心邏輯：語音驅動與段落換氣
-        // ==========================================
+        const fileInput = document.getElementById('file-input');
+        const urlInput = document.getElementById('url-input');
+        const loadUrlBtn = document.getElementById('load-url-btn');
+        const printBtn = document.getElementById('print-btn');
+        const viewer = document.getElementById('viewer');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const loadingText = document.getElementById('loading-text');
+        const printArea = document.getElementById('print-area');
+        
+        const tocTab = document.getElementById('toc-tab');
+        const tocSidebar = document.getElementById('toc-sidebar');
+        const tocOverlay = document.getElementById('toc-overlay');
+        const closeTocBtn = document.getElementById('close-toc-btn');
+        const tocContent = document.getElementById('toc-content');
+        const btnTts = document.getElementById('btn-tts');
+        const progressDisplay = document.getElementById('reading-progress');
+        const glowingProgressBar = document.getElementById('glowing-progress-bar');
 
-        async function getBestVoice() {
-            const voices = window.speechSynthesis.getVoices();
-            return voices.find(v => v.lang.includes('zh-TW') && v.name.includes('Natural')) || 
-                   voices.find(v => v.lang.includes('zh-TW') && (v.name.includes('Premium') || v.name.includes('Siri'))) ||
-                   voices.find(v => v.lang.includes('zh-TW') && v.localService) ||
-                   voices.find(v => v.lang.includes('zh-TW')) ||
-                   voices.find(v => v.lang.includes('zh'));
+        const customModal = document.getElementById('custom-modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalDesc = document.getElementById('modal-desc');
+        const debugLogArea = document.getElementById('debug-log-area');
+        const modalCancelBtn = document.getElementById('modal-cancel-btn');
+        const modalActionBtn = document.getElementById('modal-action-btn');
+
+        function showLoading(show, text = '載入中，請稍候...') { loadingText.textContent = text; loadingOverlay.style.display = show ? 'flex' : 'none'; }
+        function showModal(options) {
+            modalTitle.textContent = options.title || '提示'; modalDesc.innerHTML = options.desc || '';
+            if (options.debugLogs && options.debugLogs.length > 0) { debugLogArea.style.display = 'block'; debugLogArea.innerHTML = options.debugLogs.join('<br><br>'); } else { debugLogArea.style.display = 'none'; debugLogArea.innerHTML = ''; }
+            modalActionBtn.textContent = options.actionText || '確認'; modalActionBtn.onclick = () => { if (options.onAction) options.onAction(); customModal.style.display = 'none'; };
+            customModal.style.display = 'flex';
+        }
+        modalCancelBtn.addEventListener('click', () => customModal.style.display = 'none');
+
+        function openToc() { tocSidebar.classList.add('open'); tocOverlay.classList.add('open'); }
+        function closeToc() { tocSidebar.classList.remove('open'); tocOverlay.classList.remove('open'); }
+        tocTab.addEventListener('click', openToc); closeTocBtn.addEventListener('click', closeToc); tocOverlay.addEventListener('click', closeToc);
+
+        document.getElementById('btn-close').addEventListener('click', () => {
+            if (confirm("確定要關閉目前的書本，返回首頁嗎？\n(未列印的內容將會遺失)")) {
+                stopTTS(); 
+                document.body.classList.remove('is-reading');
+                document.title = DEFAULT_TITLE; 
+                progressDisplay.textContent = "章節標題載入中...";
+                glowingProgressBar.style.width = '0%';
+                if (book) { book.destroy(); book = null; }
+                if (rendition) { viewer.innerHTML = ''; rendition = null; }
+                tocContent.innerHTML = ''; fileInput.value = ''; urlInput.value = '';
+                tocMap = {}; locationsGenerated = false;
+                const newUrl = new URL(window.location); newUrl.searchParams.delete('src'); window.history.pushState({}, '', newUrl);
+            }
+        });
+
+        function applyStyles() {
+            if (!rendition) return;
+            rendition.themes.fontSize(`${currentFontSize}%`);
+            const themeName = `custom-theme-${Date.now()}`;
+            rendition.themes.register(themeName, { "body": { "line-height": `${currentLineHeight} !important` }, "p": { "line-height": `${currentLineHeight} !important` }, "div": { "line-height": `${currentLineHeight} !important` } });
+            rendition.themes.select(themeName);
         }
 
-        // 解析當前章節的 DOM，建立精確的語音隊列
-        async function buildSpeechQueueFromCurrentChapter() {
-            const loc = rendition.currentLocation();
-            if (!loc) return;
+        document.getElementById('btn-font-dec').addEventListener('click', () => { currentFontSize = Math.max(80, currentFontSize - 10); applyStyles(); });
+        document.getElementById('btn-font-inc').addEventListener('click', () => { currentFontSize = Math.min(200, currentFontSize + 10); applyStyles(); });
+        document.getElementById('btn-line-dec').addEventListener('click', () => { currentLineHeight = Math.max(1.2, parseFloat((currentLineHeight - 0.2).toFixed(1))); applyStyles(); });
+        document.getElementById('btn-line-inc').addEventListener('click', () => { currentLineHeight = Math.min(2.4, parseFloat((currentLineHeight + 0.2).toFixed(1))); applyStyles(); });
 
-            const spineItem = book.spine.get(loc.start.cfi);
-            const doc = await spineItem.load(book.load.bind(book));
-            const body = doc.body;
+        // ==========================================
+        // 頂端章節名稱與底部進度條更新邏輯
+        // ==========================================
+        function updateProgressDisplay(location) {
+            if (!location) return;
             
-            let newQueue = [];
-            const walk = (node) => {
-                if (node.nodeType === 3) { // 文字節點
-                    let text = node.textContent.trim();
-                    if (text.length > 0) {
-                        // 智慧斷句
-                        const sentences = text.match(/[^。！？.!?\n]+[。！？.!?\n]*/g) || [text];
-                        sentences.forEach(s => {
-                            let cleanS = s.trim();
-                            if (cleanS) {
-                                // 換行/段落處理：若結尾沒標點，補上隱形句號以產生停頓
-                                if (!/[。！？.!?]$/.test(cleanS)) cleanS += '。';
-                                
-                                const cfi = spineItem.cfiFromElement(node.parentElement);
-                                newQueue.push({ text: cleanS, cfi: cfi, isNewParagraph: node.parentElement.tagName === 'P' || node.parentElement.tagName === 'DIV' });
-                            }
-                        });
+            let chapterTitle = "未知章節";
+            let currentHref = location.start.href || (book.spine.get(location.start.cfi) ? book.spine.get(location.start.cfi).href : "");
+            
+            if (currentHref) {
+                let cleanHref = currentHref.split('#')[0];
+                try { cleanHref = decodeURIComponent(cleanHref); } catch(e) {}
+                
+                if (tocMap[cleanHref]) {
+                    chapterTitle = tocMap[cleanHref];
+                } else {
+                    for (let key in tocMap) {
+                        if (currentHref.includes(key) || key.includes(cleanHref)) {
+                            chapterTitle = tocMap[key];
+                            break;
+                        }
                     }
-                } else if (node.hasChildNodes()) {
-                    node.childNodes.forEach(walk);
                 }
-            };
-            walk(body);
+            }
 
-            // 定位起點：找到目前可見範圍最接近的語音索引
-            const currentCfi = loc.start.cfi;
-            let startIndex = newQueue.findIndex(item => {
-                return epub.Cfi.compare(item.cfi, currentCfi) >= 0;
-            });
-            
-            speechQueue = newQueue;
-            currentSpeechIndex = startIndex < 0 ? 0 : startIndex;
+            // 更新底部發光進度條
+            if (locationsGenerated && book.locations) {
+                const percentage = book.locations.percentageFromCfi(location.start.cfi);
+                let p = Math.round(percentage * 100);
+                
+                if (p >= 100 && !location.atEnd) {
+                    p = 99;
+                } else if (location.atEnd) {
+                    p = 100;
+                }
+                
+                glowingProgressBar.style.width = p + "%";
+            }
+
+            // 僅顯示章節標題
+            progressDisplay.textContent = chapterTitle;
         }
 
-        async function playNextSpeechItem() {
-            if (!isPlayingTTS || currentSpeechIndex >= speechQueue.length) {
-                if (currentSpeechIndex >= speechQueue.length && isPlayingTTS) {
-                    // 本章讀完，翻到下一章開頭
-                    rendition.next().then(() => setTimeout(startTTS, 600));
+        // ==========================================
+        // 初始化書籍與動態 Title
+        // ==========================================
+        function initBook(bookData) {
+            if (typeof ePub === 'undefined') { showLoading(false); alert("⚠️ 核心套件載入失敗！\n請檢查網路連線。"); return; }
+            showLoading(true, '正在準備沉浸式閱讀體驗...');
+            if (book) book.destroy(); 
+            if (rendition) viewer.innerHTML = ''; 
+            tocContent.innerHTML = ''; stopTTS();
+            tocMap = {}; locationsGenerated = false;
+            progressDisplay.textContent = "章節標題載入中...";
+            glowingProgressBar.style.width = '0%';
+
+            if(loadingTimeout) clearTimeout(loadingTimeout);
+            loadingTimeout = setTimeout(() => {
+                if (loadingOverlay.style.display !== 'none') { showLoading(false); alert("⚠️ 解析逾時！"); if (book) book.destroy(); }
+            }, 30000);
+
+            try {
+                book = ePub(bookData);
+                book.ready.then(() => {
+                    rendition = book.renderTo("viewer", { width: "100%", height: "100%", spread: "none" });
+                    
+                    book.locations.generate(600).then(() => {
+                        locationsGenerated = true;
+                        if (rendition && rendition.currentLocation()) {
+                            updateProgressDisplay(rendition.currentLocation());
+                        }
+                    });
+
+                    rendition.on('relocated', (location) => {
+                        updateProgressDisplay(location);
+                        if (isPlayingTTS && !isAutoTurning) {
+                            window.speechSynthesis.cancel();
+                            setTimeout(readCurrentPage, 300); 
+                        }
+                    });
+
+                    return rendition.display();
+                }).then(() => {
+                    clearTimeout(loadingTimeout); showLoading(false);
+                    document.body.classList.add('is-reading');
+                    applyStyles();
+                    return book.loaded.navigation;
+                }).then((nav) => {
+                    const generateToc = (tocItems, container) => {
+                        const ul = document.createElement('ul');
+                        tocItems.forEach((item) => {
+                            let targetPath = item.href.split('#')[0];
+                            try { targetPath = decodeURIComponent(targetPath); } catch(e){}
+                            if (!tocMap[targetPath]) tocMap[targetPath] = item.label.trim();
+
+                            const li = document.createElement('li'); const a = document.createElement('a');
+                            a.href = "#"; a.textContent = item.label;
+                            a.onclick = (e) => { e.preventDefault(); rendition.display(item.href); closeToc(); };
+                            li.appendChild(a);
+                            if (item.subitems && item.subitems.length > 0) generateToc(item.subitems, li);
+                            ul.appendChild(li);
+                        });
+                        container.appendChild(ul);
+                    };
+                    if (nav && nav.toc) generateToc(nav.toc, tocContent);
+                    
+                    if (rendition && rendition.currentLocation()) {
+                        updateProgressDisplay(rendition.currentLocation());
+                    }
+
+                    book.loaded.metadata.then(meta => {
+                        if (meta.title && meta.creator) document.title = `${meta.title} by ${meta.creator}`;
+                        else if (meta.title) document.title = meta.title;
+                    });
+
+                }).catch((err) => { clearTimeout(loadingTimeout); showLoading(false); alert("電子書開啟失敗 ❌"); });
+            } catch (err) { clearTimeout(loadingTimeout); showLoading(false); alert("初始化發生致命錯誤 ❌"); }
+        }
+
+        // ==========================================
+        // 朗讀 (TTS) 與 防休眠 (Wake Lock) 核心機制
+        // ==========================================
+        async function requestWakeLock() {
+            try {
+                if ('wakeLock' in navigator && !wakeLock) {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    wakeLock.addEventListener('release', () => { console.log('Screen Wake Lock released'); });
                 }
-                return;
-            }
+            } catch (err) { console.warn('Wake Lock API denied', err); }
+        }
 
-            const item = speechQueue[currentSpeechIndex];
+        function releaseWakeLock() {
+            if (wakeLock !== null) { wakeLock.release(); wakeLock = null; }
+        }
+
+        document.addEventListener('visibilitychange', async () => {
+            if (wakeLock !== null && document.visibilityState === 'visible' && isPlayingTTS) {
+                await requestWakeLock();
+            }
+        });
+
+        window.speechSynthesis.onvoiceschanged = () => {}; 
+
+        function getBestVoice() {
+            const voices = window.speechSynthesis.getVoices();
+            let voice = voices.find(v => v.lang.includes('zh-TW') && v.name.includes('Natural'));
+            if (!voice) voice = voices.find(v => v.lang.includes('zh-TW') && (v.name.includes('Premium') || v.name.includes('Siri') || v.name.includes('Mei-Jia')));
+            if (!voice) voice = voices.find(v => v.lang.includes('zh-TW') && v.localService);
+            if (!voice) voice = voices.find(v => v.lang.includes('zh-TW'));
+            if (!voice) voice = voices.find(v => v.lang.includes('zh'));
+            return voice;
+        }
+
+        function splitTextIntoChunks(text, maxLen = 250) {
+            text = text.replace(/[\r\n\s]+/g, ' ').trim(); 
+            const regex = /[^。！？.!?]+[。！？.!?]*/g;
+            let sentences = text.match(regex);
+            if (!sentences) return [text];
             
-            // 視覺同步核心：檢查 CFI 是否在當前畫面
+            let chunks = [];
+            let currentChunk = "";
+            
+            for (let sentence of sentences) {
+                sentence = sentence.trim();
+                if (!sentence) continue;
+                
+                if ((currentChunk.length + sentence.length) <= maxLen) {
+                    currentChunk += (currentChunk ? " " : "") + sentence;
+                } else {
+                    if (currentChunk) chunks.push(currentChunk);
+                    if (sentence.length > maxLen) {
+                        for (let i = 0; i < sentence.length; i += maxLen) {
+                            chunks.push(sentence.substring(i, i + maxLen));
+                        }
+                        currentChunk = "";
+                    } else {
+                        currentChunk = sentence;
+                    }
+                }
+            }
+            if (currentChunk) chunks.push(currentChunk);
+            return chunks;
+        }
+
+        async function getCurrentPageText() {
             const loc = rendition.currentLocation();
-            if (epub.Cfi.compare(item.cfi, loc.end.cfi) > 0 || epub.Cfi.compare(item.cfi, loc.start.cfi) < 0) {
-                await rendition.display(item.cfi);
-                await new Promise(r => setTimeout(r, 300)); // 等待平滑渲染
+            if (!loc) return "";
+            try {
+                const startRange = await book.getRange(loc.start.cfi);
+                const endRange = await book.getRange(loc.end.cfi);
+                const range = startRange.cloneRange();
+                range.setEnd(endRange.endContainer, endRange.endOffset);
+                return range.toString();
+            } catch (e) {
+                console.warn("純文字提取失敗，準備跳下一頁", e);
+                return "";
             }
-
-            const utterance = new SpeechSynthesisUtterance(item.text);
-            utterance.voice = await getBestVoice();
-            
-            // 經典垃圾回收防護
-            window.__currentUtterance = utterance;
-
-            utterance.onend = () => {
-                currentSpeechIndex++;
-                // 段落換氣處理：如果是段落切換，延遲 500ms 再讀下一句
-                const delay = (speechQueue[currentSpeechIndex] && speechQueue[currentSpeechIndex].isNewParagraph) ? 500 : 50;
-                setTimeout(playNextSpeechItem, delay);
-            };
-
-            utterance.onerror = () => { currentSpeechIndex++; playNextSpeechItem(); };
-
-            window.speechSynthesis.speak(utterance);
         }
 
         async function startTTS() {
             isPlayingTTS = true;
             btnTts.textContent = '⏹';
             btnTts.classList.add('playing');
-            if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen');
-            
-            await buildSpeechQueueFromCurrentChapter();
-            playNextSpeechItem();
+            await requestWakeLock();
+            readCurrentPage();
         }
 
         function stopTTS() {
             isPlayingTTS = false;
             window.speechSynthesis.cancel();
-            if (wakeLock) { wakeLock.release(); wakeLock = null; }
+            releaseWakeLock();
             btnTts.textContent = '▶';
             btnTts.classList.remove('playing');
-            speechQueue = [];
         }
 
-        // ==========================================
-        // 基礎功能與 UI 邏輯
-        // ==========================================
-
-        function updateProgressDisplay(location) {
-            if (!location) return;
-            let chapterTitle = "未知章節";
-            let currentHref = location.start.href || (book.spine.get(location.start.cfi) ? book.spine.get(location.start.cfi).href : "");
-            if (currentHref) {
-                let cleanHref = decodeURIComponent(currentHref.split('#')[0]);
-                chapterTitle = tocMap[cleanHref] || chapterTitle;
+        async function readCurrentPage() {
+            if (!isPlayingTTS) return;
+            
+            const text = await getCurrentPageText();
+            if (!text || text.trim() === "") {
+                isAutoTurning = true;
+                rendition.next().then(() => {
+                    setTimeout(() => { isAutoTurning = false; if (isPlayingTTS) readCurrentPage(); }, 500);
+                });
+                return;
             }
-            if (locationsGenerated && book.locations) {
-                let p = Math.round(book.locations.percentageFromCfi(location.start.cfi) * 100);
-                if (p >= 100 && !location.atEnd) p = 99;
-                else if (location.atEnd) p = 100;
-                glowingBar.style.width = p + "%";
-            }
-            progressDisplay.textContent = chapterTitle;
+            
+            ttsQueue = splitTextIntoChunks(text);
+            playNextChunk();
         }
 
-        function initBook(bookData) {
-            showLoading(true, '正在開啟電子書...');
-            if (book) book.destroy(); 
-            stopTTS();
-            book = ePub(bookData);
-            book.ready.then(() => {
-                rendition = book.renderTo("viewer", { width: "100%", height: "100%", spread: "none" });
-                
-                // 背景精細計算進度 (下調至 600)
-                book.locations.generate(600).then(() => { locationsGenerated = true; updateProgressDisplay(rendition.currentLocation()); });
+        function playNextChunk() {
+            if (!isPlayingTTS) return;
+            
+            if (ttsQueue.length === 0) {
+                isAutoTurning = true;
+                rendition.next().then(() => {
+                    setTimeout(() => { isAutoTurning = false; if (isPlayingTTS) readCurrentPage(); }, 500);
+                });
+                return;
+            }
+            
+            const chunk = ttsQueue.shift();
+            const utterance = new SpeechSynthesisUtterance(chunk);
+            const voice = getBestVoice();
+            if (voice) utterance.voice = voice;
+            
+            window.__currentUtterance = utterance;
+            
+            utterance.onend = () => { playNextChunk(); };
+            utterance.onerror = (e) => { console.warn("TTS Error", e); playNextChunk(); }; 
+            
+            window.speechSynthesis.speak(utterance);
+        }
 
-                // 跳轉監聽：如果是手動翻頁且正在朗讀，必須重置隊列
-                rendition.on('relocated', (location) => {
-                    updateProgressDisplay(location);
-                    if (isPlayingTTS) {
-                        // 只有當不是程式發動的自動翻頁時才重置
-                        window.speechSynthesis.cancel();
-                        setTimeout(buildSpeechQueueFromCurrentChapter, 350).then(playNextSpeechItem);
+        btnTts.addEventListener('click', () => {
+            if (isPlayingTTS) stopTTS();
+            else startTTS();
+        });
+
+        // ==========================================
+        // 載入與列印邏輯
+        // ==========================================
+        async function loadBookFromUrl(url) {
+            showLoading(true, '正在下載電子書...');
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`伺服器回應錯誤: ${response.status}`);
+                const arrayBuffer = await response.arrayBuffer();
+                initBook(arrayBuffer);
+            } catch (error) {
+                showLoading(false);
+                showModal({
+                    title: '⚠️ 無法直接載入此網址',
+                    desc: '目標網站未開放 CORS，請直接下載該檔案後上傳。',
+                    actionText: '⬇️ 直接下載',
+                    onAction: () => {
+                        const link = document.createElement('a'); link.href = url; link.target = '_blank';
+                        link.download = url.split('/').pop() || 'download.epub'; 
+                        document.body.appendChild(link); link.click(); document.body.removeChild(link);
                     }
                 });
-
-                return rendition.display();
-            }).then(() => {
-                showLoading(false);
-                document.body.classList.add('is-reading');
-                applyStyles();
-                return book.loaded.navigation;
-            }).then((nav) => {
-                const generateToc = (items, container) => {
-                    const ul = document.createElement('ul');
-                    items.forEach(item => {
-                        let path = decodeURIComponent(item.href.split('#')[0]);
-                        tocMap[path] = item.label.trim();
-                        const li = document.createElement('li'); const a = document.createElement('a');
-                        a.href = "#"; a.textContent = item.label;
-                        a.onclick = (e) => { e.preventDefault(); rendition.display(item.href); closeToc(); };
-                        li.appendChild(a);
-                        if (item.subitems && item.subitems.length > 0) generateToc(item.subitems, li);
-                        ul.appendChild(li);
-                    });
-                    container.appendChild(ul);
-                };
-                document.getElementById('toc-content').innerHTML = '';
-                if (nav && nav.toc) generateToc(nav.toc, document.getElementById('toc-content'));
-                book.loaded.metadata.then(meta => { document.title = meta.creator ? `${meta.title} by ${meta.creator}` : meta.title; });
-            });
+            }
         }
 
-        // UI 事件
-        document.getElementById('file-input').onchange = (e) => {
+        fileInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
-            if (file) { const reader = new FileReader(); reader.onload = (ev) => initBook(ev.target.result); reader.readAsArrayBuffer(file); }
-        };
-        document.getElementById('load-url-btn').onclick = async () => {
-            const url = document.getElementById('url-input').value;
-            if (url) { showLoading(true, '下載中...'); const res = await fetch(url); initBook(await res.arrayBuffer()); }
-        };
-        document.getElementById('btn-close').onclick = () => { if(confirm("關閉目前的書本？")) { stopTTS(); document.body.classList.remove('is-reading'); document.title = DEFAULT_TITLE; } };
-        document.getElementById('prev-btn').onclick = () => rendition.prev();
-        document.getElementById('next-btn').onclick = () => rendition.next();
-        btnTts.onclick = () => isPlayingTTS ? stopTTS() : startTTS();
+            if (!file) return;
+            const newUrl = new URL(window.location);
+            if (newUrl.searchParams.has('src')) { newUrl.searchParams.delete('src'); window.history.pushState({}, '', newUrl); }
+            urlInput.value = '';
+            if (window.FileReader) {
+                const reader = new FileReader();
+                reader.onload = (event) => initBook(event.target.result); 
+                reader.readAsArrayBuffer(file);
+            }
+        });
 
-        document.getElementById('toc-tab').onclick = () => { document.getElementById('toc-sidebar').classList.add('open'); document.getElementById('toc-overlay').classList.add('open'); };
-        const closeToc = () => { document.getElementById('toc-sidebar').classList.remove('open'); document.getElementById('toc-overlay').classList.remove('open'); };
-        document.getElementById('close-toc-btn').onclick = closeToc;
-        document.getElementById('toc-overlay').onclick = closeToc;
+        loadUrlBtn.addEventListener('click', () => {
+            const url = urlInput.value.trim();
+            if (url) { 
+                const newUrl = new URL(window.location); newUrl.searchParams.set('src', url);
+                window.history.pushState({}, '', newUrl); loadBookFromUrl(url); 
+            }
+        });
 
-        function applyStyles() {
+        urlInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') loadUrlBtn.click(); });
+        document.getElementById('prev-btn').addEventListener('click', () => rendition && rendition.prev());
+        document.getElementById('next-btn').addEventListener('click', () => rendition && rendition.next());
+        document.addEventListener('keyup', (e) => {
             if (!rendition) return;
-            rendition.themes.fontSize(`${currentFontSize}%`);
-            rendition.themes.register("custom", { "body": { "line-height": `${currentLineHeight} !important` }, "p": { "line-height": `${currentLineHeight} !important` } });
-            rendition.themes.select("custom");
-        }
-        document.getElementById('btn-font-inc').onclick = () => { currentFontSize += 10; applyStyles(); };
-        document.getElementById('btn-font-dec').onclick = () => { currentFontSize -= 10; applyStyles(); };
-        document.getElementById('btn-line-inc').onclick = () => { currentLineHeight += 0.2; applyStyles(); };
-        document.getElementById('btn-line-dec').onclick = () => { currentLineHeight -= 0.2; applyStyles(); };
+            if (e.key === 'ArrowLeft') rendition.prev();
+            if (e.key === 'ArrowRight') rendition.next();
+        });
 
-        function showLoading(show, text) { document.getElementById('loading-text').textContent = text; document.getElementById('loading-overlay').style.display = show ? 'flex' : 'none'; }
-
-        // ==========================================
-        // 進階列印邏輯 (封裝自先前穩定版本)
-        // ==========================================
-        document.getElementById('print-btn').onclick = async () => {
+        printBtn.addEventListener('click', async () => {
             if (!book) return;
-            stopTTS(); showLoading(true, '準備列印檔案中...');
-            const printArea = document.getElementById('print-area');
-            printArea.innerHTML = '';
-            printArea.style.fontSize = `${(currentFontSize/100)*12}pt`;
+            if(isPlayingTTS) stopTTS();
+
+            showLoading(true, '正在排版全書內容，可能需要數十秒，請稍候...');
+            printArea.innerHTML = ''; 
+            printArea.style.fontSize = `${(currentFontSize / 100) * 12}pt`; 
             printArea.style.lineHeight = currentLineHeight;
 
-            const spineItems = book.spine.spineItems;
-            for (let item of spineItems) {
-                await item.load(book.load.bind(book));
-                let body = item.document.body;
-                
-                // 圖片 Blob 轉換 (防破圖)
-                const imgs = body.querySelectorAll('img, image');
-                for (let img of imgs) {
-                    let src = img.getAttribute('src') || img.getAttribute('href');
-                    if (src && !src.startsWith('http') && !src.startsWith('data:')) {
-                        try {
-                            const absolutePath = item.href.split('/').slice(0,-1).join('/') + '/' + src;
-                            const blob = await book.archive.getBlob(absolutePath.replace(/\.\.\//g, ''));
-                            if (blob) {
-                                const url = URL.createObjectURL(blob);
-                                if(img.tagName === 'image') img.setAttribute('href', url); else img.src = url;
+            let failedImagesLogs = []; 
+
+            try {
+                const spineItems = book.spine.spineItems;
+                for (let i = 0; i < spineItems.length; i++) {
+                    let item = spineItems[i];
+                    try {
+                        await item.load(book.load.bind(book));
+                        let body = item.document ? item.document.querySelector('body') : null;
+
+                        if (!body && book.archive) {
+                            let doc = await book.archive.getXml(item.href);
+                            body = doc ? doc.querySelector('body') : null;
+                        }
+
+                        if (!body) continue;
+
+                        const links = body.querySelectorAll('a[href]');
+                        for (let a of links) {
+                            let href = a.getAttribute('href');
+                            if (href && !href.startsWith('http') && !href.startsWith('mailto:') && !href.startsWith('data:') && !href.startsWith('#')) {
+                                let cleanSrc = href.split('#')[0]; 
+                                let absolutePath = "";
+                                try {
+                                    const base = new URL(item.href, 'http://dummy.com/');
+                                    const target = new URL(cleanSrc, base);
+                                    absolutePath = decodeURIComponent(target.pathname.substring(1));
+                                } catch (e) {
+                                    absolutePath = decodeURIComponent(cleanSrc);
+                                }
+                                a.setAttribute('href', '#' + absolutePath); 
                             }
-                        } catch(e) {}
+                        }
+
+                        const svgs = Array.from(body.querySelectorAll('svg'));
+                        for (let svg of svgs) {
+                            const svgImage = svg.querySelector('image');
+                            if (svgImage) {
+                                let src = svgImage.getAttribute('href') || svgImage.getAttribute('xlink:href') || svgImage.getAttributeNS('http://www.w3.org/1999/xlink', 'href');
+                                if (src) {
+                                    const newImg = document.createElement('img');
+                                    newImg.setAttribute('src', src);
+                                    if(svg.className && svg.className.baseVal !== undefined) { newImg.className = svg.className.baseVal; } 
+                                    else if (svg.className) { newImg.className = svg.className; }
+                                    svg.parentNode.replaceChild(newImg, svg);
+                                }
+                            }
+                        }
+
+                        const images = body.querySelectorAll('img, image');
+                        for (let img of images) {
+                            img.removeAttribute('srcset'); 
+                            let src = img.getAttribute('src') || img.getAttribute('href') || img.getAttribute('xlink:href');
+                            if (src && !src.startsWith('http') && !src.startsWith('data:') && !src.startsWith('blob:')) {
+                                let cleanSrc = src.split('#')[0].split('?')[0];
+                                let absolutePath = "";
+                                try {
+                                    const base = new URL(item.href, 'http://dummy.com/');
+                                    const target = new URL(cleanSrc, base);
+                                    absolutePath = decodeURIComponent(target.pathname.substring(1));
+                                } catch (e) { absolutePath = decodeURIComponent(cleanSrc); }
+                                
+                                try {
+                                    let blob = null;
+                                    let opfDir = (book.path && book.path.directory) ? book.path.directory : "";
+                                    let standardPath = opfDir + absolutePath;
+                                    
+                                    try { blob = await book.archive.getBlob(standardPath); } catch(e){}
+                                    if (!blob) { try { blob = await book.archive.getBlob(absolutePath); } catch(e){} }
+                                    if (!blob && book.archive && book.archive.zip && book.archive.zip.files) {
+                                        const targetFilename = absolutePath.split('/').pop().toLowerCase();
+                                        const zipFiles = Object.keys(book.archive.zip.files);
+                                        for (let fileKey of zipFiles) {
+                                            if (fileKey.split('/').pop().toLowerCase() === targetFilename) {
+                                                try { blob = await book.archive.getBlob(fileKey); if (blob) break; } catch(e) {}
+                                            }
+                                        }
+                                    }
+
+                                    if (blob) {
+                                        let objectUrl = URL.createObjectURL(blob);
+                                        if(img.tagName.toLowerCase() === 'image') {
+                                            img.setAttribute('href', objectUrl); 
+                                            img.setAttributeNS('http://www.w3.org/1999/xlink', 'href', objectUrl);
+                                        } else { img.src = objectUrl; }
+                                    } else { failedImagesLogs.push(`章節: ${item.href}<br>圖片 SRC: ${src}`); }
+                                } catch(imgErr) { failedImagesLogs.push(`章節: ${item.href}<br>提取錯誤: ${imgErr.toString()}`); }
+                            }
+                        }
+                        
+                        let chapterDiv = document.createElement('div');
+                        chapterDiv.className = 'print-chapter';
+                        
+                        let itemPathId = item.href;
+                        try { itemPathId = decodeURIComponent(itemPathId); } catch(e){}
+                        chapterDiv.id = itemPathId; 
+
+                        let contentDiv = document.createElement('div');
+                        contentDiv.innerHTML = body.innerHTML;
+                        chapterDiv.appendChild(contentDiv);
+
+                        printArea.appendChild(chapterDiv);
+                        item.unload();
+
+                    } catch (err) {
+                        console.warn(`無法解析章節: ${item.href}`, err);
                     }
                 }
+                
+                showLoading(false);
+                
+                if (failedImagesLogs.length > 0) {
+                    showModal({
+                        title: '⚠️ 發現部分圖片遺失',
+                        desc: `在準備列印檔的過程中，有 <strong>${failedImagesLogs.length}</strong> 張圖片無法從檔案中提取。<br>您可以選擇繼續列印。`,
+                        debugLogs: failedImagesLogs,
+                        actionText: '🖨️ 忽略並繼續列印',
+                        onAction: () => { setTimeout(() => { window.print(); }, 500); }
+                    });
+                } else {
+                    setTimeout(() => { window.print(); }, 1000);
+                }
 
-                let div = document.createElement('div');
-                div.className = 'print-chapter';
-                div.innerHTML = body.innerHTML;
-                printArea.appendChild(div);
-                item.unload();
+            } catch (error) {
+                console.error("列印處理發生錯誤：", error);
+                alert("列印處理失敗，請查看開發者工具的 Console。");
+                showLoading(false);
             }
-            showLoading(false);
-            setTimeout(() => window.print(), 1000);
-        };
+        });
 
-        window.speechSynthesis.onvoiceschanged = () => {}; 
+        window.addEventListener('DOMContentLoaded', () => {
+            if (document.getElementById('iab-warning-overlay').style.display === 'flex') return;
+            const params = new URLSearchParams(window.location.search);
+            const srcUrl = params.get('src');
+            if (srcUrl) { urlInput.value = srcUrl; loadBookFromUrl(srcUrl); }
+        });
     </script>
 </body>
 </html>
