@@ -132,11 +132,11 @@
                 <!-- Stacked Progress Bar -->
                 <div class="w-full bg-slate-200 rounded-full h-5 mb-3 flex overflow-hidden relative shadow-inner">
                     <!-- Personal Contribution -->
-                    <div class="bg-blue-500 h-full relative progress-personal" title="Personal Contribution $39,000">
+                    <div class="bg-blue-500 h-full relative progress-personal" title="Personal / 自籌 $39,000">
                         <div class="absolute top-0 left-0 right-0 bottom-0 bg-white opacity-10" style="background-image: linear-gradient(45deg,rgba(255,255,255,.15) 25%,transparent 25%,transparent 50%,rgba(255,255,255,.15) 50%,rgba(255,255,255,.15) 75%,transparent 75%,transparent); background-size: 1rem 1rem;"></div>
                     </div>
                     <!-- Pledged Support -->
-                    <div class="bg-emerald-500 h-full relative progress-pledged border-l border-white/30" title="Pledged Support $26,000">
+                    <div class="bg-emerald-500 h-full relative progress-pledged border-l border-white/30" title="Pledged / 已募得 $26,000">
                         <div class="absolute top-0 left-0 right-0 bottom-0 bg-white opacity-20" style="background-image: linear-gradient(45deg,rgba(255,255,255,.15) 25%,transparent 25%,transparent 50%,rgba(255,255,255,.15) 50%,rgba(255,255,255,.15) 75%,transparent 75%,transparent); background-size: 1rem 1rem;"></div>
                     </div>
                 </div>
@@ -146,12 +146,12 @@
                     <div class="flex flex-wrap gap-4">
                         <p class="font-bold text-blue-700 flex items-center">
                             <span class="w-3 h-3 rounded-full bg-blue-500 mr-1.5 shadow-sm"></span>
-                            <span class="lang-zh">個人自籌 $39,000</span>
-                            <span class="lang-en">Personal $39,000</span>
+                            <span class="lang-zh">個人自籌 $39,000 (23%)</span>
+                            <span class="lang-en">Personal $39,000 (23%)</span>
                         </p>
                         <p class="font-bold text-emerald-700 flex items-center">
                             <span class="w-3 h-3 rounded-full bg-emerald-500 mr-1.5 shadow-sm"></span>
-                            <span class="lang-zh">已獲承諾 $26,000 / $130,500 (20%)</span>
+                            <span class="lang-zh">已募得 $26,000 / $130,500 (20%)</span>
                             <span class="lang-en">Pledged $26,000 / $130,500 (20%)</span>
                         </p>
                     </div>
@@ -190,17 +190,39 @@
                                 <li class="flex justify-between border-b border-slate-100 pb-1 text-blue-700 font-medium">
                                     <span><span class="lang-zh">【學業】</span><span class="lang-en">[Tuition & Study]</span></span>
                                 </li>
-                                <li class="flex justify-between border-b border-slate-100 pb-1">
-                                    <span class="pl-2"><i class="fas fa-laptop text-slate-400 w-5"></i><span class="lang-zh">線上學費與規費(24學分)</span><span class="lang-en">Online Tuition & Fees (24 credits)</span></span>
-                                    <span class="font-semibold">$8,500</span>
+                                <li class="flex justify-between items-start border-b border-slate-100 pb-1.5 pt-0.5">
+                                    <div class="flex items-start pl-2 pr-2 leading-tight">
+                                        <i class="fas fa-laptop text-slate-400 w-5 shrink-0 pt-0.5"></i>
+                                        <div>
+                                            <span class="lang-zh flex flex-wrap items-baseline gap-x-1 gap-y-0.5">
+                                                <span>線上學費與規費</span>
+                                                <span class="text-xs opacity-80">(24學分)</span>
+                                            </span>
+                                            <span class="lang-en flex flex-wrap items-baseline gap-x-1 gap-y-0.5">
+                                                <span>Online Tuition & Fees</span>
+                                                <span class="text-xs opacity-80">(24 credits)</span>
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <span class="font-semibold whitespace-nowrap pl-2">$8,500</span>
                                 </li>
-                                <li class="flex justify-between border-b border-slate-100 pb-1">
-                                    <span class="pl-2"><i class="fas fa-book text-slate-400 w-5"></i><span class="lang-zh">書籍教材</span><span class="lang-en">Books & Materials</span></span>
-                                    <span class="font-semibold">$600</span>
+                                <li class="flex justify-between items-start border-b border-slate-100 pb-1.5 pt-0.5">
+                                    <div class="flex items-start pl-2 pr-2 leading-tight">
+                                        <i class="fas fa-book text-slate-400 w-5 shrink-0 pt-0.5"></i>
+                                        <div>
+                                            <span class="lang-zh flex flex-wrap items-baseline gap-x-1 gap-y-0.5">
+                                                <span>書籍教材</span>
+                                            </span>
+                                            <span class="lang-en flex flex-wrap items-baseline gap-x-1 gap-y-0.5">
+                                                <span>Books & Materials</span>
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <span class="font-semibold whitespace-nowrap pl-2">$600</span>
                                 </li>
-                                <li class="flex justify-between pt-3 text-blue-700 font-bold border-t border-slate-200 mt-2">
+                                <li class="flex justify-between items-start pt-3 text-blue-700 font-bold border-t border-slate-200 mt-2">
                                     <span><span class="lang-zh">階段小計</span><span class="lang-en">Subtotal</span></span>
-                                    <span>$9,100</span>
+                                    <span class="whitespace-nowrap pl-2">$9,100</span>
                                 </li>
                             </ul>
                             <p class="text-xs text-slate-400 mt-3 text-left">
@@ -227,46 +249,122 @@
                                 <li class="flex justify-between border-b border-slate-100 pb-1 text-amber-700 font-medium">
                                     <span><span class="lang-zh">【單次花費】</span><span class="lang-en">[One-time Costs]</span></span>
                                 </li>
-                                <li class="flex justify-between border-b border-slate-100 pb-1">
-                                    <span class="pl-2"><i class="fas fa-passport text-slate-400 w-5"></i><span class="lang-zh">簽證與行政規費</span><span class="lang-en">Visa & Admin Fees</span></span>
-                                    <span class="font-semibold">$1,300</span>
+                                <li class="flex justify-between items-start border-b border-slate-100 pb-1.5 pt-0.5">
+                                    <div class="flex items-start pl-2 pr-2 leading-tight">
+                                        <i class="fas fa-passport text-slate-400 w-5 shrink-0 pt-0.5"></i>
+                                        <div>
+                                            <span class="lang-zh flex flex-wrap items-baseline gap-x-1 gap-y-0.5">
+                                                <span>簽證與行政規費</span>
+                                            </span>
+                                            <span class="lang-en flex flex-wrap items-baseline gap-x-1 gap-y-0.5">
+                                                <span>Visa & Admin Fees</span>
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <span class="font-semibold whitespace-nowrap pl-2">$1,300</span>
                                 </li>
-                                <li class="flex justify-between border-b border-slate-100 pb-1">
-                                    <span class="pl-2"><i class="fas fa-plane-departure text-slate-400 w-5"></i><span class="lang-zh">赴美機票 (五人)</span><span class="lang-en">Flights to US (Family)</span></span>
-                                    <span class="font-semibold">$7,400</span>
+                                <li class="flex justify-between items-start border-b border-slate-100 pb-1.5 pt-0.5">
+                                    <div class="flex items-start pl-2 pr-2 leading-tight">
+                                        <i class="fas fa-plane-departure text-slate-400 w-5 shrink-0 pt-0.5"></i>
+                                        <div>
+                                            <span class="lang-zh flex flex-wrap items-baseline gap-x-1 gap-y-0.5">
+                                                <span>赴美機票</span>
+                                                <span class="text-xs opacity-80">(五人)</span>
+                                            </span>
+                                            <span class="lang-en flex flex-wrap items-baseline gap-x-1 gap-y-0.5">
+                                                <span>Flights to US</span>
+                                                <span class="text-xs opacity-80">(Family)</span>
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <span class="font-semibold whitespace-nowrap pl-2">$7,400</span>
                                 </li>
-                                <li class="flex justify-between border-b border-slate-100 pb-1">
-                                    <span class="pl-2"><i class="fas fa-car-side text-slate-400 w-5"></i><span class="lang-zh">二手Minivan+汽座</span><span class="lang-en">Used Minivan & Seats</span></span>
-                                    <span class="font-semibold">$12,700</span>
+                                <li class="flex justify-between items-start border-b border-slate-100 pb-1.5 pt-0.5">
+                                    <div class="flex items-start pl-2 pr-2 leading-tight">
+                                        <i class="fas fa-car-side text-slate-400 w-5 shrink-0 pt-0.5"></i>
+                                        <div>
+                                            <span class="lang-zh flex flex-wrap items-baseline gap-x-1 gap-y-0.5">
+                                                <span>二手Minivan+汽座</span>
+                                            </span>
+                                            <span class="lang-en flex flex-wrap items-baseline gap-x-1 gap-y-0.5">
+                                                <span>Used Minivan & Seats</span>
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <span class="font-semibold whitespace-nowrap pl-2">$12,700</span>
                                 </li>
-                                <li class="flex justify-between border-b border-slate-100 pb-1">
-                                    <span class="pl-2"><i class="fas fa-couch text-slate-400 w-5"></i><span class="lang-zh">押金與家具安家</span><span class="lang-en">Deposits & Furniture</span></span>
-                                    <span class="font-semibold">$5,000</span>
+                                <li class="flex justify-between items-start border-b border-slate-100 pb-1.5 pt-0.5">
+                                    <div class="flex items-start pl-2 pr-2 leading-tight">
+                                        <i class="fas fa-couch text-slate-400 w-5 shrink-0 pt-0.5"></i>
+                                        <div>
+                                            <span class="lang-zh flex flex-wrap items-baseline gap-x-1 gap-y-0.5">
+                                                <span>押金與家具安家</span>
+                                            </span>
+                                            <span class="lang-en flex flex-wrap items-baseline gap-x-1 gap-y-0.5">
+                                                <span>Deposits & Furniture</span>
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <span class="font-semibold whitespace-nowrap pl-2">$5,000</span>
                                 </li>
                                 
                                 <li class="flex justify-between border-b border-slate-100 pb-1 mt-4 text-blue-700 font-medium">
                                     <span><span class="lang-zh">【學業】</span><span class="lang-en">[Tuition & Study]</span></span>
                                 </li>
-                                <li class="flex justify-between border-b border-slate-100 pb-1">
-                                    <span class="pl-2"><i class="fas fa-university text-slate-400 w-5"></i><span class="lang-zh">實體學雜費 (30學分)</span><span class="lang-en">On-Campus Tuition (30 credits)</span></span>
-                                    <span class="font-semibold">$6,750</span>
+                                <li class="flex justify-between items-start border-b border-slate-100 pb-1.5 pt-0.5">
+                                    <div class="flex items-start pl-2 pr-2 leading-tight">
+                                        <i class="fas fa-university text-slate-400 w-5 shrink-0 pt-0.5"></i>
+                                        <div>
+                                            <span class="lang-zh flex flex-wrap items-baseline gap-x-1 gap-y-0.5">
+                                                <span>實體學雜費</span>
+                                                <span class="text-xs opacity-80">(30學分)</span>
+                                            </span>
+                                            <span class="lang-en flex flex-wrap items-baseline gap-x-1 gap-y-0.5">
+                                                <span>On-Campus Tuition</span>
+                                                <span class="text-xs opacity-80">(30 credits)</span>
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <span class="font-semibold whitespace-nowrap pl-2">$6,750</span>
                                 </li>
-                                <li class="flex justify-between border-b border-slate-100 pb-1">
-                                    <span class="pl-2"><i class="fas fa-book text-slate-400 w-5"></i><span class="lang-zh">書籍教材</span><span class="lang-en">Books & Materials</span></span>
-                                    <span class="font-semibold">$700</span>
+                                <li class="flex justify-between items-start border-b border-slate-100 pb-1.5 pt-0.5">
+                                    <div class="flex items-start pl-2 pr-2 leading-tight">
+                                        <i class="fas fa-book text-slate-400 w-5 shrink-0 pt-0.5"></i>
+                                        <div>
+                                            <span class="lang-zh flex flex-wrap items-baseline gap-x-1 gap-y-0.5">
+                                                <span>書籍教材</span>
+                                            </span>
+                                            <span class="lang-en flex flex-wrap items-baseline gap-x-1 gap-y-0.5">
+                                                <span>Books & Materials</span>
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <span class="font-semibold whitespace-nowrap pl-2">$700</span>
                                 </li>
 
                                 <li class="flex justify-between border-b border-slate-100 pb-1 mt-4 text-emerald-700 font-medium">
                                     <span><span class="lang-zh">【常態生活費】</span><span class="lang-en">[Living Expenses]</span></span>
                                 </li>
-                                <li class="flex justify-between border-b border-slate-100 pb-1">
-                                    <span class="pl-2"><i class="fas fa-home text-slate-400 w-5"></i><span class="lang-zh">全家生活費 (12個月)</span><span class="lang-en">Living Expenses (12 mos)</span></span>
-                                    <span class="font-semibold">$45,600</span>
+                                <li class="flex justify-between items-start border-b border-slate-100 pb-1.5 pt-0.5">
+                                    <div class="flex items-start pl-2 pr-2 leading-tight">
+                                        <i class="fas fa-home text-slate-400 w-5 shrink-0 pt-0.5"></i>
+                                        <div>
+                                            <span class="lang-zh flex flex-wrap items-baseline gap-x-1 gap-y-0.5">
+                                                <span>全家生活費</span>
+                                                <span class="text-xs opacity-80">(12個月)</span>
+                                            </span>
+                                            <span class="lang-en flex flex-wrap items-baseline gap-x-1 gap-y-0.5">
+                                                <span>Living Expenses</span>
+                                                <span class="text-xs opacity-80">(12 mos)</span>
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <span class="font-semibold whitespace-nowrap pl-2">$45,600</span>
                                 </li>
 
-                                <li class="flex justify-between pt-3 text-amber-600 font-bold border-t border-slate-200 mt-2">
+                                <li class="flex justify-between items-start pt-3 text-amber-600 font-bold border-t border-slate-200 mt-2">
                                     <span><span class="lang-zh">階段小計</span><span class="lang-en">Subtotal</span></span>
-                                    <span>$79,450</span>
+                                    <span class="whitespace-nowrap pl-2">$79,450</span>
                                 </li>
                             </ul>
                         </div>
@@ -289,34 +387,80 @@
                                 <li class="flex justify-between border-b border-slate-100 pb-1 text-blue-700 font-medium">
                                     <span><span class="lang-zh">【學業】</span><span class="lang-en">[Tuition & Study]</span></span>
                                 </li>
-                                <li class="flex justify-between border-b border-slate-100 pb-1">
-                                    <span class="pl-2"><i class="fas fa-university text-slate-400 w-5"></i><span class="lang-zh">實體學雜費 (30學分)</span><span class="lang-en">On-Campus Tuition (30 credits)</span></span>
-                                    <span class="font-semibold">$6,750</span>
+                                <li class="flex justify-between items-start border-b border-slate-100 pb-1.5 pt-0.5">
+                                    <div class="flex items-start pl-2 pr-2 leading-tight">
+                                        <i class="fas fa-university text-slate-400 w-5 shrink-0 pt-0.5"></i>
+                                        <div>
+                                            <span class="lang-zh flex flex-wrap items-baseline gap-x-1 gap-y-0.5">
+                                                <span>實體學雜費</span>
+                                                <span class="text-xs opacity-80">(30學分)</span>
+                                            </span>
+                                            <span class="lang-en flex flex-wrap items-baseline gap-x-1 gap-y-0.5">
+                                                <span>On-Campus Tuition</span>
+                                                <span class="text-xs opacity-80">(30 credits)</span>
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <span class="font-semibold whitespace-nowrap pl-2">$6,750</span>
                                 </li>
-                                <li class="flex justify-between border-b border-slate-100 pb-1">
-                                    <span class="pl-2"><i class="fas fa-book text-slate-400 w-5"></i><span class="lang-zh">書籍教材</span><span class="lang-en">Books & Materials</span></span>
-                                    <span class="font-semibold">$700</span>
+                                <li class="flex justify-between items-start border-b border-slate-100 pb-1.5 pt-0.5">
+                                    <div class="flex items-start pl-2 pr-2 leading-tight">
+                                        <i class="fas fa-book text-slate-400 w-5 shrink-0 pt-0.5"></i>
+                                        <div>
+                                            <span class="lang-zh flex flex-wrap items-baseline gap-x-1 gap-y-0.5">
+                                                <span>書籍教材</span>
+                                            </span>
+                                            <span class="lang-en flex flex-wrap items-baseline gap-x-1 gap-y-0.5">
+                                                <span>Books & Materials</span>
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <span class="font-semibold whitespace-nowrap pl-2">$700</span>
                                 </li>
 
                                 <li class="flex justify-between border-b border-slate-100 pb-1 mt-4 text-emerald-700 font-medium">
                                     <span><span class="lang-zh">【常態生活費】</span><span class="lang-en">[Living Expenses]</span></span>
                                 </li>
-                                <li class="flex justify-between border-b border-slate-100 pb-1">
-                                    <span class="pl-2"><i class="fas fa-home text-slate-400 w-5"></i><span class="lang-zh">全家生活費 (12個月)</span><span class="lang-en">Living Expenses (12 mos)</span></span>
-                                    <span class="font-semibold">$45,600</span>
+                                <li class="flex justify-between items-start border-b border-slate-100 pb-1.5 pt-0.5">
+                                    <div class="flex items-start pl-2 pr-2 leading-tight">
+                                        <i class="fas fa-home text-slate-400 w-5 shrink-0 pt-0.5"></i>
+                                        <div>
+                                            <span class="lang-zh flex flex-wrap items-baseline gap-x-1 gap-y-0.5">
+                                                <span>全家生活費</span>
+                                                <span class="text-xs opacity-80">(12個月)</span>
+                                            </span>
+                                            <span class="lang-en flex flex-wrap items-baseline gap-x-1 gap-y-0.5">
+                                                <span>Living Expenses</span>
+                                                <span class="text-xs opacity-80">(12 mos)</span>
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <span class="font-semibold whitespace-nowrap pl-2">$45,600</span>
                                 </li>
 
                                 <li class="flex justify-between border-b border-slate-100 pb-1 mt-4 text-amber-700 font-medium">
                                     <span><span class="lang-zh">【單次花費】</span><span class="lang-en">[One-time Costs]</span></span>
                                 </li>
-                                <li class="flex justify-between border-b border-slate-100 pb-1">
-                                    <span class="pl-2"><i class="fas fa-plane-arrival text-slate-400 w-5"></i><span class="lang-zh">畢業返台機票 (五人)</span><span class="lang-en">Return Flights (Family)</span></span>
-                                    <span class="font-semibold">$7,400</span>
+                                <li class="flex justify-between items-start border-b border-slate-100 pb-1.5 pt-0.5">
+                                    <div class="flex items-start pl-2 pr-2 leading-tight">
+                                        <i class="fas fa-plane-arrival text-slate-400 w-5 shrink-0 pt-0.5"></i>
+                                        <div>
+                                            <span class="lang-zh flex flex-wrap items-baseline gap-x-1 gap-y-0.5">
+                                                <span>畢業返台機票</span>
+                                                <span class="text-xs opacity-80">(五人)</span>
+                                            </span>
+                                            <span class="lang-en flex flex-wrap items-baseline gap-x-1 gap-y-0.5">
+                                                <span>Return Flights</span>
+                                                <span class="text-xs opacity-80">(Family)</span>
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <span class="font-semibold whitespace-nowrap pl-2">$7,400</span>
                                 </li>
 
-                                <li class="flex justify-between pt-3 text-emerald-600 font-bold border-t border-slate-200 mt-2">
+                                <li class="flex justify-between items-start pt-3 text-emerald-600 font-bold border-t border-slate-200 mt-2">
                                     <span><span class="lang-zh">階段小計</span><span class="lang-en">Subtotal</span></span>
-                                    <span>$60,450</span>
+                                    <span class="whitespace-nowrap pl-2">$60,450</span>
                                 </li>
                             </ul>
                             <div class="mt-4 bg-emerald-50 p-3 rounded text-xs text-emerald-800 font-medium text-left">
@@ -434,35 +578,41 @@
                     <ul class="text-sm text-blue-100 space-y-2 max-w-sm mx-auto md:mx-0 text-left bg-blue-800/50 p-4 rounded-lg">
                         <li class="flex justify-between border-b border-blue-700/50 pb-1">
                             <span><span class="lang-zh">學業 (SBC 優惠價)</span><span class="lang-en">Tuition & Study (SBC Rate)</span></span> 
-                            <span>$24,000</span>
+                            <span class="whitespace-nowrap">$24,000</span>
                         </li>
                         <li class="flex justify-between border-b border-blue-700/50 pb-1">
                             <span><span class="lang-zh">單次花費</span><span class="lang-en">One-time Costs</span></span> 
-                            <span>$33,800</span>
+                            <span class="whitespace-nowrap">$33,800</span>
                         </li>
                         <li class="flex justify-between border-b border-blue-700/50 pb-1">
                             <span><span class="lang-zh">常態生活費 (24個月)</span><span class="lang-en">Living Expenses (24 mos)</span></span> 
-                            <span>$91,200</span>
+                            <span class="whitespace-nowrap">$91,200</span>
                         </li>
                         <li class="flex justify-between font-medium text-amber-200 pb-1">
                             <span><span class="lang-zh">+ 5% 緊急預備金 (通膨/醫療)</span><span class="lang-en">+ 5% Emergency Fund</span></span> 
-                            <span>$7,450</span>
+                            <span class="whitespace-nowrap">$7,450</span>
                         </li>
                         <li class="flex justify-between font-bold text-blue-200 pt-2 border-t border-blue-600">
                             <span><span class="lang-zh">基礎總計</span><span class="lang-en">Basic Total</span></span> 
-                            <span>$156,450</span>
+                            <span class="whitespace-nowrap">$156,450</span>
                         </li>
-                        <li class="flex justify-between font-medium text-emerald-300 pb-1 pt-1 border-b border-blue-700/50">
-                            <span><span class="lang-zh">- 個人自籌款 ($13,000/年 × 3年)</span><span class="lang-en">- Personal Contribution ($13k/yr × 3 yrs)</span></span> 
-                            <span>-$39,000</span>
+                        <li class="flex justify-between items-start font-medium text-emerald-300 pb-1 pt-1 border-b border-blue-700/50">
+                            <span class="pr-2 leading-tight">
+                                <span class="lang-zh">- 個人自籌款 <span class="text-xs block sm:inline opacity-80">($13,000/年 × 3年)</span></span>
+                                <span class="lang-en">- Personal Contrib. <span class="text-xs block sm:inline opacity-80">($13k/yr × 3 yrs)</span></span>
+                            </span> 
+                            <span class="whitespace-nowrap mt-auto">-$39,000</span>
                         </li>
                         <li class="flex justify-between font-bold text-white pt-2 border-b border-blue-700/50 pb-1 text-base">
                             <span><span class="lang-zh">募款目標</span><span class="lang-en">Fundraising Target</span></span> 
-                            <span>$117,450</span>
+                            <span class="whitespace-nowrap">$117,450</span>
                         </li>
-                        <li class="flex justify-between font-bold text-amber-300 pt-1 text-base">
-                            <span><span class="lang-zh">加上十一奉獻(募款目標 ÷ 0.9)</span><span class="lang-en">Target incl. Tithe (Target ÷ 0.9)</span></span> 
-                            <span>$130,500</span>
+                        <li class="flex justify-between items-start font-bold text-amber-300 pt-1 text-base">
+                            <span class="pr-2 leading-tight">
+                                <span class="lang-zh">加上十一奉獻 <span class="text-sm font-normal block sm:inline opacity-80">(募款目標 ÷ 0.9)</span></span>
+                                <span class="lang-en">Target incl. Tithe <span class="text-sm font-normal block sm:inline opacity-80">(Target ÷ 0.9)</span></span>
+                            </span> 
+                            <span class="whitespace-nowrap mt-auto">$130,500</span>
                         </li>
                     </ul>
                 </div>
@@ -495,7 +645,13 @@
                 <span class="lang-en">Whether you decide to participate through a one-time gift, monthly support, or prayer, we offer our deepest gratitude. We look forward to sharing more of our hearts with you.</span>
             </p>
             <div class="flex justify-center gap-6">
-                <a href="https://ywmjfamily.encrypted.news/#aQIu8LpJuOAXSVTzaAOFFw~~" target="_blank" class="hover:text-white transition"><i class="fas fa-envelope text-xl"></i><br><span class="text-sm mt-1 block">Email</span></a>
+                <a href="https://ywmjfamily.encrypted.news/#aQIu8LpJuOAXSVTzaAOFFw~~" target="_blank" class="hover:text-white transition">
+                    <i class="fas fa-envelope text-xl"></i><br>
+                    <span class="text-sm mt-1 block">
+                        <span class="lang-zh">訂閱代禱信</span>
+                        <span class="lang-en">Prayer Updates</span>
+                    </span>
+                </a>
             </div>
         </div>
     </footer>
