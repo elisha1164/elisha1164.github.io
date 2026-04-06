@@ -36,6 +36,15 @@
         /* Language Toggle CSS */
         body[data-lang="zh"] .lang-en { display: none !important; }
         body[data-lang="en"] .lang-zh { display: none !important; }
+
+        /* 進度條動畫 */
+        @keyframes fillProgress {
+            from { width: 0; }
+            to { width: 20%; }
+        }
+        .progress-bar-fill {
+            animation: fillProgress 1.5s ease-out forwards;
+        }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 font-sans antialiased" data-lang="zh">
@@ -72,20 +81,62 @@
     <main class="max-w-5xl mx-auto px-6 py-12">
 
         <!-- Vision Section -->
-        <section class="bg-white rounded-2xl shadow-sm p-8 mb-12 border border-slate-100">
+        <section class="bg-white rounded-2xl shadow-sm p-8 mb-8 border border-slate-100">
             <h2 class="text-2xl font-bold text-blue-900 mb-4 border-b pb-2">
                 <i class="fas fa-dove mr-2 text-blue-500"></i>
                 <span class="lang-zh">呼召與異象</span>
                 <span class="lang-en">Vision & Calling</span>
             </h2>
             <p class="text-slate-600 leading-relaxed mb-4">
-                <span class="lang-zh">過去五年，我們一家在臺灣偏鄉教會委身服事，期間更完成了九個月的跨文化宣教訓練。這些經歷讓我們深深體會到：無論未來是留在本地牧會，或是踏上跨文化宣教之路，正統且扎實的神學裝備都是關鍵且不可或缺的根基。SBTS 以堅守正統基督信仰聞名，匯聚了世界各地有志一同的良師益友。這不僅能幫助我們厚植神學底蘊，更能建立深厚的屬靈團契，預備我們成為未來服事禾場的祝福。此外，我們也憑信心尋求神的帶領，計畫在赴美前迎接第三個產業的到來。為此，儘管眼前面臨許多客觀上的挑戰，我們仍憑著信心，即將舉家前往美國肯塔基州接受完整的神學裝備。面對跨國搬家與未來一家五口的生活，我們深知每一分奉獻都來自上帝的恩典與肢體的愛心。</span>
+                <span class="lang-zh">過去五年，我們一家在臺灣偏鄉教會委身服事，期間更完成了九個月的跨文化宣教訓練。這些經歷讓我們深深體會到：無論未來是留在本地牧會，或是踏上跨文化宣教之路，正統且扎實的神學裝備都是關鍵且不可或缺的根基。SBTS 以堅守正統基督信仰聞名，匯聚了世界各地有志一同的良師益友。這不僅能幫助我們厚植神學底蘊，更能建立深厚的屬靈團契，預備我們成為未來服事禾場的祝福。此外，我們也憑信心尋求神的帶領，計畫在赴美前迎接第三個產業的到來。為此，儘管眼前面臨許多客觀上的挑戰，我們仍憑著信心，即將舉家前往美國肯塔基州接受完整的神學裝備。面對跨國搬家與未來一家五口的生活，我們深知每一分供應都來自上帝的恩典與肢體的愛心。</span>
                 <span class="lang-en">Over the past five years, our family has been dedicated to serving in a rural church in Taiwan, during which we also completed a nine-month cross-cultural missions training. These experiences have deeply impressed upon us that whether serving locally or stepping onto the path of cross-cultural missions, orthodox and solid theological training is a crucial and indispensable foundation. SBTS is renowned as a bastion of orthodox Christian faith, gathering like-minded faculty and students from all over the world. Studying here will not only help us deepen our theological knowledge but also build profound spiritual fellowship, equipping us to be a blessing in our future mission fields. Furthermore, we are prayerfully seeking God's guidance and planning to welcome our third child before our departure. Therefore, despite facing many objective challenges ahead, we are stepping out in faith, moving our growing family of five to Kentucky, USA, to receive comprehensive theological training. Facing a cross-border relocation, we deeply know that every provision comes from God's grace and the love of His body.</span>
             </p>
             <p class="text-slate-600 leading-relaxed">
                 <span class="lang-zh">因此，我們秉持「忠心好管家」的原則，經過多方查證與在地學長姐的經驗核實，將赴美「學費、安家建置、每月生活費」統整為以下這份務實且嚴謹的財務預算。</span>
                 <span class="lang-en">Therefore, holding to the principle of "faithful stewardship," we have verified local expenses and compiled this practical and rigorous financial budget covering tuition, settling-in costs, and monthly living expenses.</span>
             </p>
+        </section>
+
+        <!-- Progress Section -->
+        <section class="bg-blue-50 rounded-2xl shadow-sm p-8 mb-12 border border-blue-100">
+            <h2 class="text-xl font-bold text-blue-900 mb-6 text-center">
+                <i class="fas fa-chart-line mr-2 text-blue-500"></i>
+                <span class="lang-zh">募款進度</span>
+                <span class="lang-en">Funding Progress</span>
+            </h2>
+            <div class="max-w-3xl mx-auto">
+                <div class="flex justify-between items-end mb-2">
+                    <div>
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                            <span class="lang-zh">已獲承諾支持</span><span class="lang-en">Pledged Support</span>
+                        </p>
+                        <p class="text-2xl md:text-3xl font-bold text-emerald-600">USD $26,000</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                            <span class="lang-zh">總預算目標</span><span class="lang-en">Total Goal</span>
+                        </p>
+                        <p class="text-lg md:text-xl font-bold text-slate-700">USD $130,500</p>
+                    </div>
+                </div>
+                <!-- Progress Bar -->
+                <div class="w-full bg-slate-200 rounded-full h-4 mb-4 overflow-hidden relative shadow-inner">
+                    <div class="bg-emerald-500 h-4 rounded-full progress-bar-fill relative">
+                        <!-- 亮光效果 -->
+                        <div class="absolute top-0 left-0 right-0 bottom-0 bg-white opacity-20" style="background-image: linear-gradient(45deg,rgba(255,255,255,.15) 25%,transparent 25%,transparent 50%,rgba(255,255,255,.15) 50%,rgba(255,255,255,.15) 75%,transparent 75%,transparent); background-size: 1rem 1rem;"></div>
+                    </div>
+                </div>
+                <div class="flex justify-between items-center text-sm">
+                    <p class="font-bold text-emerald-700">
+                        <span class="lang-zh">目前達標：20%</span>
+                        <span class="lang-en">Reached: 20%</span>
+                    </p>
+                    <p class="text-slate-500 italic">
+                        <span class="lang-zh">感謝主與眾肢體的恩典擺上！</span>
+                        <span class="lang-en">Praise God for the generous partnership!</span>
+                    </p>
+                </div>
+            </div>
         </section>
 
         <!-- Timeline Section -->
