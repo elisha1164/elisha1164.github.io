@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v1.10 效能與體驗優化：修復 iOS 語音中斷 Bug (防 GC)，並修復切換天數時捲動軸未置頂的問題 -->
 <!-- v1.9 將 rcuv.csv 替換為 rcuv.json 並全面優化 O(1) 檢索邏輯 -->
 <!-- v1.8 升級「一鍵全部朗讀」文案並新增對應的新手導覽步驟 -->
 <!-- v1.7 在初始設定精靈中加入預計完成日期即時顯示 -->
@@ -1407,6 +1408,12 @@
             dom.scriptureText.innerHTML = htmlChunks.join('');
             dom.prevDayBtn.disabled = (day === 1);
             dom.nextDayBtn.disabled = (day === 358);
+            
+            // 🔥 重置所有可捲動區塊的捲動軸至頂部，並平滑捲動視窗
+            dom.scriptureText.scrollTop = 0;
+            dom.originalText.scrollTop = 0;
+            dom.translatedText.scrollTop = 0;
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
         function setActivePlayingUI(section) {
@@ -1488,6 +1495,7 @@
 
                 const chunkObj = chunks[idx];
                 const utterance = new SpeechSynthesisUtterance(chunkObj.text);
+                window._currentUtterance = utterance; // 🔥 防止 iOS/Safari 的 Garbage Collection 中斷語音
 
                 if (langMode === 'en') {
                     const allVoices = synth.getVoices();
@@ -1683,6 +1691,7 @@
             
             const cancelFn = window._currentSpeechCancel;
             window._currentSpeechCancel = null; 
+            window._currentUtterance = null; // 釋放記憶體
             if (cancelFn) cancelFn(); else synth.cancel();
             
             setActivePlayingUI(null); 
@@ -1692,6 +1701,6 @@
 
         window.addEventListener('DOMContentLoaded', init);
     </script>
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.9</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.10</div>
 </body>
 </html>
