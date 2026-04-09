@@ -1,4 +1,6 @@
 <!DOCTYPE html>
+<!-- v1.12 改進放假日選擇邏輯：滿2天時自動反灰停用其他選項，移除警告視窗 -->
+<!-- v1.11 清除已廢棄的新手導覽 HTML ID 與 AI 暫存清理邏輯 -->
 <!-- v1.10 效能與體驗優化：修復 iOS 語音中斷 Bug (防 GC)，並修復切換天數時捲動軸未置頂的問題 -->
 <!-- v1.9 將 rcuv.csv 替換為 rcuv.json 並全面優化 O(1) 檢索邏輯 -->
 <!-- v1.8 升級「一鍵全部朗讀」文案並新增對應的新手導覽步驟 -->
@@ -62,7 +64,7 @@
                     
                     <!-- 整合的基本設定區 -->
                     <div class="px-4 py-3 border-b border-stone-100 bg-stone-50/50">
-                        <div class="mb-4 w-full" id="tour-voice-settings">
+                        <div class="mb-4 w-full">
                             <label class="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">🗣️ 系統語音與語速</label>
                             <div class="flex gap-2">
                                 <select id="voiceSelector" class="w-2/3 px-2 py-1.5 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none transition bg-white text-sm text-stone-700 truncate">
@@ -76,7 +78,7 @@
                                 </select>
                             </div>
                         </div>
-                        <div id="tour-start-date">
+                        <div>
                             <label class="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">📅 開始日期</label>
                             <div class="flex gap-2">
                                 <input type="date" id="startDateInput" class="w-full px-2 py-1.5 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none transition bg-white text-sm text-stone-700">
@@ -936,6 +938,29 @@
             }
         }
 
+        // 🔥 新增：動態更新 Checkbox 狀態 (反灰停用未勾選的選項) 🔥
+        function updateCheckboxUI(checkboxes) {
+            const checkedCount = Array.from(checkboxes).filter(c => c.checked).length;
+            const isMaxReached = checkedCount >= 2;
+            
+            checkboxes.forEach(cb => {
+                if (!cb.checked) {
+                    cb.disabled = isMaxReached;
+                    if (isMaxReached) {
+                        cb.parentElement.classList.add('opacity-40', 'cursor-not-allowed');
+                        cb.parentElement.classList.remove('cursor-pointer', 'hover:bg-stone-50');
+                    } else {
+                        cb.parentElement.classList.remove('opacity-40', 'cursor-not-allowed');
+                        cb.parentElement.classList.add('cursor-pointer', 'hover:bg-stone-50');
+                    }
+                } else {
+                    cb.disabled = false;
+                    cb.parentElement.classList.remove('opacity-40', 'cursor-not-allowed');
+                    cb.parentElement.classList.add('cursor-pointer', 'hover:bg-stone-50');
+                }
+            });
+        }
+
         function completeWizard(restDaysArr) {
             const startDate = dom.wizardStartDate.value;
             if (!startDate) return alert('請選擇開始日期！');
@@ -998,10 +1023,6 @@
         async function init() {
             // Initialize Lucide icons
             lucide.createIcons();
-
-            localStorage.removeItem('gemini_api_key');
-            localStorage.removeItem('gemini_model');
-            localStorage.removeItem('gemini_translations_cache');
 
             dom.startDateInput.value = localStorage.getItem('gemini_start_date') || '';
             dom.rateSelector.value = localStorage.getItem('tts_rate') || '1.0';
@@ -1091,17 +1112,14 @@
                 dom.restDaysCheckboxes.forEach(cb => {
                     cb.checked = restDays.includes(parseInt(cb.value));
                 });
+                updateCheckboxUI(dom.restDaysCheckboxes);
                 updateEstimatedCompletion();
                 dom.restDaysModal.classList.remove('hidden');
             });
 
             dom.restDaysCheckboxes.forEach(cb => {
                 cb.addEventListener('change', () => {
-                    const checkedBoxes = Array.from(dom.restDaysCheckboxes).filter(c => c.checked);
-                    if (checkedBoxes.length > 2) {
-                        cb.checked = false; 
-                        alert('最多只能設定 2 天放假日喔！');
-                    }
+                    updateCheckboxUI(dom.restDaysCheckboxes);
                     updateEstimatedCompletion();
                 });
             });
@@ -1150,6 +1168,7 @@
             dom.wizardPaceRestBtn.addEventListener('click', () => {
                 dom.wizardStep2.classList.add('hidden');
                 dom.wizardStep3.classList.remove('hidden');
+                updateCheckboxUI(dom.wizardRestCheckboxes); 
                 updateWizardEstimatedCompletion(); // 進入步驟三時預先計算一次
             });
 
@@ -1160,11 +1179,7 @@
 
             dom.wizardRestCheckboxes.forEach(cb => {
                 cb.addEventListener('change', () => {
-                    const checkedBoxes = Array.from(dom.wizardRestCheckboxes).filter(c => c.checked);
-                    if (checkedBoxes.length > 2) {
-                        cb.checked = false;
-                        alert('最多只能設定 2 天放假日喔！');
-                    }
+                    updateCheckboxUI(dom.wizardRestCheckboxes);
                     updateWizardEstimatedCompletion(); // 勾選改變時即時重新計算
                 });
             });
@@ -1701,6 +1716,6 @@
 
         window.addEventListener('DOMContentLoaded', init);
     </script>
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.10</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.12</div>
 </body>
 </html>
