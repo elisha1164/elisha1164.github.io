@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v1.9 將 rcuv.csv 替換為 rcuv.json 並全面優化 O(1) 檢索邏輯 -->
 <!-- v1.8 升級「一鍵全部朗讀」文案並新增對應的新手導覽步驟 -->
 <!-- v1.7 在初始設定精靈中加入預計完成日期即時顯示 -->
 <!-- v1.6 調整右上角選單順序 -->
@@ -528,7 +529,7 @@
                 document.execCommand('copy');
                 alert('✅ 網址已成功複製！\\n\\n請切換到 Safari 或 Chrome 瀏覽器，貼上網址即可正常使用。');
             } catch (err) {
-                alert('❌ 複製失敗，請手手動點擊上方網址列進行複製。');
+                alert('❌ 複製失敗，請手動點擊上方網址列進行複製。');
             }
             document.body.removeChild(dummy);
         };
@@ -1197,7 +1198,7 @@
         }
 
         async function loadCSVs() {
-            dom.statusText.textContent = "正在從伺服器下載 CSV 資料...";
+            dom.statusText.textContent = "正在從伺服器下載資料...";
             dom.statusText.classList.remove('hidden'); 
 
             const fetchCsv = async url => {
@@ -1210,31 +1211,25 @@
                 } catch { return null; }
             };
 
+            const fetchJson = async url => {
+                try {
+                    const res = await fetch(url);
+                    if (!res.ok) return null;
+                    return await res.json();
+                } catch { return null; }
+            };
+
             try {
-                const [metaStr, contentStr, transStr, rcuvStr, videoStr] = await Promise.all([
+                const [metaStr, contentStr, transStr, rcuvJsonData, videoStr] = await Promise.all([
                     fetchCsv('./bible_metadata.csv'), fetchCsv('./bible_reading_plan.csv'),
-                    fetchCsv('./bible_reading_plan_translated.csv'), fetchCsv('./rcuv.csv'), fetchCsv('./bible_reading_plan_videos.csv')
+                    fetchCsv('./bible_reading_plan_translated.csv'), fetchJson('./rcuv.json'), fetchCsv('./bible_reading_plan_videos.csv')
                 ]);
                 if (!metaStr || !contentStr || !transStr) throw new Error("主要檔案讀取失敗 (可能缺少 bible_reading_plan_translated.csv)");
 
                 const parseOpts = { header: true, skipEmptyLines: true, transformHeader: h => cleanString(h).toLowerCase() };
                 const [meta, content, trans] = [Papa.parse(metaStr, parseOpts).data, Papa.parse(contentStr, parseOpts).data, Papa.parse(transStr, parseOpts).data];
                 
-                rcuvIndex = {};
-                if (rcuvStr) {
-                    Papa.parse(rcuvStr, parseOpts).data.forEach(row => {
-                        const rawBook = row.book || '', rawChap = (row.chapter || '').toString();
-                        const cBook = cleanString(rawBook);
-                        if (!cBook) return;
-                        if (!rcuvIndex[cBook]) rcuvIndex[cBook] = [];
-                        rcuvIndex[cBook].push({
-                            c: cleanString(rawChap),
-                            v: (row.verse || '').toString(),
-                            n: parseInt(row.verse) || 0,
-                            t: (row.text || '').replace(/【.*?】/g, '')
-                        });
-                    });
-                }
+                rcuvIndex = rcuvJsonData || {};
 
                 videoData = {};
                 if (videoStr) {
@@ -1288,13 +1283,13 @@
                 // 🔥 觸發條件改為啟動設定精靈 🔥
                 if (!localStorage.getItem('tour_completed')) setTimeout(openSetupWizard, 800);
             } catch (error) {
-                console.error("CSV 載入錯誤:", error);
+                console.error("檔案載入錯誤:", error);
                 dom.statusText.classList.remove('hidden'); 
                 
                 if (/Line|LINE|FBAV|FBAN|Instagram/.test(navigator.userAgent)) {
                     dom.statusText.innerHTML = `❌ 載入被阻擋。<br><span class="text-sm text-red-600 font-bold bg-red-50 px-4 py-3 rounded-xl inline-block mt-3 text-left shadow-sm">⚠️ 偵測到您正使用 APP 內建瀏覽器，這會阻擋資料載入。<br><br>👉 建議解法一：請點擊角落選單，選擇「使用預設瀏覽器開啟」<br>👉 建議解法二：直接點擊下方按鈕複製網址<br><button onclick="window.copyAppUrl()" class="mt-4 w-full bg-amber-100 text-amber-800 hover:bg-amber-200 px-4 py-2.5 rounded-lg text-sm font-bold shadow-sm transition flex items-center justify-center"><svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>一鍵複製網址</button></span>`;
                 } else {
-                    dom.statusText.innerHTML = `❌ 載入失敗。<br><span class="text-sm text-red-500">發生錯誤：${error.message}。請確認所有必要的 CSV 檔案皆已上傳。</span>`;
+                    dom.statusText.innerHTML = `❌ 載入失敗。<br><span class="text-sm text-red-500">發生錯誤：${error.message}。請確認所有必要的 CSV 與 JSON 檔案皆已上傳。</span>`;
                 }
             }
         }
@@ -1358,8 +1353,38 @@
             let htmlChunks = [];
             if (Object.keys(rcuvIndex).length > 0) {
                 const tBookClean = cleanString(data.book);
-                let mainV = tBookClean && rcuvIndex[tBookClean] ? rcuvIndex[tBookClean].filter(r => data.parsedChapters.some(tc => tc.ch === r.c && (tc.vStart === null || (r.n >= tc.vStart && r.n <= tc.vEnd)))).map(r => ({...r, b: tBookClean})) : [];
-                let psalmV = data.parsedPsalms.length && rcuvIndex['詩篇'] ? rcuvIndex['詩篇'].filter(r => data.parsedPsalms.some(tp => tp.ch === r.c && (tp.vStart === null || (r.n >= tp.vStart && r.n <= tp.vEnd)))).map(r => ({...r, b: '詩篇'})) : [];
+                
+                let mainV = [];
+                if (tBookClean && rcuvIndex[tBookClean]) {
+                    data.parsedChapters.forEach(tc => {
+                        const chapterData = rcuvIndex[tBookClean][tc.ch];
+                        if (chapterData) {
+                            const verseKeys = Object.keys(chapterData).map(Number).sort((a, b) => a - b);
+                            verseKeys.forEach(vNum => {
+                                if (tc.vStart !== null && tc.vEnd !== null) {
+                                    if (vNum < tc.vStart || vNum > tc.vEnd) return;
+                                }
+                                mainV.push({ b: tBookClean, c: tc.ch, v: vNum.toString(), t: chapterData[vNum.toString()] });
+                            });
+                        }
+                    });
+                }
+                
+                let psalmV = [];
+                if (data.parsedPsalms.length > 0 && rcuvIndex['詩篇']) {
+                    data.parsedPsalms.forEach(tp => {
+                        const chapterData = rcuvIndex['詩篇'][tp.ch];
+                        if (chapterData) {
+                            const verseKeys = Object.keys(chapterData).map(Number).sort((a, b) => a - b);
+                            verseKeys.forEach(vNum => {
+                                if (tp.vStart !== null && tp.vEnd !== null) {
+                                    if (vNum < tp.vStart || vNum > tp.vEnd) return;
+                                }
+                                psalmV.push({ b: '詩篇', c: tp.ch, v: vNum.toString(), t: chapterData[vNum.toString()] });
+                            });
+                        }
+                    });
+                }
 
                 const dayVerses = tBookClean === '詩篇' ? mainV : [...mainV, ...psalmV];
 
@@ -1377,7 +1402,7 @@
                         htmlChunks.push(`<div class="mb-3 flex items-start leading-relaxed"><strong class="text-stone-400 font-bold mr-3 text-base w-6 text-right shrink-0 select-none pt-[2px]">${row.v}</strong><span class="text-stone-800 text-lg">${formattedText}</span></div>`);
                     });
                 } else htmlChunks.push('<p class="text-stone-400">找不到符合今日進度的經文。</p>');
-            } else htmlChunks.push('<p class="text-red-400">無法載入 rcuv.csv 檔案，請確認檔案存在</p>');
+            } else htmlChunks.push('<p class="text-red-400">無法載入 rcuv.json 檔案，請確認檔案存在</p>');
             
             dom.scriptureText.innerHTML = htmlChunks.join('');
             dom.prevDayBtn.disabled = (day === 1);
@@ -1667,6 +1692,6 @@
 
         window.addEventListener('DOMContentLoaded', init);
     </script>
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.8</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.9</div>
 </body>
 </html>
