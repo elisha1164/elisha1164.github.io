@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v1.8 升級「一鍵全部朗讀」文案並新增對應的新手導覽步驟 -->
 <!-- v1.7 在初始設定精靈中加入預計完成日期即時顯示 -->
 <!-- v1.6 調整右上角選單順序 -->
 <!-- v1.5 修正右下角顯示的版本號 -->
@@ -156,7 +157,7 @@
                         <!-- 全部朗讀按鈕 -->
                         <button id="playAllBtn" class="bg-amber-100 text-amber-800 hover:bg-amber-200 px-4 py-1.5 rounded-full text-sm font-medium transition flex items-center shadow-sm border border-amber-200">
                             <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
-                            全部朗讀
+                            一鍵全部朗讀
                         </button>
                         <button id="stopAllBtn" class="bg-red-100 text-red-700 hover:bg-red-200 px-4 py-1.5 rounded-full text-sm font-medium transition flex items-center shadow-sm border border-red-200 hidden">
                             <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clip-rule="evenodd"></path></svg>
@@ -972,6 +973,7 @@
                 { popover: { title: '👋 歡迎', description: '歡迎來到您的專屬讀經面板！<br><br>剛才的設定已經為您準備妥當，現在讓我們花 1 分鐘快速認識這個介面。' } },
                 { element: '#tour-day-selector', popover: { title: '日期切換', description: '您可以在這裡查看目前的進度天數與預計日期，也可以隨時點擊左右按鈕或直接輸入數字跳轉。' } },
                 { element: '#titleHeaderBox', popover: { title: '每日讀經進度', description: '這是每天的讀經進度，完成記得打勾唷！閱讀進度只會儲存在這部裝置上。' } },
+                { element: '#playAllBtn', popover: { title: '🎧 一鍵全部朗讀', description: '通勤、做家事、運動時無法滑手機？沒關係！點擊這裡，系統會自動接力為您朗讀今天的靈修、經文與反思問題，用聽的也能輕鬆完成進度！' } },
                 { element: '#readingGrid', popover: { title: '靈修內容', description: '短短的靈修文章，幫助您把當天讀到的經文，與整本聖經的大故事彼此串聯，見樹也見林。' } }
             ];
             if (!dom.videoSection.classList.contains('hidden')) {
@@ -1665,6 +1667,6 @@
 
         window.addEventListener('DOMContentLoaded', init);
     </script>
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.7</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.8</div>
 </body>
 </html>
