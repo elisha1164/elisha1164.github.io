@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v1.13 實作 TTS 優先匹配池，篩選並保留高品質自然語音 -->
 <!-- v1.12 改進放假日選擇邏輯：滿2天時自動反灰停用其他選項，移除警告視窗 -->
 <!-- v1.11 清除已廢棄的新手導覽 HTML ID 與 AI 暫存清理邏輯 -->
 <!-- v1.10 效能與體驗優化：修復 iOS 語音中斷 Bug (防 GC)，並修復切換天數時捲動軸未置頂的問題 -->
@@ -1197,8 +1198,13 @@
 
         function populateVoiceList() {
             const allVoices = synth.getVoices();
-            voices = allVoices.filter(v => (v.lang.includes('zh') || v.lang.includes('cmn') || v.name.includes('Chinese')) && (v.lang.includes('TW') || v.name.toLowerCase().includes('taiwan')));
-            if (voices.length === 0) voices = allVoices.filter(v => v.lang.includes('zh') || v.lang.includes('cmn') || v.name.includes('Chinese'));
+            let baseVoices = allVoices.filter(v => (v.lang.includes('zh') || v.lang.includes('cmn') || v.name.includes('Chinese')) && (v.lang.includes('TW') || v.name.toLowerCase().includes('taiwan')));
+            if (baseVoices.length === 0) baseVoices = allVoices.filter(v => v.lang.includes('zh') || v.lang.includes('cmn') || v.name.includes('Chinese'));
+            
+            const priorityKeywords = ['HsiaoChen', 'HsiaoYu', 'Online', 'Natural', 'Premium'];
+            const premiumVoices = baseVoices.filter(v => priorityKeywords.some(keyword => v.name.includes(keyword)));
+            
+            voices = premiumVoices.length > 0 ? premiumVoices : baseVoices;
             
             dom.voiceSelector.innerHTML = voices.length ? '' : '<option value="">(系統無可用中文語音)</option>';
             if (!voices.length) return;
@@ -1716,6 +1722,6 @@
 
         window.addEventListener('DOMContentLoaded', init);
     </script>
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.12</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.13</div>
 </body>
 </html>
