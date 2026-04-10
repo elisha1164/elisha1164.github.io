@@ -284,9 +284,11 @@
 
     <div id="print-area"></div>
     
-    <div class="version-tag">v3.2</div>
+    <div class="version-tag">v3.4</div>
 
     <script>
+        // v3.4 (優化載入失敗提示文案：移除技術術語 CORS、統一「手動下載」用語、改為「回到本頁面」)
+        // v3.3 (優化 CORS 錯誤提示文案，提供明確的手動下載與上傳步驟)
         // v3.2 (修復 epub.js 幻覺 API 導致的致命錯誤，正確實現語音驅動與段落換氣)
         
         // IAB 攔截
@@ -715,8 +717,8 @@
                 showLoading(false);
                 showModal({
                     title: '⚠️ 無法直接載入此網址',
-                    desc: '目標網站未開放 CORS，請直接下載該檔案後上傳。',
-                    actionText: '⬇️ 直接下載',
+                    desc: '目標網站無法直接載入。<br><br>請依以下步驟操作：<br>1. 點擊下方按鈕手動下載 EPUB 檔案。<br>2. 回到本頁面，透過「📂 上傳本機檔案」開啟。',
+                    actionText: '⬇️ 手動下載',
                     onAction: () => {
                         const link = document.createElement('a'); link.href = url; link.target = '_blank';
                         link.download = url.split('/').pop() || 'download.epub'; 
