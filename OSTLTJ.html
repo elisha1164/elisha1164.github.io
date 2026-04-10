@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v1.14 調整 displayTitle 顯示格式，移除重複的天數並加入數字空格 -->
 <!-- v1.13 實作 TTS 優先匹配池，篩選並保留高品質自然語音 -->
 <!-- v1.12 改進放假日選擇邏輯：滿2天時自動反灰停用其他選項，移除警告視窗 -->
 <!-- v1.11 清除已廢棄的新手導覽 HTML ID 與 AI 暫存清理邏輯 -->
@@ -1328,9 +1329,11 @@
             const isRead = !!readProgress[day];
             dom.readProgressCheckbox.checked = isRead;
             
-            const chapStr = data.chapters ? `第${data.chapters.replace(/-/g, "到")}章` : "";
-            const psalmStr = data.psalms ? `、詩篇第${data.psalms.replace(/-/g, "到")}篇` : "";
-            dom.displayTitle.textContent = `全年讀經第${day.toString().padStart(3, '0')}天 ${data.book}${chapStr}${psalmStr}`;
+            const formattedChapters = data.chapters ? data.chapters.replace(/-/g, " 到 ") : "";
+            const chapStr = formattedChapters ? ` ${formattedChapters} 章` : "";
+            const formattedPsalms = data.psalms ? data.psalms.replace(/-/g, " 到 ") : "";
+            const psalmStr = formattedPsalms ? `、詩篇 ${formattedPsalms} 篇` : "";
+            dom.displayTitle.textContent = `今日進度：${data.book}${chapStr}${psalmStr}`;
             
             updateHeaderVisuals(day, isRead);
 
@@ -1722,6 +1725,6 @@
 
         window.addEventListener('DOMContentLoaded', init);
     </script>
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.13</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.14</div>
 </body>
 </html>
