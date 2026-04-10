@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v1.15 將「靈修內容」等相關詞彙替換為「引導短文」與「讀經計畫」 -->
 <!-- v1.14 調整 displayTitle 顯示格式，移除重複的天數並加入數字空格 -->
 <!-- v1.13 實作 TTS 優先匹配池，篩選並保留高品質自然語音 -->
 <!-- v1.12 改進放假日選擇邏輯：滿2天時自動反灰停用其他選項，移除警告視窗 -->
@@ -146,7 +147,7 @@
                 </button>
             </div>
 
-            <!-- 內容顯示卡片 (靈修內容) -->
+            <!-- 內容顯示卡片 (引導短文) -->
             <div class="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden flex flex-col mb-6">
                 
                 <!-- 每日標題 + 核取方塊 + 全部朗讀 -->
@@ -178,7 +179,7 @@
                     <div class="px-6">
                         <div class="flex flex-wrap gap-3 justify-between items-center mb-4 border-b border-stone-100 pb-4">
                             <h4 id="contentTitle" class="font-semibold text-stone-700 flex items-center text-lg">
-                                📝 靈修內容
+                                📝 引導短文
                             </h4>
                             <div class="flex gap-2">
                                 <button id="toggleOriginalBtn" class="bg-stone-200 text-stone-700 hover:bg-stone-300 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center shadow-sm">
@@ -286,7 +287,7 @@
         <!-- 版權聲明區 -->
         <footer class="mt-12 pt-8 border-t border-stone-200 text-center text-sm text-stone-500 leading-relaxed">
             <p class="mb-2">
-                原始英文靈修內容版權屬於 <a href="https://bibleproject.com/reading-plans/" target="_blank" rel="noopener noreferrer" class="text-amber-600 hover:text-amber-700 font-medium underline underline-offset-2">BibleProject</a>。因官方目前尚未提供中文翻譯，故暫時製作此介面供讀者使用。
+                原始英文讀經計畫版權屬於 <a href="https://bibleproject.com/reading-plans/" target="_blank" rel="noopener noreferrer" class="text-amber-600 hover:text-amber-700 font-medium underline underline-offset-2">BibleProject</a>。因官方目前尚未提供中文翻譯，故暫時製作此介面供讀者使用。
             </p>
             <p class="mb-2">
                 經文引自《和合本 2010（和合本修訂版）》，版權屬香港聖經公會所有，蒙允准使用。
@@ -792,12 +793,12 @@
             if (isEn) {
                 dom.originalText.classList.remove('hidden');
                 dom.translatedText.classList.add('hidden');
-                dom.contentTitle.innerHTML = '📝 原始英文靈修內容';
+                dom.contentTitle.innerHTML = '📝 原始英文 Introduction';
                 dom.toggleOriginalText.textContent = "顯示中文翻譯";
             } else {
                 dom.originalText.classList.add('hidden');
                 dom.translatedText.classList.remove('hidden');
-                dom.contentTitle.innerHTML = '📝 靈修內容';
+                dom.contentTitle.innerHTML = '📝 引導短文';
                 dom.toggleOriginalText.textContent = "顯示英文原文";
             }
             
@@ -1002,8 +1003,8 @@
                 { popover: { title: '👋 歡迎', description: '歡迎來到您的專屬讀經面板！<br><br>剛才的設定已經為您準備妥當，現在讓我們花 1 分鐘快速認識這個介面。' } },
                 { element: '#tour-day-selector', popover: { title: '日期切換', description: '您可以在這裡查看目前的進度天數與預計日期，也可以隨時點擊左右按鈕或直接輸入數字跳轉。' } },
                 { element: '#titleHeaderBox', popover: { title: '每日讀經進度', description: '這是每天的讀經進度，完成記得打勾唷！閱讀進度只會儲存在這部裝置上。' } },
-                { element: '#playAllBtn', popover: { title: '🎧 一鍵全部朗讀', description: '通勤、做家事、運動時無法滑手機？沒關係！點擊這裡，系統會自動接力為您朗讀今天的靈修、經文與反思問題，用聽的也能輕鬆完成進度！' } },
-                { element: '#readingGrid', popover: { title: '靈修內容', description: '短短的靈修文章，幫助您把當天讀到的經文，與整本聖經的大故事彼此串聯，見樹也見林。' } }
+                { element: '#playAllBtn', popover: { title: '🎧 一鍵全部朗讀', description: '通勤、做家事、運動時無法滑手機？沒關係！點擊這裡，系統會自動接力為您朗讀今天的引導短文、經文與反思問題，用聽的也能輕鬆完成進度！' } },
+                { element: '#readingGrid', popover: { title: '引導短文', description: '搭配引導短文，幫助您把當天讀到的經文，與整本聖經的大故事彼此串聯，見樹也見林。' } }
             ];
             if (!dom.videoSection.classList.contains('hidden')) {
                 steps.push({ element: '#videoSection', popover: { title: '輔助影片', description: '短短的輔助影片，幫助您抓住經文的重點脈絡。' } });
@@ -1348,8 +1349,8 @@
                 }
             } else dom.absoluteDateDisplay.classList.add('hidden');
             
-            dom.originalText.textContent = data.contentEn.main || "此天無英文靈修資料。";
-            dom.translatedText.textContent = data.contentCh.main || "此天無中文靈修資料。";
+            dom.originalText.textContent = data.contentEn.main || "此天無英文引導短文。";
+            dom.translatedText.textContent = data.contentCh.main || "此天無中文引導短文。";
             setViewMode('chinese'); 
 
             const vData = videoData[day];
@@ -1576,7 +1577,7 @@
             const devTxt = isEn ? bibleData[currentDay].contentEn.main : bibleData[currentDay].contentCh.main;
             if (devTxt && devTxt.trim() !== "") {
                 playAllQueue.push(() => {
-                    speakTextChunks(`${dom.displayTitle.textContent}。 ${isEn ? 'Devotional Content' : '靈修內容'}。\n\n${devTxt}`, isEn ? 'en' : 'zh',
+                    speakTextChunks(`${dom.displayTitle.textContent}。 ${isEn ? 'Introduction' : '引導短文'}。\n\n${devTxt}`, isEn ? 'en' : 'zh',
                         () => { requestWakeLock(); setActivePlayingUI('content'); },
                         processPlayAllQueue
                     );
@@ -1619,7 +1620,7 @@
             const vData = videoData[currentDay];
             if (vData && (vData.chLink || vData.enLink)) {
                 playAllQueue.push(() => {
-                    let promptTxt = `今日靈修內容中的輔助影片還沒有播放，請手動播放並觀賞影片。`;
+                    let promptTxt = `今日讀經計畫中的輔助影片還沒有播放，請手動播放並觀賞影片。`;
                     
                     if (vData.laozhangNote && vData.laozhangNote.trim() !== "") {
                         promptTxt += `\n\n老張批註。\n${vData.laozhangNote.trim()}`;
@@ -1665,7 +1666,7 @@
             const txt = isEn ? bibleData[currentDay].contentEn.main : bibleData[currentDay].contentCh.main;
             if (!txt || txt.trim() === "") return;
             if (synth.speaking) synth.cancel();
-            speakTextChunks(`${dom.displayTitle.textContent}。 ${isEn ? 'Devotional Content' : '靈修內容'}。\n\n${txt}`, isEn ? 'en' : 'zh',
+            speakTextChunks(`${dom.displayTitle.textContent}。 ${isEn ? 'Introduction' : '引導短文'}。\n\n${txt}`, isEn ? 'en' : 'zh',
                 () => { requestWakeLock(); setActivePlayingUI('content'); dom.playAllBtn.classList.add('hidden'); dom.stopAllBtn.classList.remove('hidden'); },
                 handleStop
             );
@@ -1725,6 +1726,6 @@
 
         window.addEventListener('DOMContentLoaded', init);
     </script>
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.14</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.15</div>
 </body>
 </html>
