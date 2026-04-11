@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v1.21 實作 Android 安全模式：解除語音物件強制綁定，純依賴 lang 屬性交由原生處理防崩潰 -->
 <!-- v1.20 退回至 v1.18 語音處理邏輯 (移除 safeStartSpeech 緩衝機制) -->
 <!-- v1.19 終極修復 Android TTS 崩潰假死問題：導入 safeStartSpeech 緩衝機制與 onerror 限速防護 -->
 <!-- v1.18 於 TTS onerror 事件加入 UI 報錯機制，協助排查 Android 語音假死問題 -->
@@ -1444,6 +1445,8 @@
 
         function speakTextChunks(text, onStart, onEnd, mappings = null) {
             if (!text) return;
+            
+            const isAndroid = getSystemInfo().os === 'Android';
 
             const rawChunks = [];
             let match;
@@ -1494,7 +1497,10 @@
                 const utterance = new SpeechSynthesisUtterance(chunkObj.text);
                 window._currentUtterance = utterance; // 🔥 防止 iOS/Safari 的 Garbage Collection 中斷語音
 
-                if (dom.voiceSelector.value !== "" && voices[dom.voiceSelector.value]) utterance.voice = voices[dom.voiceSelector.value];
+                // 🔥 Android 安全模式：若非 Android 裝置，才強制綁定所選的語音物件 🔥
+                if (!isAndroid) {
+                    if (dom.voiceSelector.value !== "" && voices[dom.voiceSelector.value]) utterance.voice = voices[dom.voiceSelector.value];
+                }
                 utterance.lang = 'zh-TW';
                 
                 utterance.rate = parseFloat(dom.rateSelector.value);
@@ -1690,6 +1696,6 @@
 
         window.addEventListener('DOMContentLoaded', init);
     </script>
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.20</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.21</div>
 </body>
 </html>
