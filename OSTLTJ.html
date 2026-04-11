@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v1.22 實作 Android 安全模式 (Part 2)：導入 safeStartSpeech 安全緩衝機制，避免 cancel() 與 speak() 衝撞 -->
 <!-- v1.21 實作 Android 安全模式：解除語音物件強制綁定，純依賴 lang 屬性交由原生處理防崩潰 -->
 <!-- v1.20 退回至 v1.18 語音處理邏輯 (移除 safeStartSpeech 緩衝機制) -->
 <!-- v1.19 終極修復 Android TTS 崩潰假死問題：導入 safeStartSpeech 緩衝機制與 onerror 限速防護 -->
@@ -1443,6 +1444,18 @@
             }
         }
 
+        // 🔥 Android 安全模式：安全啟動緩衝機制，防禦 cancel() 假死陷阱 🔥
+        function safeStartSpeech(callback) {
+            const isAndroid = getSystemInfo().os === 'Android';
+            if (synth.speaking || synth.pending) {
+                synth.cancel();
+                // 這是解決 Android TTS synthesis-failed 的核心：給予底層引擎清理緩衝區的時間
+                setTimeout(callback, isAndroid ? 300 : 50);
+            } else {
+                callback();
+            }
+        }
+
         function speakTextChunks(text, onStart, onEnd, mappings = null) {
             if (!text) return;
             
@@ -1531,7 +1544,13 @@
                     // 將錯誤訊息顯示在畫面頂部供 Debug
                     dom.statusText.innerHTML = `<span class="text-red-600 font-bold bg-red-50 border border-red-200 px-3 py-1.5 rounded-lg shadow-sm">⚠️ 語音引擎中斷，錯誤代碼: ${e.error}</span>`;
                     dom.statusText.classList.remove('hidden');
-                    idx++; next(); 
+                    
+                    // 🔥 Android 安全模式：加入 onerror 限速防護，避免瞬間無限空轉
+                    if (isAndroid) {
+                        setTimeout(() => { idx++; next(); }, 500);
+                    } else {
+                        idx++; next(); 
+                    }
                 };
                 
                 try { synth.speak(utterance); } catch (e) { console.error("TTS 引擎拒絕發聲:", e); idx++; next(); }
@@ -1606,8 +1625,7 @@
             }
 
             if (playAllQueue.length > 0) {
-                if (synth.speaking) synth.cancel();
-                processPlayAllQueue();
+                safeStartSpeech(processPlayAllQueue);
             } else {
                 handleStop();
             }
@@ -1636,11 +1654,13 @@
             isPlayingAll = false; playAllQueue = []; 
             const txt = bibleData[currentDay].contentCh.main;
             if (!txt || txt.trim() === "") return;
-            if (synth.speaking) synth.cancel();
-            speakTextChunks(`${dom.displayTitle.textContent}。 引導短文。\n\n${txt}`,
-                () => { requestWakeLock(); setActivePlayingUI('content'); dom.playAllBtn.classList.add('hidden'); dom.stopAllBtn.classList.remove('hidden'); },
-                handleStop
-            );
+            
+            safeStartSpeech(() => {
+                speakTextChunks(`${dom.displayTitle.textContent}。 引導短文。\n\n${txt}`,
+                    () => { requestWakeLock(); setActivePlayingUI('content'); dom.playAllBtn.classList.add('hidden'); dom.stopAllBtn.classList.remove('hidden'); },
+                    handleStop
+                );
+            });
         }
 
         function handlePlayScripture() {
@@ -1660,23 +1680,26 @@
             
             if (mappings.length === 0) return;
             
-            if (synth.speaking) synth.cancel();
-            speakTextChunks(txt,
-                () => { requestWakeLock(); setActivePlayingUI('scripture'); dom.playAllBtn.classList.add('hidden'); dom.stopAllBtn.classList.remove('hidden'); },
-                handleStop,
-                mappings 
-            );
+            safeStartSpeech(() => {
+                speakTextChunks(txt,
+                    () => { requestWakeLock(); setActivePlayingUI('scripture'); dom.playAllBtn.classList.add('hidden'); dom.stopAllBtn.classList.remove('hidden'); },
+                    handleStop,
+                    mappings 
+                );
+            });
         }
 
         function handlePlayReflection() {
             isPlayingAll = false; playAllQueue = [];
             const txt = bibleData[currentDay].contentCh.questions;
             if (!txt || txt.trim() === "") return;
-            if (synth.speaking) synth.cancel();
-            speakTextChunks(`反思問題。\n\n${txt}`,
-                () => { requestWakeLock(); setActivePlayingUI('reflection'); dom.playAllBtn.classList.add('hidden'); dom.stopAllBtn.classList.remove('hidden'); },
-                handleStop
-            );
+            
+            safeStartSpeech(() => {
+                speakTextChunks(`反思問題。\n\n${txt}`,
+                    () => { requestWakeLock(); setActivePlayingUI('reflection'); dom.playAllBtn.classList.add('hidden'); dom.stopAllBtn.classList.remove('hidden'); },
+                    handleStop
+                );
+            });
         }
 
         function handleStop() {
@@ -1696,6 +1719,6 @@
 
         window.addEventListener('DOMContentLoaded', init);
     </script>
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.21</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.22</div>
 </body>
 </html>
