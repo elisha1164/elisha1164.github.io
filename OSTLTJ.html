@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v1.18 於 TTS onerror 事件加入 UI 報錯機制，協助排查 Android 語音假死問題 -->
 <!-- v1.17 移除本地英文資料，改為純中文閱讀器，並加入外部原文連結 -->
 <!-- v1.16 將「原始英文 Introduction」縮簡為「Introduction」 -->
 <!-- v1.15 將「靈修內容」等相關詞彙替換為「引導短文」與「讀經計畫」 -->
@@ -782,6 +783,39 @@
             document.getElementById('footnoteModal').classList.add('hidden');
         }
 
+        function setViewMode(mode) {
+            currentViewMode = mode;
+            const data = bibleData[currentDay];
+            const isEn = mode === 'english';
+            
+            if (isEn) {
+                dom.originalText.classList.remove('hidden');
+                dom.translatedText.classList.add('hidden');
+                dom.contentTitle.innerHTML = '📝 Introduction';
+                dom.toggleOriginalText.textContent = "顯示中文翻譯";
+            } else {
+                dom.originalText.classList.add('hidden');
+                dom.translatedText.classList.remove('hidden');
+                dom.contentTitle.innerHTML = '📝 引導短文';
+                dom.toggleOriginalText.textContent = "顯示英文原文";
+            }
+            
+            if (data) {
+                const qText = isEn ? data.contentEn.questions : data.contentCh.questions;
+                if (qText) {
+                    dom.reflectionText.textContent = qText;
+                    dom.reflectionSection.classList.remove('hidden');
+                } else {
+                    dom.reflectionSection.classList.add('hidden');
+                }
+            }
+
+            if (dom.reflectionTitle) dom.reflectionTitle.innerHTML = isEn ? '🤔 Reflection Questions' : '🤔 反思問題';
+            if (dom.playReflectionText) dom.playReflectionText.textContent = isEn ? 'Read Questions' : '朗讀問題';
+
+            if (synth.speaking) handleStop();
+        }
+
         function updateVideoDisplay(vData, lang) {
             if (lang === 'ch' && vData.chLink) {
                 dom.youtubePlayer.src = `https://www.youtube.com/embed/${cleanString(vData.chLink)}?rel=0`;
@@ -1518,7 +1552,11 @@
                 utterance.onend = () => { if (isCanceled) return; idx++; next(); };
                 utterance.onerror = (e) => { 
                     if (isCanceled || e.error === 'canceled' || e.error === 'interrupted') return;
-                    console.error("語音播放錯誤:", e); idx++; next(); 
+                    console.error("語音播放錯誤:", e);
+                    // 🔥 新增：將錯誤訊息顯示在畫面頂部供 Debug
+                    dom.statusText.innerHTML = `<span class="text-red-600 font-bold bg-red-50 border border-red-200 px-3 py-1.5 rounded-lg shadow-sm">⚠️ 語音引擎中斷，錯誤代碼: ${e.error}</span>`;
+                    dom.statusText.classList.remove('hidden');
+                    idx++; next(); 
                 };
                 
                 try { synth.speak(utterance); } catch (e) { console.error("TTS 引擎拒絕發聲:", e); idx++; next(); }
@@ -1683,6 +1721,6 @@
 
         window.addEventListener('DOMContentLoaded', init);
     </script>
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.17</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.18</div>
 </body>
 </html>
