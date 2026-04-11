@@ -1,7 +1,4 @@
 <!DOCTYPE html>
-<!-- v1.23 實作 Android 安全模式 (Part 3)：作業系統隔離語音篩選，Android 強制選用 localService 本機語音 -->
-<!-- v1.22 實作 Android 安全模式 (Part 2)：導入 safeStartSpeech 安全緩衝機制，避免 cancel() 與 speak() 衝撞 -->
-<!-- v1.21 實作 Android 安全模式：解除語音物件強制綁定，純依賴 lang 屬性交由原生處理防崩潰 -->
 <!-- v1.20 退回至 v1.18 語音處理邏輯 (移除 safeStartSpeech 緩衝機制) -->
 <!-- v1.19 終極修復 Android TTS 崩潰假死問題：導入 safeStartSpeech 緩衝機制與 onerror 限速防護 -->
 <!-- v1.18 於 TTS onerror 事件加入 UI 報錯機制，協助排查 Android 語音假死問題 -->
@@ -1171,20 +1168,14 @@
         }
 
         function populateVoiceList() {
-            const isAndroid = getSystemInfo().os === 'Android';
             const allVoices = synth.getVoices();
             let baseVoices = allVoices.filter(v => (v.lang.includes('zh') || v.lang.includes('cmn') || v.name.includes('Chinese')) && (v.lang.includes('TW') || v.name.toLowerCase().includes('taiwan')));
             if (baseVoices.length === 0) baseVoices = allVoices.filter(v => v.lang.includes('zh') || v.lang.includes('cmn') || v.name.includes('Chinese'));
             
-            if (isAndroid) {
-                // 🔥 Android 安全模式：強制過濾出本機端 (localService) 語音，徹底摒棄不穩定的網路語音 🔥
-                const localVoices = baseVoices.filter(v => v.localService);
-                voices = localVoices.length > 0 ? localVoices : baseVoices;
-            } else {
-                const priorityKeywords = ['HsiaoChen', 'HsiaoYu', 'Online', 'Natural', 'Premium'];
-                const premiumVoices = baseVoices.filter(v => priorityKeywords.some(keyword => v.name.includes(keyword)));
-                voices = premiumVoices.length > 0 ? premiumVoices : baseVoices;
-            }
+            const priorityKeywords = ['HsiaoChen', 'HsiaoYu', 'Online', 'Natural', 'Premium'];
+            const premiumVoices = baseVoices.filter(v => priorityKeywords.some(keyword => v.name.includes(keyword)));
+            
+            voices = premiumVoices.length > 0 ? premiumVoices : baseVoices;
             
             dom.voiceSelector.innerHTML = voices.length ? '' : '<option value="">(系統無可用中文語音)</option>';
             if (!voices.length) return;
@@ -1699,6 +1690,6 @@
 
         window.addEventListener('DOMContentLoaded', init);
     </script>
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.23</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.20</div>
 </body>
 </html>
