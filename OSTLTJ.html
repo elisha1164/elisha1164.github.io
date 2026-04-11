@@ -1,11 +1,4 @@
 <!DOCTYPE html>
-<!-- v1.22 實作 Android 安全模式 (Part 2)：導入 safeStartSpeech 安全緩衝機制，避免 cancel() 與 speak() 衝撞 -->
-<!-- v1.21 實作 Android 安全模式：解除語音物件強制綁定，純依賴 lang 屬性交由原生處理防崩潰 -->
-<!-- v1.20 退回至 v1.18 語音處理邏輯 (移除 safeStartSpeech 緩衝機制) -->
-<!-- v1.19 終極修復 Android TTS 崩潰假死問題：導入 safeStartSpeech 緩衝機制與 onerror 限速防護 -->
-<!-- v1.18 於 TTS onerror 事件加入 UI 報錯機制，協助排查 Android 語音假死問題 -->
-<!-- v1.17 移除本地英文資料，改為純中文閱讀器，並加入外部原文連結 -->
-<!-- v1.16 將「原始英文 Introduction」縮簡為「Introduction」 -->
 <!-- v1.15 將「靈修內容」等相關詞彙替換為「引導短文」與「讀經計畫」 -->
 <!-- v1.14 調整 displayTitle 顯示格式，移除重複的天數並加入數字空格 -->
 <!-- v1.13 實作 TTS 優先匹配池，篩選並保留高品質自然語音 -->
@@ -105,7 +98,7 @@
                     </button>
                     <div class="border-t border-stone-100 my-1"></div>
                     <button id="exportBtn" class="w-full text-left px-4 py-2 text-sm text-stone-700 hover:bg-stone-50 transition flex items-center">
-                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3h-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                         匯出進度與設定
                     </button>
                     <button id="importBtn" class="w-full text-left px-4 py-2 text-sm text-stone-700 hover:bg-stone-50 transition flex items-center">
@@ -180,7 +173,7 @@
                     </div>
                 </div>
 
-                <!-- 單一視圖區塊 -->
+                <!-- 單一視圖切換區塊 -->
                 <div id="readingGrid" class="py-6 flex flex-col flex-grow transition-all duration-300">
                     <!-- 頂部工具列 -->
                     <div class="px-6">
@@ -190,8 +183,8 @@
                             </h4>
                             <div class="flex gap-2">
                                 <button id="toggleOriginalBtn" class="bg-stone-200 text-stone-700 hover:bg-stone-300 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center shadow-sm">
-                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
-                                    <span>檢視原文</span>
+                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path></svg>
+                                    <span id="toggleOriginalText">顯示英文原文</span>
                                 </button>
                                 <button id="playBtn" class="bg-stone-800 text-white hover:bg-stone-700 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center shadow-sm">
                                     <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
@@ -207,6 +200,7 @@
 
                     <!-- 內容顯示區 -->
                     <div id="translatedText" class="px-6 w-full flex-grow min-h-[150px] max-h-[600px] overflow-y-auto text-stone-800 leading-relaxed text-lg whitespace-pre-wrap"></div>
+                    <div id="originalText" class="px-6 w-full flex-grow min-h-[150px] max-h-[600px] overflow-y-auto text-stone-600 leading-relaxed text-lg whitespace-pre-wrap font-serif hidden"></div>
                 </div>
             </div>
 
@@ -408,6 +402,7 @@
                     </label>
                 </div>
                 
+                <!-- 🔥 新增：在精靈中顯示預計完成日期 🔥 -->
                 <div class="bg-amber-50 text-amber-800 p-3 rounded-lg text-sm mb-6 border border-amber-200 shadow-sm text-center font-medium">
                     <span id="wizardEstimatedCompletionText">讀經計畫預計完成日期：計算中...</span>
                 </div>
@@ -502,6 +497,7 @@
         let voices = []; 
         let readProgress = JSON.parse(localStorage.getItem('gemini_read_progress') || '{}');
         let restDays = JSON.parse(localStorage.getItem('gemini_rest_days') || '[]');
+        let currentViewMode = 'chinese'; 
         let activeVideoLang = 'ch';
         let wakeLock = null;
 
@@ -564,6 +560,7 @@
             playAllBtn: document.getElementById('playAllBtn'),
             stopAllBtn: document.getElementById('stopAllBtn'),
             contentTitle: document.getElementById('contentTitle'),
+            originalText: document.getElementById('originalText'),
             translatedText: document.getElementById('translatedText'),
             videoSection: document.getElementById('videoSection'),
             videoTitle: document.getElementById('videoTitle'),
@@ -583,6 +580,7 @@
             playReflectionText: document.getElementById('playReflectionText'),
             stopReflectionBtn: document.getElementById('stopReflectionBtn'),
             toggleOriginalBtn: document.getElementById('toggleOriginalBtn'),
+            toggleOriginalText: document.getElementById('toggleOriginalText'),
             settingsBtn: document.getElementById('settingsBtn'),
             settingsMenu: document.getElementById('settingsMenu'),
             exportBtn: document.getElementById('exportBtn'),
@@ -785,6 +783,39 @@
         
         window.closeFootnoteModal = function() {
             document.getElementById('footnoteModal').classList.add('hidden');
+        }
+
+        function setViewMode(mode) {
+            currentViewMode = mode;
+            const data = bibleData[currentDay];
+            const isEn = mode === 'english';
+            
+            if (isEn) {
+                dom.originalText.classList.remove('hidden');
+                dom.translatedText.classList.add('hidden');
+                dom.contentTitle.innerHTML = '📝 原始英文 Introduction';
+                dom.toggleOriginalText.textContent = "顯示中文翻譯";
+            } else {
+                dom.originalText.classList.add('hidden');
+                dom.translatedText.classList.remove('hidden');
+                dom.contentTitle.innerHTML = '📝 引導短文';
+                dom.toggleOriginalText.textContent = "顯示英文原文";
+            }
+            
+            if (data) {
+                const qText = isEn ? data.contentEn.questions : data.contentCh.questions;
+                if (qText) {
+                    dom.reflectionText.textContent = qText;
+                    dom.reflectionSection.classList.remove('hidden');
+                } else {
+                    dom.reflectionSection.classList.add('hidden');
+                }
+            }
+
+            if (dom.reflectionTitle) dom.reflectionTitle.innerHTML = isEn ? '🤔 Reflection Questions' : '🤔 反思問題';
+            if (dom.playReflectionText) dom.playReflectionText.textContent = isEn ? 'Read Questions' : '朗讀問題';
+
+            if (synth.speaking) handleStop();
         }
 
         function updateVideoDisplay(vData, lang) {
@@ -1034,9 +1065,7 @@
             dom.playReflectionBtn.addEventListener('click', handlePlayReflection);
             dom.stopReflectionBtn.addEventListener('click', handleStop);
             
-            dom.toggleOriginalBtn.addEventListener('click', () => {
-                window.open(`https://www.bible.com/reading-plans/63058-bibleproject-one-story-that-leads-to-jesus/day/${currentDay}`, '_blank');
-            });
+            dom.toggleOriginalBtn.addEventListener('click', () => setViewMode(currentViewMode === 'chinese' ? 'english' : 'chinese'));
 
             dom.toggleVideoBtn.addEventListener('click', () => {
                 if (!videoData[currentDay]) return;
@@ -1215,15 +1244,14 @@
             };
 
             try {
-                // 🔥 移除 bible_reading_plan.csv 讀取，徹底瘦身 🔥
-                const [metaStr, transStr, rcuvJsonData, videoStr] = await Promise.all([
-                    fetchCsv('./bible_metadata.csv'),
+                const [metaStr, contentStr, transStr, rcuvJsonData, videoStr] = await Promise.all([
+                    fetchCsv('./bible_metadata.csv'), fetchCsv('./bible_reading_plan.csv'),
                     fetchCsv('./bible_reading_plan_translated.csv'), fetchJson('./rcuv.json'), fetchCsv('./bible_reading_plan_videos.csv')
                 ]);
-                if (!metaStr || !transStr) throw new Error("主要檔案讀取失敗 (可能缺少 bible_reading_plan_translated.csv)");
+                if (!metaStr || !contentStr || !transStr) throw new Error("主要檔案讀取失敗 (可能缺少 bible_reading_plan_translated.csv)");
 
                 const parseOpts = { header: true, skipEmptyLines: true, transformHeader: h => cleanString(h).toLowerCase() };
-                const [meta, trans] = [Papa.parse(metaStr, parseOpts).data, Papa.parse(transStr, parseOpts).data];
+                const [meta, content, trans] = [Papa.parse(metaStr, parseOpts).data, Papa.parse(contentStr, parseOpts).data, Papa.parse(transStr, parseOpts).data];
                 
                 rcuvIndex = rcuvJsonData || {};
 
@@ -1255,10 +1283,15 @@
                         psalms: row.psalms || "",
                         parsedChapters: parseChaptersWithVerses(row.chapters),
                         parsedPsalms: parseChaptersWithVerses(row.psalms),
-                        contentCh: { main: "", questions: "" } // 移除 contentEn
+                        contentEn: { main: "", questions: "" }, 
+                        contentCh: { main: "", questions: "" }
                     };
                 });
                 
+                content.forEach(row => { 
+                    const d = parseInt(row.day); 
+                    if (!isNaN(d) && bibleData[d]) bibleData[d].contentEn = splitContentAndQuestions(row.content || ""); 
+                });
                 trans.forEach(row => { 
                     const d = parseInt(row.day); 
                     if (!isNaN(d) && bibleData[d]) bibleData[d].contentCh = splitContentAndQuestions(row.chinese_translation || ""); 
@@ -1316,17 +1349,9 @@
                 }
             } else dom.absoluteDateDisplay.classList.add('hidden');
             
-            dom.translatedText.textContent = data.contentCh.main || "此天無引導短文。";
-
-            if (data) {
-                const qText = data.contentCh.questions;
-                if (qText) {
-                    dom.reflectionText.textContent = qText;
-                    dom.reflectionSection.classList.remove('hidden');
-                } else {
-                    dom.reflectionSection.classList.add('hidden');
-                }
-            }
+            dom.originalText.textContent = data.contentEn.main || "此天無英文引導短文。";
+            dom.translatedText.textContent = data.contentCh.main || "此天無中文引導短文。";
+            setViewMode('chinese'); 
 
             const vData = videoData[day];
             activeVideoLang = (vData && vData.chLink) ? 'ch' : 'en';
@@ -1411,6 +1436,7 @@
             
             // 🔥 重置所有可捲動區塊的捲動軸至頂部，並平滑捲動視窗
             dom.scriptureText.scrollTop = 0;
+            dom.originalText.scrollTop = 0;
             dom.translatedText.scrollTop = 0;
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
@@ -1444,22 +1470,8 @@
             }
         }
 
-        // 🔥 Android 安全模式：安全啟動緩衝機制，防禦 cancel() 假死陷阱 🔥
-        function safeStartSpeech(callback) {
-            const isAndroid = getSystemInfo().os === 'Android';
-            if (synth.speaking || synth.pending) {
-                synth.cancel();
-                // 這是解決 Android TTS synthesis-failed 的核心：給予底層引擎清理緩衝區的時間
-                setTimeout(callback, isAndroid ? 300 : 50);
-            } else {
-                callback();
-            }
-        }
-
-        function speakTextChunks(text, onStart, onEnd, mappings = null) {
+        function speakTextChunks(text, langMode, onStart, onEnd, mappings = null) {
             if (!text) return;
-            
-            const isAndroid = getSystemInfo().os === 'Android';
 
             const rawChunks = [];
             let match;
@@ -1510,11 +1522,16 @@
                 const utterance = new SpeechSynthesisUtterance(chunkObj.text);
                 window._currentUtterance = utterance; // 🔥 防止 iOS/Safari 的 Garbage Collection 中斷語音
 
-                // 🔥 Android 安全模式：若非 Android 裝置，才強制綁定所選的語音物件 🔥
-                if (!isAndroid) {
+                if (langMode === 'en') {
+                    const allVoices = synth.getVoices();
+                    let enV = allVoices.find(v => (v.lang === 'en-US' || v.lang === 'en-GB') && (v.name.includes('Google') || v.name.includes('Online') || v.name.includes('Premium'))) || 
+                              allVoices.find(v => v.lang === 'en-US' || v.lang === 'en-GB') || allVoices.find(v => v.lang.startsWith('en'));
+                    if (enV) utterance.voice = enV;
+                    utterance.lang = 'en-US'; 
+                } else {
                     if (dom.voiceSelector.value !== "" && voices[dom.voiceSelector.value]) utterance.voice = voices[dom.voiceSelector.value];
+                    utterance.lang = 'zh-TW';
                 }
-                utterance.lang = 'zh-TW';
                 
                 utterance.rate = parseFloat(dom.rateSelector.value);
                 
@@ -1540,17 +1557,7 @@
                 utterance.onend = () => { if (isCanceled) return; idx++; next(); };
                 utterance.onerror = (e) => { 
                     if (isCanceled || e.error === 'canceled' || e.error === 'interrupted') return;
-                    console.error("語音播放錯誤:", e);
-                    // 將錯誤訊息顯示在畫面頂部供 Debug
-                    dom.statusText.innerHTML = `<span class="text-red-600 font-bold bg-red-50 border border-red-200 px-3 py-1.5 rounded-lg shadow-sm">⚠️ 語音引擎中斷，錯誤代碼: ${e.error}</span>`;
-                    dom.statusText.classList.remove('hidden');
-                    
-                    // 🔥 Android 安全模式：加入 onerror 限速防護，避免瞬間無限空轉
-                    if (isAndroid) {
-                        setTimeout(() => { idx++; next(); }, 500);
-                    } else {
-                        idx++; next(); 
-                    }
+                    console.error("語音播放錯誤:", e); idx++; next(); 
                 };
                 
                 try { synth.speak(utterance); } catch (e) { console.error("TTS 引擎拒絕發聲:", e); idx++; next(); }
@@ -1564,11 +1571,13 @@
             
             dom.playAllBtn.classList.add('hidden');
             dom.stopAllBtn.classList.remove('hidden');
+
+            const isEn = currentViewMode === 'english';
             
-            const devTxt = bibleData[currentDay].contentCh.main;
+            const devTxt = isEn ? bibleData[currentDay].contentEn.main : bibleData[currentDay].contentCh.main;
             if (devTxt && devTxt.trim() !== "") {
                 playAllQueue.push(() => {
-                    speakTextChunks(`${dom.displayTitle.textContent}。 引導短文。\n\n${devTxt}`,
+                    speakTextChunks(`${dom.displayTitle.textContent}。 ${isEn ? 'Introduction' : '引導短文'}。\n\n${devTxt}`, isEn ? 'en' : 'zh',
                         () => { requestWakeLock(); setActivePlayingUI('content'); },
                         processPlayAllQueue
                     );
@@ -1590,7 +1599,7 @@
 
             if (scrMappings.length > 0) {
                 playAllQueue.push(() => {
-                    speakTextChunks(scrTxt,
+                    speakTextChunks(scrTxt, 'zh',
                         () => { requestWakeLock(); setActivePlayingUI('scripture'); },
                         processPlayAllQueue,
                         scrMappings 
@@ -1598,10 +1607,10 @@
                 });
             }
 
-            const refTxt = bibleData[currentDay].contentCh.questions;
+            const refTxt = isEn ? bibleData[currentDay].contentEn.questions : bibleData[currentDay].contentCh.questions;
             if (refTxt && refTxt.trim() !== "") {
                 playAllQueue.push(() => {
-                    speakTextChunks(`反思問題。\n\n${refTxt}`,
+                    speakTextChunks(`${isEn ? 'Reflection Questions' : '反思問題'}。\n\n${refTxt}`, isEn ? 'en' : 'zh',
                         () => { requestWakeLock(); setActivePlayingUI('reflection'); },
                         processPlayAllQueue
                     );
@@ -1617,7 +1626,7 @@
                         promptTxt += `\n\n老張批註。\n${vData.laozhangNote.trim()}`;
                     }
 
-                    speakTextChunks(promptTxt,
+                    speakTextChunks(promptTxt, 'zh',
                         () => { requestWakeLock(); setActivePlayingUI('video'); },
                         processPlayAllQueue
                     );
@@ -1625,7 +1634,8 @@
             }
 
             if (playAllQueue.length > 0) {
-                safeStartSpeech(processPlayAllQueue);
+                if (synth.speaking) synth.cancel();
+                processPlayAllQueue();
             } else {
                 handleStop();
             }
@@ -1652,15 +1662,14 @@
 
         function handlePlayContent() {
             isPlayingAll = false; playAllQueue = []; 
-            const txt = bibleData[currentDay].contentCh.main;
+            const isEn = currentViewMode === 'english';
+            const txt = isEn ? bibleData[currentDay].contentEn.main : bibleData[currentDay].contentCh.main;
             if (!txt || txt.trim() === "") return;
-            
-            safeStartSpeech(() => {
-                speakTextChunks(`${dom.displayTitle.textContent}。 引導短文。\n\n${txt}`,
-                    () => { requestWakeLock(); setActivePlayingUI('content'); dom.playAllBtn.classList.add('hidden'); dom.stopAllBtn.classList.remove('hidden'); },
-                    handleStop
-                );
-            });
+            if (synth.speaking) synth.cancel();
+            speakTextChunks(`${dom.displayTitle.textContent}。 ${isEn ? 'Introduction' : '引導短文'}。\n\n${txt}`, isEn ? 'en' : 'zh',
+                () => { requestWakeLock(); setActivePlayingUI('content'); dom.playAllBtn.classList.add('hidden'); dom.stopAllBtn.classList.remove('hidden'); },
+                handleStop
+            );
         }
 
         function handlePlayScripture() {
@@ -1680,26 +1689,24 @@
             
             if (mappings.length === 0) return;
             
-            safeStartSpeech(() => {
-                speakTextChunks(txt,
-                    () => { requestWakeLock(); setActivePlayingUI('scripture'); dom.playAllBtn.classList.add('hidden'); dom.stopAllBtn.classList.remove('hidden'); },
-                    handleStop,
-                    mappings 
-                );
-            });
+            if (synth.speaking) synth.cancel();
+            speakTextChunks(txt, 'zh',
+                () => { requestWakeLock(); setActivePlayingUI('scripture'); dom.playAllBtn.classList.add('hidden'); dom.stopAllBtn.classList.remove('hidden'); },
+                handleStop,
+                mappings 
+            );
         }
 
         function handlePlayReflection() {
             isPlayingAll = false; playAllQueue = [];
-            const txt = bibleData[currentDay].contentCh.questions;
+            const isEn = currentViewMode === 'english';
+            const txt = isEn ? bibleData[currentDay].contentEn.questions : bibleData[currentDay].contentCh.questions;
             if (!txt || txt.trim() === "") return;
-            
-            safeStartSpeech(() => {
-                speakTextChunks(`反思問題。\n\n${txt}`,
-                    () => { requestWakeLock(); setActivePlayingUI('reflection'); dom.playAllBtn.classList.add('hidden'); dom.stopAllBtn.classList.remove('hidden'); },
-                    handleStop
-                );
-            });
+            if (synth.speaking) synth.cancel();
+            speakTextChunks(`${isEn ? 'Reflection Questions' : '反思問題'}。\n\n${txt}`, isEn ? 'en' : 'zh',
+                () => { requestWakeLock(); setActivePlayingUI('reflection'); dom.playAllBtn.classList.add('hidden'); dom.stopAllBtn.classList.remove('hidden'); },
+                handleStop
+            );
         }
 
         function handleStop() {
@@ -1719,6 +1726,6 @@
 
         window.addEventListener('DOMContentLoaded', init);
     </script>
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.22</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.15</div>
 </body>
 </html>
