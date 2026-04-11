@@ -1,3 +1,5 @@
+<!-- Version: 1.1 -->
+<!-- 主旨：新增 JavaScript 動態修改 <title> 標籤功能，以配合中英文版本切換 -->
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -657,6 +659,9 @@
     </footer>
 
     <script>
+        const titleZh = "SBTS 赴美神學裝備財務企劃";
+        const titleEn = "SBTS Financial Proposal";
+
         function toggleLang() {
             const body = document.body;
             const url = new URL(window.location);
@@ -664,9 +669,11 @@
             if (body.getAttribute('data-lang') === 'zh') {
                 body.setAttribute('data-lang', 'en');
                 url.searchParams.set('en', '1');
+                document.title = titleEn;
             } else {
                 body.setAttribute('data-lang', 'zh');
                 url.searchParams.delete('en');
+                document.title = titleZh;
             }
             
             // 使用 replaceState 更新網址，不會產生瀏覽歷史堆疊，也不會重新載入網頁
@@ -678,6 +685,9 @@
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.get('en') === '1') {
                 document.body.setAttribute('data-lang', 'en');
+                document.title = titleEn;
+            } else {
+                document.title = titleZh;
             }
         });
     </script>
