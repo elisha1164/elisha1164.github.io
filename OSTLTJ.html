@@ -1,4 +1,6 @@
 <!DOCTYPE html>
+<!-- v1.20 退回至 v1.18 語音處理邏輯 (移除 safeStartSpeech 緩衝機制) -->
+<!-- v1.19 終極修復 Android TTS 崩潰假死問題：導入 safeStartSpeech 緩衝機制與 onerror 限速防護 -->
 <!-- v1.18 於 TTS onerror 事件加入 UI 報錯機制，協助排查 Android 語音假死問題 -->
 <!-- v1.17 移除本地英文資料，改為純中文閱讀器，並加入外部原文連結 -->
 <!-- v1.16 將「原始英文 Introduction」縮簡為「Introduction」 -->
@@ -101,7 +103,7 @@
                     </button>
                     <div class="border-t border-stone-100 my-1"></div>
                     <button id="exportBtn" class="w-full text-left px-4 py-2 text-sm text-stone-700 hover:bg-stone-50 transition flex items-center">
-                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3h-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                         匯出進度與設定
                     </button>
                     <button id="importBtn" class="w-full text-left px-4 py-2 text-sm text-stone-700 hover:bg-stone-50 transition flex items-center">
@@ -781,39 +783,6 @@
         
         window.closeFootnoteModal = function() {
             document.getElementById('footnoteModal').classList.add('hidden');
-        }
-
-        function setViewMode(mode) {
-            currentViewMode = mode;
-            const data = bibleData[currentDay];
-            const isEn = mode === 'english';
-            
-            if (isEn) {
-                dom.originalText.classList.remove('hidden');
-                dom.translatedText.classList.add('hidden');
-                dom.contentTitle.innerHTML = '📝 Introduction';
-                dom.toggleOriginalText.textContent = "顯示中文翻譯";
-            } else {
-                dom.originalText.classList.add('hidden');
-                dom.translatedText.classList.remove('hidden');
-                dom.contentTitle.innerHTML = '📝 引導短文';
-                dom.toggleOriginalText.textContent = "顯示英文原文";
-            }
-            
-            if (data) {
-                const qText = isEn ? data.contentEn.questions : data.contentCh.questions;
-                if (qText) {
-                    dom.reflectionText.textContent = qText;
-                    dom.reflectionSection.classList.remove('hidden');
-                } else {
-                    dom.reflectionSection.classList.add('hidden');
-                }
-            }
-
-            if (dom.reflectionTitle) dom.reflectionTitle.innerHTML = isEn ? '🤔 Reflection Questions' : '🤔 反思問題';
-            if (dom.playReflectionText) dom.playReflectionText.textContent = isEn ? 'Read Questions' : '朗讀問題';
-
-            if (synth.speaking) handleStop();
         }
 
         function updateVideoDisplay(vData, lang) {
@@ -1553,7 +1522,7 @@
                 utterance.onerror = (e) => { 
                     if (isCanceled || e.error === 'canceled' || e.error === 'interrupted') return;
                     console.error("語音播放錯誤:", e);
-                    // 🔥 新增：將錯誤訊息顯示在畫面頂部供 Debug
+                    // 將錯誤訊息顯示在畫面頂部供 Debug
                     dom.statusText.innerHTML = `<span class="text-red-600 font-bold bg-red-50 border border-red-200 px-3 py-1.5 rounded-lg shadow-sm">⚠️ 語音引擎中斷，錯誤代碼: ${e.error}</span>`;
                     dom.statusText.classList.remove('hidden');
                     idx++; next(); 
@@ -1721,6 +1690,6 @@
 
         window.addEventListener('DOMContentLoaded', init);
     </script>
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.18</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.20</div>
 </body>
 </html>
