@@ -1,4 +1,6 @@
 <!DOCTYPE html>
+<!-- v1.26 修復主進度為詩篇時，單位錯誤顯示為「章」的問題 (改為「篇」) -->
+<!-- v1.25 修復詩篇特定節數的標題顯示格式問題 (例如 119:1-32) -->
 <!-- v1.24 全面退回至 v1.18 語音處理邏輯 (移除所有 Android 安全模式相關的 workaround，靜待官方修復) -->
 <!-- v1.23 實作 Android 安全模式 (Part 3)：作業系統隔離語音篩選，Android 強制選用 localService 本機語音 -->
 <!-- v1.22 實作 Android 安全模式 (Part 2)：導入 safeStartSpeech 安全緩衝機制，避免 cancel() 與 speak() 衝撞 -->
@@ -1300,9 +1302,20 @@
             dom.readProgressCheckbox.checked = isRead;
             
             const formattedChapters = data.chapters ? data.chapters.replace(/-/g, " 到 ") : "";
-            const chapStr = formattedChapters ? ` ${formattedChapters} 章` : "";
-            const formattedPsalms = data.psalms ? data.psalms.replace(/-/g, " 到 ") : "";
-            const psalmStr = formattedPsalms ? `、詩篇 ${formattedPsalms} 篇` : "";
+            const chapterUnit = (data.book === '詩篇') ? '篇' : '章';
+            const chapStr = formattedChapters ? ` ${formattedChapters} ${chapterUnit}` : "";
+            
+            let psalmStr = "";
+            if (data.psalms) {
+                if (data.psalms.includes(':')) {
+                    const [pChap, pVerse] = data.psalms.split(':');
+                    const formattedVerses = pVerse.replace(/-/g, " 到 ");
+                    psalmStr = `、詩篇 ${pChap} 篇 ${formattedVerses} 節`;
+                } else {
+                    const formattedPsalms = data.psalms.replace(/-/g, " 到 ");
+                    psalmStr = `、詩篇 ${formattedPsalms} 篇`;
+                }
+            }
             dom.displayTitle.textContent = `今日進度：${data.book}${chapStr}${psalmStr}`;
             
             updateHeaderVisuals(day, isRead);
@@ -1694,6 +1707,6 @@
 
         window.addEventListener('DOMContentLoaded', init);
     </script>
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.24</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.25</div>
 </body>
 </html>
