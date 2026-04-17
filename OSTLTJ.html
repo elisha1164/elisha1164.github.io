@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v1.27 修復 Day 348 「約翰二、三書」的合併書卷解析問題，並更新右下角版本號 -->
 <!-- v1.26 修復主進度為詩篇時，單位錯誤顯示為「章」的問題 (改為「篇」) -->
 <!-- v1.25 修復詩篇特定節數的標題顯示格式問題 (例如 119:1-32) -->
 <!-- v1.24 全面退回至 v1.18 語音處理邏輯 (移除所有 Android 安全模式相關的 workaround，靜待官方修復) -->
@@ -1370,21 +1371,28 @@
             if (Object.keys(rcuvIndex).length > 0) {
                 const tBookClean = cleanString(data.book);
                 
-                let mainV = [];
-                if (tBookClean && rcuvIndex[tBookClean]) {
-                    data.parsedChapters.forEach(tc => {
-                        const chapterData = rcuvIndex[tBookClean][tc.ch];
-                        if (chapterData) {
-                            const verseKeys = Object.keys(chapterData).map(Number).sort((a, b) => a - b);
-                            verseKeys.forEach(vNum => {
-                                if (tc.vStart !== null && tc.vEnd !== null) {
-                                    if (vNum < tc.vStart || vNum > tc.vEnd) return;
-                                }
-                                mainV.push({ b: tBookClean, c: tc.ch, v: vNum.toString(), t: chapterData[vNum.toString()] });
-                            });
-                        }
-                    });
+                let targetBooks = [tBookClean];
+                if (tBookClean === '約翰二、三書') {
+                    targetBooks = ['約翰二書', '約翰三書'];
                 }
+                
+                let mainV = [];
+                targetBooks.forEach(bookName => {
+                    if (bookName && rcuvIndex[bookName]) {
+                        data.parsedChapters.forEach(tc => {
+                            const chapterData = rcuvIndex[bookName][tc.ch];
+                            if (chapterData) {
+                                const verseKeys = Object.keys(chapterData).map(Number).sort((a, b) => a - b);
+                                verseKeys.forEach(vNum => {
+                                    if (tc.vStart !== null && tc.vEnd !== null) {
+                                        if (vNum < tc.vStart || vNum > tc.vEnd) return;
+                                    }
+                                    mainV.push({ b: bookName, c: tc.ch, v: vNum.toString(), t: chapterData[vNum.toString()] });
+                                });
+                            }
+                        });
+                    }
+                });
                 
                 let psalmV = [];
                 if (data.parsedPsalms.length > 0 && rcuvIndex['詩篇']) {
@@ -1707,6 +1715,6 @@
 
         window.addEventListener('DOMContentLoaded', init);
     </script>
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.25</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.27</div>
 </body>
 </html>
