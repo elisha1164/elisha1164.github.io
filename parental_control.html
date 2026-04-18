@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<!-- 版本號: 2.0 | 修改主旨: 將 Markdown 指南轉換為互動式 HTML 網頁，加入平台選擇功能與現代化排版 -->
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>兒童手機家長監護完整設定指南</title>
+    <!-- 引入 Tailwind CSS 進行現代化快速排版 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Lucide Icons 提供視覺圖示 -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            900: '#1e3a8a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* 隱藏元素的過渡效果基礎類別 */
+        .fade-in {
+            animation: fadeIn 0.4s ease-in-out forwards;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .step-number {
+            @apply inline-flex items-center justify-center w-6 h-6 rounded-full bg-brand-100 text-brand-700 font-bold text-sm mr-2 flex-shrink-0;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased leading-relaxed">
+
+    <!-- 主容器 -->
+    <main class="max-w-3xl mx-auto p-4 sm:p-6 md:p-8 min-h-screen flex flex-col justify-center">
+
+        <!-- 選擇畫面 (首頁) -->
+        <div id="view-selection" class="fade-in space-y-8 py-10">
+            <div class="text-center space-y-4">
+                <div class="mx-auto w-16 h-16 bg-brand-100 rounded-2xl flex items-center justify-center mb-6">
+                    <i data-lucide="shield-check" class="w-8 h-8 text-brand-600"></i>
+                </div>
+                <h1 class="text-3xl sm:text-4xl font-bold text-slate-900 tracking-tight">兒童手機家長監護設定指南</h1>
+                <p class="text-lg text-slate-600 max-w-xl mx-auto">
+                    這就像是給家長一個「遠端遙控器」，可以從您的手機，直接管好小孩手機的使用時間和內容。<br>
+                    <span class="font-medium text-brand-700 mt-2 block">請先選擇您小孩使用的手機種類：</span>
+                </p>
+            </div>
+
+            <div class="grid sm:grid-cols-2 gap-6 mt-8">
+                <!-- Android 選項 -->
+                <button onclick="switchView('view-android')" class="group relative bg-white border border-slate-200 rounded-2xl p-6 shadow-sm hover:shadow-xl hover:border-brand-500 transition-all duration-300 text-left flex flex-col items-center text-center">
+                    <div class="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                        <i data-lucide="smartphone" class="w-10 h-10 text-green-600"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-slate-900 mb-2">Android 安卓手機</h2>
+                    <p class="text-slate-500">例如：三星、OPPO、ASUS、Sony、Google Pixel 等品牌</p>
+                    <div class="mt-6 px-6 py-2 bg-slate-50 text-brand-600 rounded-full font-medium group-hover:bg-brand-50 transition-colors">
+                        查看設定教學 →
+                    </div>
+                </button>
+
+                <!-- iOS 選項 -->
+                <button onclick="switchView('view-ios')" class="group relative bg-white border border-slate-200 rounded-2xl p-6 shadow-sm hover:shadow-xl hover:border-slate-800 transition-all duration-300 text-left flex flex-col items-center text-center">
+                    <div class="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                        <i data-lucide="apple" class="w-10 h-10 text-slate-800"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-slate-900 mb-2">Apple 蘋果手機</h2>
+                    <p class="text-slate-500">iPhone 系列手機</p>
+                    <div class="mt-6 px-6 py-2 bg-slate-50 text-slate-800 rounded-full font-medium group-hover:bg-slate-200 transition-colors">
+                        查看設定教學 →
+                    </div>
+                </button>
+            </div>
+        </div>
+
+        <!-- Android 內容畫面 -->
+        <div id="view-android" class="hidden fade-in pb-12">
+            <button onclick="switchView('view-selection')" class="inline-flex items-center text-brand-600 hover:text-brand-800 font-medium mb-6 transition-colors">
+                <i data-lucide="arrow-left" class="w-4 h-4 mr-2"></i> 返回選擇畫面
+            </button>
+            
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="bg-green-50 px-6 py-8 border-b border-green-100 flex items-center">
+                    <i data-lucide="smartphone" class="w-10 h-10 text-green-600 mr-4"></i>
+                    <div>
+                        <h1 class="text-2xl font-bold text-slate-900">Android 安卓手機設定指南</h1>
+                        <p class="text-green-800 mt-1">使用官方免費工具「Google Family Link」</p>
+                    </div>
+                </div>
+
+                <div class="p-6 sm:p-8 space-y-10">
+                    <!-- 第一階段 -->
+                    <section>
+                        <h2 class="text-xl font-bold text-brand-700 border-b-2 border-brand-100 pb-2 mb-4">第一階段：一開始的準備與手機連線</h2>
+                        <p class="mb-4 text-slate-600">要讓遙控器生效，我們必須先把家長的手機和小孩的手機「綁定」在一起。</p>
+                        
+                        <div class="space-y-6">
+                            <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                <h3 class="font-bold text-slate-800 mb-3 flex items-center"><i data-lucide="user" class="w-5 h-5 mr-2 text-brand-500"></i> 1. 家長手機的準備動作</h3>
+                                <ul class="space-y-3 text-slate-700">
+                                    <li class="flex items-start"><span class="step-number">1</span> 打開您手機上的應用程式商店（安卓手機請找「Play 商店」，蘋果手機請找「App Store」）。</li>
+                                    <li class="flex items-start"><span class="step-number">2</span> 在搜尋欄輸入 <strong>Family Link</strong>，找到一個圖示是「藍綠黃色組成的風箏」的 App，點擊「安裝」或「取得」。</li>
+                                    <li class="flex items-start"><span class="step-number">3</span> 下載好之後打開它，按照畫面上的指示，登入您自己的 Google 帳號（就是您的 Gmail 信箱和密碼）。</li>
+                                </ul>
+                            </div>
+
+                            <div class="bg-orange-50 p-4 rounded-xl border border-orange-100">
+                                <h3 class="font-bold text-orange-900 mb-3 flex items-center"><i data-lucide="alert-triangle" class="w-5 h-5 mr-2 text-orange-500"></i> 2. 小孩手機的準備動作（非常重要）</h3>
+                                <ul class="space-y-2 text-orange-800">
+                                    <li><strong>如果是剛買的全新手機</strong>：直接開機進入設定畫面。</li>
+                                    <li><strong>如果是已經用過的舊手機</strong>：必須先將手機「恢復原廠設定」（也就是把手機資料全部清空，變成剛買來的樣子）。因為 Google 規定，要啟動嚴格的兒童保護，必須在手機乾淨的狀態下設定。
+                                    <br><span class="text-sm opacity-80">(清空路徑通常在：手機的「設定」>「系統」>「重設選項」>「清除所有資料」)</span></li>
+                                </ul>
+                            </div>
+
+                            <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                <h3 class="font-bold text-slate-800 mb-3 flex items-center"><i data-lucide="link" class="w-5 h-5 mr-2 text-brand-500"></i> 3. 開始綁定兩支手機</h3>
+                                <ul class="space-y-3 text-slate-700">
+                                    <li class="flex items-start"><span class="step-number">1</span> 小孩的手機開機後，照著畫面點擊「下一步」連上 Wi-Fi。</li>
+                                    <li class="flex items-start"><span class="step-number">2</span> 當畫面要求「登入 Google 帳號」時，<strong>請輸入小孩專屬的 Google 帳號</strong>。如果小孩沒有，畫面上有一個「建立帳號」的按鈕，請點擊並選擇「為我的孩子建立」。</li>
+                                    <li class="flex items-start"><span class="step-number">3</span> 當您輸入小孩的帳號或年齡後，系統會自動發現這是兒童，並要求「家長同意」。</li>
+                                    <li class="flex items-start"><span class="step-number">4</span> 這時畫面會請您輸入<strong>家長您的 Google 帳號與密碼</strong>來證明身分。輸入完成後，請將兩支手機放在一起，跟著畫面一直按「下一步」和「同意」，直到小孩的手機顯示進入主畫面為止。</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- 第二階段 -->
+                    <section>
+                        <h2 class="text-xl font-bold text-brand-700 border-b-2 border-brand-100 pb-2 mb-4">第二階段：管理玩手機的時間（上網與 App 限制）</h2>
+                        <p class="mb-4 text-slate-600">綁定完成後，您的小孩就可以開始用手機了。現在，請打開<strong>您（家長）手機上的 Family Link App</strong>，點一下畫面上小孩的名字，我們開始設定時間。</p>
+
+                        <div class="space-y-6">
+                            <div>
+                                <h3 class="font-bold text-slate-800 text-lg mb-2 flex items-center"><i data-lucide="clock" class="w-5 h-5 mr-2 text-brand-500"></i> 1. 每日裝置使用時間上限（每天總共能玩多久）</h3>
+                                <p class="text-slate-600 mb-2">這個功能可以限制小孩每天「總共」只能看手機螢幕幾個小時。時間一到，手機螢幕就會鎖住變黑，只剩下打電話給您的功能。</p>
+                                <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                    <p class="font-medium text-slate-700 mb-2">怎麼設定：</p>
+                                    <ol class="list-decimal list-inside space-y-1 text-slate-700 ml-2">
+                                        <li>在您的手機點選小孩的名字。</li>
+                                        <li>找到一個齒輪圖案寫著 <strong>「控制項」</strong>，點進去。</li>
+                                        <li>點選 <strong>「每日限制」</strong>。</li>
+                                        <li>把右上角的開關打開（變成藍色）。</li>
+                                        <li>您可以針對星期一到星期日，分別設定時間。例如：點選星期一，設定為「1 小時 30 分鐘」，按儲存。</li>
+                                    </ol>
+                                </div>
+                            </div>
+
+                            <div>
+                                <h3 class="font-bold text-slate-800 text-lg mb-2 flex items-center"><i data-lucide="moon" class="w-5 h-5 mr-2 text-brand-500"></i> 2. 就寢時間（睡覺時間強制鎖定）</h3>
+                                <p class="text-slate-600 mb-2">避免小孩半夜偷偷躲在棉被裡滑手機。</p>
+                                <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                    <p class="font-medium text-slate-700 mb-2">怎麼設定：</p>
+                                    <ol class="list-decimal list-inside space-y-1 text-slate-700 ml-2">
+                                        <li>一樣在 <strong>「控制項」</strong> 裡面，點選 <strong>「就寢時間」</strong>。</li>
+                                        <li>把開關打開。</li>
+                                        <li>設定睡覺的時段。例如：設定晚上 21:00 到 早上 07:00。在這個時間內，小孩的手機會被強制鎖定無法使用。</li>
+                                    </ol>
+                                </div>
+                            </div>
+
+                            <div>
+                                <h3 class="font-bold text-slate-800 text-lg mb-2 flex items-center"><i data-lucide="layout-grid" class="w-5 h-5 mr-2 text-brand-500"></i> 3. 個別 App 使用時間限制（針對特定遊戲或軟體）</h3>
+                                <p class="text-slate-600 mb-2">有些軟體（如查英文字典、聯絡用的 LINE）可以一直用，但某些遊戲（如傳說對決）或影片（如 YouTube）需要嚴格限制。</p>
+                                <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                    <p class="font-medium text-slate-700 mb-2">怎麼設定：</p>
+                                    <ol class="list-decimal list-inside space-y-2 text-slate-700 ml-2">
+                                        <li>在 <strong>「控制項」</strong> 裡面，點選 <strong>「應用程式限制」</strong>。</li>
+                                        <li>畫面上會列出小孩手機裡所有的 App。點選您想限制的 App（例如 YouTube）。</li>
+                                        <li>您會看到三個選項：
+                                            <ul class="list-disc list-inside ml-5 mt-1 text-slate-600">
+                                                <li><strong>設定上限</strong>：選擇這個，然後設定例如「每天 30 分鐘」。</li>
+                                                <li><strong>封鎖</strong>：選擇這個，這個 App 就會從小孩的手機上消失，完全打不開。</li>
+                                                <li><strong>一律允許</strong>：選擇這個，就算今天總時數已經用完了，這個 App 還是可以打開（建議把打電話的軟體設為此項）。</li>
+                                            </ul>
+                                        </li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- 第三階段 -->
+                    <section>
+                        <h2 class="text-xl font-bold text-brand-700 border-b-2 border-brand-100 pb-2 mb-4">第三階段：防亂花錢與安全保護（必設功能）</h2>
+                        
+                        <div class="space-y-6">
+                            <div>
+                                <h3 class="font-bold text-slate-800 text-lg mb-2 flex items-center"><i data-lucide="shopping-cart" class="w-5 h-5 mr-2 text-brand-500"></i> 1. 防止亂下載與亂扣款（非常重要）</h3>
+                                <p class="text-slate-600 mb-2">小孩常常會不小心點到廣告，或是下載要付費的遊戲，導致家長收到高額帳單。</p>
+                                <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                    <p class="font-medium text-slate-700 mb-2">怎麼設定：</p>
+                                    <ol class="list-decimal list-inside space-y-1 text-slate-700 ml-2">
+                                        <li>在 <strong>「控制項」</strong> 裡面，找到 <strong>「內容限制」</strong>。</li>
+                                        <li>點選 <strong>「Google Play」</strong>（這就是下載軟體的地方）。</li>
+                                        <li>點選 <strong>「需要授權才能下載和購買的內容」</strong>。</li>
+                                        <li>改選為 <strong>「所有內容」</strong>。</li>
+                                    </ol>
+                                    <div class="mt-3 p-3 bg-blue-50 text-blue-800 rounded-lg text-sm flex items-start">
+                                        <i data-lucide="info" class="w-4 h-4 mr-2 mt-0.5 flex-shrink-0"></i>
+                                        <p><strong>結果：</strong>以後小孩在手機上想下載任何軟體，他的手機畫面會跳出「要求家長核准」。您的手機會收到通知，您按「同意」，他才能下載。</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <h3 class="font-bold text-slate-800 text-lg mb-2 flex items-center"><i data-lucide="shield" class="w-5 h-5 mr-2 text-brand-500"></i> 2. 過濾色情與暴力內容</h3>
+                                <ul class="list-disc list-outside ml-5 space-y-3 text-slate-700">
+                                    <li><strong>網頁過濾：</strong>在「內容限制」>「Google Chrome」中，選擇 <strong>「嘗試封鎖露骨網站」</strong>，減少小孩搜到不良網頁的機會。</li>
+                                    <li><strong>YouTube 限制：</strong>在「內容限制」>「YouTube」中，如果是國小以下兒童，建議選擇 <strong>「YouTube Kids」</strong>（這是一個專門給兒童看的乾淨版 YouTube App）；如果是國中生，可選擇 <strong>「受到監督的服務」</strong> 來過濾成人影片。</li>
+                                </ul>
+                            </div>
+
+                            <div>
+                                <h3 class="font-bold text-slate-800 text-lg mb-2 flex items-center"><i data-lucide="map-pin" class="w-5 h-5 mr-2 text-brand-500"></i> 3. 找小孩在哪裡（即時定位）</h3>
+                                <p class="text-slate-600 mb-2">確認小孩有沒有安全到補習班或學校。</p>
+                                <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                    <p class="font-medium text-slate-700 mb-2">怎麼設定：</p>
+                                    <ol class="list-decimal list-inside space-y-1 text-slate-700 ml-2">
+                                        <li>在您家長手機的 Family Link App 底下，有一排按鈕，點選圖釘圖案的 <strong>「位置」</strong>。</li>
+                                        <li>點擊 <strong>「設定」</strong> 或 <strong>「開啟」</strong>。</li>
+                                        <li>開啟後，您就會在畫面上看到一張地圖，顯示小孩手機現在的位置。</li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </div>
+            
+            <!-- 專家建議 (共用底部風格) -->
+            <div class="mt-8 bg-brand-50 border border-brand-200 rounded-2xl p-6 sm:p-8">
+                <h2 class="text-xl font-bold text-brand-800 mb-4 flex items-center"><i data-lucide="lightbulb" class="w-6 h-6 mr-2 text-brand-500"></i> 專家實務建議</h2>
+                <ul class="space-y-4 text-brand-900">
+                    <li class="flex items-start">
+                        <i data-lucide="message-circle" class="w-5 h-5 mr-3 mt-0.5 text-brand-600 flex-shrink-0"></i>
+                        <div><strong>先溝通再設定：</strong>請不要默默把設定全部鎖死然後把手機丟給小孩。請務必直接告訴小孩：「因為保護眼睛和安全，我們設定了一天只能用一小時。」有約定在先，小孩才不會因為手機突然鎖住而大發脾氣。</div>
+                    </li>
+                    <li class="flex items-start">
+                        <i data-lucide="key" class="w-5 h-5 mr-3 mt-0.5 text-brand-600 flex-shrink-0"></i>
+                        <div><strong>密碼不要讓小孩知道：</strong>家長您自己的 Google 密碼千萬不能讓小孩知道，否則他們可以自己用您的密碼去解除這些保護設定。</div>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- iOS 內容畫面 -->
+        <div id="view-ios" class="hidden fade-in pb-12">
+            <button onclick="switchView('view-selection')" class="inline-flex items-center text-slate-600 hover:text-slate-900 font-medium mb-6 transition-colors">
+                <i data-lucide="arrow-left" class="w-4 h-4 mr-2"></i> 返回選擇畫面
+            </button>
+            
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="bg-slate-100 px-6 py-8 border-b border-slate-200 flex items-center">
+                    <i data-lucide="apple" class="w-10 h-10 text-slate-800 mr-4"></i>
+                    <div>
+                        <h1 class="text-2xl font-bold text-slate-900">Apple 蘋果手機 (iOS) 設定指南</h1>
+                        <p class="text-slate-600 mt-1">使用內建強大的「家人共享」與「螢幕使用時間」</p>
+                    </div>
+                </div>
+
+                <div class="p-6 sm:p-8 space-y-10">
+                    <div class="bg-orange-50 p-4 rounded-xl border border-orange-100 flex items-start">
+                        <i data-lucide="alert-circle" class="w-5 h-5 mr-3 mt-0.5 text-orange-600 flex-shrink-0"></i>
+                        <p class="text-orange-900">蘋果 iPhone 手機不需要額外下載 App。<strong>注意：要管蘋果手機，家長自己也必須拿蘋果手機（iPhone 或 iPad）。</strong></p>
+                    </div>
+
+                    <!-- 第一階段 -->
+                    <section>
+                        <h2 class="text-xl font-bold text-slate-800 border-b-2 border-slate-200 pb-2 mb-4">第一階段：把小孩的手機加入「家人共享」</h2>
+                        <p class="mb-4 text-slate-600">我們必須先在蘋果系統裡，承認您是家長，並幫小孩建立兒童帳號。</p>
+                        
+                        <div class="space-y-6">
+                            <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                <h3 class="font-bold text-slate-800 mb-3 flex items-center"><i data-lucide="user-plus" class="w-5 h-5 mr-2 text-slate-600"></i> 1. 家長手機的動作（建立兒童帳號）</h3>
+                                <ul class="space-y-3 text-slate-700">
+                                    <li class="flex items-start"><span class="step-number bg-slate-200 text-slate-700">1</span> 打開家長 iPhone 上灰色齒輪圖案的 <strong>「設定」</strong>。</li>
+                                    <li class="flex items-start"><span class="step-number bg-slate-200 text-slate-700">2</span> 點擊最上方 <strong>您的名字（Apple ID）</strong>。</li>
+                                    <li class="flex items-start"><span class="step-number bg-slate-200 text-slate-700">3</span> 點擊 <strong>「家人共享」</strong>。</li>
+                                    <li class="flex items-start"><span class="step-number bg-slate-200 text-slate-700">4</span> 點擊右上角的加入按鈕（或是「加入成員」），然後選擇 <strong>「建立兒童帳號」</strong>。</li>
+                                    <li class="flex items-start"><span class="step-number bg-slate-200 text-slate-700">5</span> 照著畫面指示輸入小孩的姓名和生日。
+                                        <div class="mt-2 text-sm text-slate-500 italic">(專家提醒：蘋果公司為了確認您真的是成年家長，會要求您輸入信用卡的背面的安全碼作為驗證，這不會扣款，請放心輸入。)</div>
+                                    </li>
+                                    <li class="flex items-start"><span class="step-number bg-slate-200 text-slate-700">6</span> 設定一組小孩帳號的密碼，並完成建立。</li>
+                                </ul>
+                            </div>
+
+                            <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                <h3 class="font-bold text-slate-800 mb-3 flex items-center"><i data-lucide="log-in" class="w-5 h-5 mr-2 text-slate-600"></i> 2. 小孩手機的動作（登入帳號）</h3>
+                                <p class="text-slate-700 ml-2">拿小孩的 iPhone，打開 <strong>「設定」</strong>，在最上方登入剛剛幫小孩建立好的專屬 Apple ID 帳號。登入後，兩支手機就正式連線綁定了。</p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- 第二階段 -->
+                    <section>
+                        <h2 class="text-xl font-bold text-slate-800 border-b-2 border-slate-200 pb-2 mb-4">第二階段：管理玩手機的時間（螢幕使用時間）</h2>
+                        <p class="mb-4 text-slate-600">設定好家人共享後，您就可以在「家長的手機」上直接設定小孩的使用時間。</p>
+                        
+                        <div class="mb-6 p-4 bg-blue-50 text-blue-900 rounded-lg border border-blue-100">
+                            <strong>進入設定的入口：</strong><br>
+                            打開家長手機的 <strong>「設定」</strong> > 點擊 <strong>「螢幕使用時間」</strong> > 往下滑，在「家庭」名單中點擊 <strong>小孩的名字</strong>。接下來的所有設定都在這裡進行。
+                        </div>
+
+                        <div class="space-y-6">
+                            <div>
+                                <h3 class="font-bold text-slate-800 text-lg mb-2 flex items-center"><i data-lucide="moon" class="w-5 h-5 mr-2 text-slate-600"></i> 1. 停用時間（睡覺時間強制鎖定）</h3>
+                                <p class="text-slate-600 mb-2">這相當於讓手機在指定時間「打烊」，適合用在睡覺時間。</p>
+                                <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                    <p class="font-medium text-slate-700 mb-2">怎麼設定：</p>
+                                    <ol class="list-decimal list-inside space-y-1 text-slate-700 ml-2">
+                                        <li>點擊 <strong>「停用時間」</strong>。</li>
+                                        <li>把開關打開，選擇 <strong>「排程」</strong>。</li>
+                                        <li>設定時間，例如：晚上 21:00 到 早上 07:00。</li>
+                                        <li class="text-red-600 font-medium"><strong>最重要的一步：</strong>一定要開啟 <strong>「停用期間阻擋使用」</strong>。這樣時間一到，小孩螢幕上的 App 就會全部變成暗色，無法點開。</li>
+                                    </ol>
+                                </div>
+                            </div>
+
+                            <div>
+                                <h3 class="font-bold text-slate-800 text-lg mb-2 flex items-center"><i data-lucide="clock" class="w-5 h-5 mr-2 text-slate-600"></i> 2. App 限制（每天總共能玩多久）</h3>
+                                <p class="text-slate-600 mb-2">這裡可以限制小孩玩特定軟體的時數，例如限制打遊戲每天只能 1 小時。</p>
+                                <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                    <p class="font-medium text-slate-700 mb-2">怎麼設定：</p>
+                                    <ol class="list-decimal list-inside space-y-2 text-slate-700 ml-2">
+                                        <li>回到上一頁，點擊 <strong>「App 限制」</strong>，然後點選 <strong>「加入限制」</strong>。</li>
+                                        <li>畫面上會出現分類（例如：遊戲、社群、娛樂）。您可以直接勾選「遊戲」，然後按右上角的「下一步」。</li>
+                                        <li>設定時間，例如：1 小時。</li>
+                                        <li>確認開啟 <strong>「達到限制時阻擋使用」</strong>，然後按「加入」。時間一到，所有遊戲類型的 App 就會被鎖住。</li>
+                                    </ol>
+                                </div>
+                            </div>
+
+                            <div>
+                                <h3 class="font-bold text-slate-800 text-lg mb-2 flex items-center"><i data-lucide="check-circle" class="w-5 h-5 mr-2 text-slate-600"></i> 3. 永遠允許（絕對不會被鎖住的功能）</h3>
+                                <p class="text-slate-600 mb-2">就算到了睡覺時間，小孩還是必須能打電話給您。</p>
+                                <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                    <p class="font-medium text-slate-700 mb-2">怎麼設定：</p>
+                                    <ol class="list-decimal list-inside space-y-1 text-slate-700 ml-2">
+                                        <li>點擊 <strong>「永遠允許」</strong>。</li>
+                                        <li>把「電話」、「訊息」或是需要用到的查單字軟體旁邊的 <strong>綠色「+」號</strong> 點一下，把它們加到允許名單中。</li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- 第三階段 -->
+                    <section>
+                        <h2 class="text-xl font-bold text-slate-800 border-b-2 border-slate-200 pb-2 mb-4">第三階段：防亂花錢與安全保護（必設功能）</h2>
+                        
+                        <div class="space-y-6">
+                            <div>
+                                <h3 class="font-bold text-slate-800 text-lg mb-2 flex items-center"><i data-lucide="shopping-bag" class="w-5 h-5 mr-2 text-slate-600"></i> 1. 購買要求（防止亂買遊戲或扣款）</h3>
+                                <p class="text-slate-600 mb-2">這個功能開啟後，小孩只要在 App Store 下載任何東西（包含免費軟體），家長的手機都會跳出通知，家長按指紋或刷臉同意後，小孩手機才會開始下載。</p>
+                                <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                    <p class="font-medium text-slate-700 mb-2">怎麼設定：</p>
+                                    <ol class="list-decimal list-inside space-y-1 text-slate-700 ml-2">
+                                        <li>打開家長手機的 <strong>「設定」</strong> > <strong>「家人共享」</strong>。</li>
+                                        <li>點擊 <strong>小孩的名字</strong>。</li>
+                                        <li>點擊 <strong>「購買要求」</strong>，並確認開關是 <strong>打開（綠色）</strong> 的。</li>
+                                    </ol>
+                                </div>
+                            </div>
+
+                            <div>
+                                <h3 class="font-bold text-slate-800 text-lg mb-2 flex items-center"><i data-lucide="shield" class="w-5 h-5 mr-2 text-slate-600"></i> 2. 過濾色情與暴力網站</h3>
+                                <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                    <p class="font-medium text-slate-700 mb-2">怎麼設定：</p>
+                                    <ol class="list-decimal list-inside space-y-1 text-slate-700 ml-2">
+                                        <li>在家長手機進入 <strong>「螢幕使用時間」</strong> > 點擊 <strong>小孩的名字</strong>。</li>
+                                        <li>點擊 <strong>「內容與隱私權限制」</strong>，把最上方的開關打開。</li>
+                                        <li>點擊 <strong>「商店、網頁、Siri 與 Game Center 內容」</strong>（或是舊版顯示「內容限制」）。</li>
+                                        <li>找到 <strong>「網頁內容」</strong>，點進去並選擇 <strong>「限制成人網站」</strong>。</li>
+                                    </ol>
+                                </div>
+                            </div>
+
+                            <div>
+                                <h3 class="font-bold text-slate-800 text-lg mb-2 flex items-center"><i data-lucide="map-pin" class="w-5 h-5 mr-2 text-slate-600"></i> 3. 找小孩在哪裡（即時定位）</h3>
+                                <p class="text-slate-600 mb-2">蘋果手機內建「尋找」功能，不需要另外下載。</p>
+                                <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                    <p class="font-medium text-slate-700 mb-2">怎麼查看：</p>
+                                    <ol class="list-decimal list-inside space-y-1 text-slate-700 ml-2">
+                                        <li>打開家長手機桌面上一個叫做 <strong>「尋找」</strong> 的 App（圖示是綠色雷達）。</li>
+                                        <li>點擊畫面底部的 <strong>「聯絡人」</strong> 或 <strong>「裝置」</strong>。</li>
+                                        <li>您就會在地圖上看到小孩（以及他的手機）現在的精確位置。</li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </div>
+
+            <!-- 專家建議 (共用底部風格) -->
+            <div class="mt-8 bg-slate-100 border border-slate-200 rounded-2xl p-6 sm:p-8">
+                <h2 class="text-xl font-bold text-slate-800 mb-4 flex items-center"><i data-lucide="lightbulb" class="w-6 h-6 mr-2 text-slate-600"></i> 專家實務建議</h2>
+                <ul class="space-y-4 text-slate-800">
+                    <li class="flex items-start">
+                        <i data-lucide="message-circle" class="w-5 h-5 mr-3 mt-0.5 text-slate-600 flex-shrink-0"></i>
+                        <div><strong>先溝通再設定：</strong>請不要默默把設定全部鎖死然後把手機丟給小孩。請務必直接告訴小孩：「因為保護眼睛和安全，我們設定了一天只能用一小時。」有約定在先，小孩才不會因為手機突然鎖住而大發脾氣。</div>
+                    </li>
+                    <li class="flex items-start">
+                        <i data-lucide="key" class="w-5 h-5 mr-3 mt-0.5 text-slate-600 flex-shrink-0"></i>
+                        <div><strong>密碼不要讓小孩知道：</strong>設定「螢幕使用時間」時，系統會要求您設定一組 <strong>4 位數密碼</strong>。這組密碼絕對不能跟手機解鎖密碼一樣，也不能讓小孩知道，否則小孩可以直接解除所有限制。</div>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- 頁面切換腳本 -->
+    <script>
+        // 初始化圖示
+        lucide.createIcons();
+
+        // 切換畫面的功能
+        function switchView(targetViewId) {
+            // 取得所有畫面元素
+            const selectionView = document.getElementById('view-selection');
+            const androidView = document.getElementById('view-android');
+            const iosView = document.getElementById('view-ios');
+
+            // 隱藏所有畫面
+            selectionView.classList.add('hidden');
+            androidView.classList.add('hidden');
+            iosView.classList.add('hidden');
+
+            // 移除動畫 class 準備重新觸發
+            selectionView.classList.remove('fade-in');
+            androidView.classList.remove('fade-in');
+            iosView.classList.remove('fade-in');
+
+            // 顯示目標畫面並觸發動畫
+            const targetView = document.getElementById(targetViewId);
+            if (targetView) {
+                targetView.classList.remove('hidden');
+                // 為了重新觸發 CSS 動畫，使用 setTimeout 微小延遲
+                setTimeout(() => {
+                    targetView.classList.add('fade-in');
+                }, 10);
+                
+                // 切換後捲動回頁面頂部
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }
+    </script>
+</body>
+</html>
