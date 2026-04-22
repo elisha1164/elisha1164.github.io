@@ -1,4 +1,6 @@
 <!DOCTYPE html>
+<!-- v1.32 修復匯入功能中 tts_voice_name 錯誤讀取本地端而非備份檔資料的 Bug -->
+<!-- v1.31 配合專案遷移至獨立資料夾，修正 rcuv.json 讀取路徑與頁尾首頁連結 (加上 target="_blank") -->
 <!-- v1.30 新增 PWA manifest 與 Apple Touch Icon 標籤於 HTML head 區塊 -->
 <!-- v1.29 新增 PWA 安裝按鈕於選單，並於首次完成讀經時跳出加入桌面提醒以輔助習慣養成 -->
 <!-- v1.28 修復 Day 348 「約翰二、三書」在標題顯示「1 章」的多餘字眼 -->
@@ -323,7 +325,7 @@
         </footer>
 
         <!-- 頁尾宣告 -->
-        <a href="index.html" class="mt-12 mb-4 flex flex-col items-center text-gray-400 hover:text-blue-500 transition-colors duration-300 no-underline group cursor-pointer outline-none">
+        <a href="../index.html" target="_blank" class="mt-12 mb-4 flex flex-col items-center text-gray-400 hover:text-blue-500 transition-colors duration-300 no-underline group cursor-pointer outline-none">
             <i data-lucide="wrench" class="w-10 h-10 mb-1 group-hover:rotate-12 transition-transform duration-300"></i>
             <span class="font-bold text-sm tracking-wide">老張工具間</span>
             <span class="text-[10px] font-medium tracking-widest uppercase mt-0.5">The Remnant Tinkers</span>
@@ -1329,7 +1331,7 @@
                 // 🔥 移除 bible_reading_plan.csv 讀取，徹底瘦身 🔥
                 const [metaStr, transStr, rcuvJsonData, videoStr] = await Promise.all([
                     fetchCsv('./bible_metadata.csv'),
-                    fetchCsv('./bible_reading_plan_translated.csv'), fetchJson('./rcuv.json'), fetchCsv('./bible_reading_plan_videos.csv')
+                    fetchCsv('./bible_reading_plan_translated.csv'), fetchJson('../rcuv.json'), fetchCsv('./bible_reading_plan_videos.csv')
                 ]);
                 if (!metaStr || !transStr) throw new Error("主要檔案讀取失敗 (可能缺少 bible_reading_plan_translated.csv)");
 
@@ -1826,6 +1828,6 @@
 
         window.addEventListener('DOMContentLoaded', init);
     </script>
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.30</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.32</div>
 </body>
 </html>
