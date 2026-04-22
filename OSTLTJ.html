@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>頁面跳轉中...</title>
+    
+    <!-- 1. SEO 權重轉移：告訴搜尋引擎這個頁面的新網址在哪裡 -->
+    <link rel="canonical" href="https://elisha1164.github.io/OSTLTJ/">
+    
+    <!-- 2. HTML Meta 跳轉備援：萬一使用者的瀏覽器停用 JavaScript，0秒後自動跳轉 -->
+    <meta http-equiv="refresh" content="0; url=./OSTLTJ/">
+
+    <script>
+        // 3. 核心跳轉邏輯：使用 replace() 而非 href
+        // 使用 window.location.replace 會直接覆蓋當前的歷史紀錄。
+        // 這樣使用者在新頁面點擊瀏覽器的「上一頁」時，就不會再退回這個跳轉頁而陷入無限迴圈。
+        window.location.replace('./OSTLTJ/');
+    </script>
+</head>
+<body style="font-family: sans-serif; text-align: center; padding-top: 50px; color: #555;">
+    <p>系統已升級，網址已變更。</p>
+    <p>若系統沒有自動跳轉，請點擊下方連結：</p>
+    <!-- 4. 手動備援連結 -->
+    <a href="./OSTLTJ/" style="color: #d97706; font-weight: bold; text-decoration: none;">前往「指向耶穌的大故事：一年讀完整本聖經」</a>
+</body>
+</html>
