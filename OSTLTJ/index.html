@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v1.33 優化初始設定精靈 (Setup Wizard)，於第一步加入歡迎畫面與「匯入既有進度」的分流選項 -->
 <!-- v1.32 修復匯入功能中 tts_voice_name 錯誤讀取本地端而非備份檔資料的 Bug -->
 <!-- v1.31 配合專案遷移至獨立資料夾，修正 rcuv.json 讀取路徑與頁尾首頁連結 (加上 target="_blank") -->
 <!-- v1.30 新增 PWA manifest 與 Apple Touch Icon 標籤於 HTML head 區塊 -->
@@ -412,9 +413,24 @@
     <!-- 🔥 初始設定精靈 (Setup Wizard) Modal 🔥 -->
     <div id="setupWizardModal" class="fixed inset-0 bg-stone-900/60 hidden flex items-center justify-center z-[60] transition-opacity backdrop-blur-sm">
         <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full mx-4 relative overflow-hidden">
+            
+            <!-- 步驟 0: 歡迎與分流 -->
+            <div id="wizardStepWelcome" class="flex flex-col">
+                <h3 class="text-2xl font-bold text-stone-800 mb-2">👋 歡迎來到指向耶穌的大故事</h3>
+                <p class="text-stone-600 text-sm mb-6 leading-relaxed">這是一個幫助您在一年內讀完整本聖經，並看見每個故事如何指向耶穌的計畫。<br><br>請選擇您要如何開始：</p>
+                <div class="flex flex-col gap-3 mb-2">
+                    <button id="wizardNewPlanBtn" class="w-full bg-stone-800 text-white py-3.5 rounded-xl hover:bg-stone-700 transition font-bold shadow-sm text-base flex items-center justify-center">
+                        🚀 建立新的讀經計畫
+                    </button>
+                    <button id="wizardImportBtn" class="w-full bg-stone-50 text-stone-700 py-3.5 rounded-xl hover:bg-stone-100 transition shadow-sm border border-stone-200 font-bold text-base flex items-center justify-center">
+                        📂 匯入既有進度 (備份檔)
+                    </button>
+                </div>
+            </div>
+
             <!-- 步驟 1: 設定開始日期 -->
-            <div id="wizardStep1" class="flex flex-col">
-                <h3 class="text-2xl font-bold text-stone-800 mb-2">👋 歡迎開始讀經之旅</h3>
+            <div id="wizardStep1" class="flex flex-col hidden">
+                <h3 class="text-2xl font-bold text-stone-800 mb-2">📅 設定開始日期</h3>
                 <p class="text-stone-600 text-sm mb-6 leading-relaxed">首先，請選擇您預計開始這項計畫的日期。系統會根據這個日期自動為您計算每天的進度與目標。</p>
                 <label class="block text-sm font-medium text-stone-700 mb-2">開始日期</label>
                 <input type="date" id="wizardStartDate" class="w-full px-4 py-3 border border-stone-300 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none transition bg-stone-50 text-stone-800 mb-8 font-medium">
@@ -684,6 +700,9 @@
             congratsCloseBtn: document.getElementById('congratsCloseBtn'),
             // 🔥 新增：初始設定精靈 DOM 元素 🔥
             setupWizardModal: document.getElementById('setupWizardModal'),
+            wizardStepWelcome: document.getElementById('wizardStepWelcome'),
+            wizardNewPlanBtn: document.getElementById('wizardNewPlanBtn'),
+            wizardImportBtn: document.getElementById('wizardImportBtn'),
             wizardStep1: document.getElementById('wizardStep1'),
             wizardStep2: document.getElementById('wizardStep2'),
             wizardStep3: document.getElementById('wizardStep3'),
@@ -908,6 +927,7 @@
                     if (importedData.gemini_read_progress !== undefined) localStorage.setItem('gemini_read_progress', importedData.gemini_read_progress);
                     if (importedData.gemini_rest_days !== undefined) localStorage.setItem('gemini_rest_days', importedData.gemini_rest_days);
                     alert('🎉 匯入成功！系統即將重新載入以套用您的設定與進度。');
+                    localStorage.setItem('tour_completed', 'true'); // 加入此行避免匯入後又跳精靈
                     window.location.reload();
                 } catch (err) {
                     alert('❌ 匯入失敗：檔案格式不正確。請確保您選擇的是先前匯出的 .json 備份檔。');
@@ -1053,7 +1073,8 @@
             dom.wizardStartDate.value = todayStr;
             
             dom.setupWizardModal.classList.remove('hidden');
-            dom.wizardStep1.classList.remove('hidden');
+            dom.wizardStepWelcome.classList.remove('hidden');
+            dom.wizardStep1.classList.add('hidden');
             dom.wizardStep2.classList.add('hidden');
             dom.wizardStep3.classList.add('hidden');
         }
@@ -1241,6 +1262,15 @@
 
             // 🔥 新增：監聽精靈開始日期的變動以即時更新預計完成日 🔥
             dom.wizardStartDate.addEventListener('change', updateWizardEstimatedCompletion);
+
+            dom.wizardNewPlanBtn.addEventListener('click', () => {
+                dom.wizardStepWelcome.classList.add('hidden');
+                dom.wizardStep1.classList.remove('hidden');
+            });
+
+            dom.wizardImportBtn.addEventListener('click', () => {
+                dom.importFileInput.click();
+            });
 
             dom.wizardNextBtn.addEventListener('click', () => {
                 if (!dom.wizardStartDate.value) return alert('請選擇開始日期！');
@@ -1828,6 +1858,6 @@
 
         window.addEventListener('DOMContentLoaded', init);
     </script>
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.32</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.33</div>
 </body>
 </html>
