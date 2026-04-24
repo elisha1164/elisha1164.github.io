@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v1.36 實作 ?pwa=1 網址參數觸發安裝機制，並處理 iOS 網址快照與 Modal 衝突防護 -->
 <!-- v1.35 實作三元播放控制 UI 與全域暫停/恢復 (Pause & Resume) 機制 (Option A 狀態連動) -->
 <!-- v1.34 移除 SVG Emoji 圖示，統一使用 icon-192.png 作為 favicon 與 PWA 圖示 -->
 <!-- v1.33 優化初始設定精靈 (Setup Wizard)，於第一步加入歡迎畫面與「匯入既有進度」的分流選項 -->
@@ -384,9 +385,9 @@
     </div>
 
     <!-- 手動安裝教學彈出框 (Modal) -->
-    <div id="manualInstallModal" class="fixed inset-0 bg-stone-900/40 hidden flex items-center justify-center z-50 transition-opacity backdrop-blur-sm" onclick="if(event.target === this) document.getElementById('manualInstallModal').classList.add('hidden')">
+    <div id="manualInstallModal" class="fixed inset-0 bg-stone-900/40 hidden flex items-center justify-center z-50 transition-opacity backdrop-blur-sm" onclick="if(event.target === this) closeManualInstallModal()">
         <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4 relative">
-            <button onclick="document.getElementById('manualInstallModal').classList.add('hidden')" class="absolute top-4 right-4 text-stone-400 hover:text-stone-600 transition bg-stone-100 hover:bg-stone-200 rounded-full p-1">
+            <button onclick="closeManualInstallModal()" class="absolute top-4 right-4 text-stone-400 hover:text-stone-600 transition bg-stone-100 hover:bg-stone-200 rounded-full p-1">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
             </button>
             <h4 class="font-bold text-stone-800 text-lg mb-3 flex items-center"><span class="text-2xl mr-2">💡</span>如何加入桌面</h4>
@@ -399,7 +400,7 @@
                     <li><b>Android (Chrome)</b>：點擊右上角的選單 (三個點)，然後選擇「加到主畫面」。</li>
                 </ul>
             </div>
-            <button onclick="document.getElementById('manualInstallModal').classList.add('hidden')" class="w-full bg-stone-800 text-white py-2 rounded-lg hover:bg-stone-700 transition font-medium text-sm mt-5 shadow-sm">
+            <button onclick="closeManualInstallModal()" class="w-full bg-stone-800 text-white py-2 rounded-lg hover:bg-stone-700 transition font-medium text-sm mt-5 shadow-sm">
                 我知道了
             </button>
         </div>
@@ -604,6 +605,19 @@
 
         let isPlayingAll = false;
         let playAllQueue = [];
+
+        // 新增：PWA 網址推廣參數狀態標記
+        let isPwaPromptActive = false;
+        window._manualInstallCloseCallback = null;
+
+        // 統一的手動安裝教學關閉控制器
+        window.closeManualInstallModal = function() {
+            document.getElementById('manualInstallModal').classList.add('hidden');
+            if (window._manualInstallCloseCallback) {
+                window._manualInstallCloseCallback();
+                window._manualInstallCloseCallback = null;
+            }
+        };
 
         // 新增：全域語音播放狀態管理物件
         window._speechState = {
@@ -969,13 +983,16 @@
             event.target.value = '';
         }
 
-        async function triggerInstall() {
+        // 修改後的 triggerInstall：支援回呼函數，確保 Modal 關閉後能接續流程
+        async function triggerInstall(onComplete = null) {
             if (deferredPrompt) {
                 deferredPrompt.prompt();
                 const { outcome } = await deferredPrompt.userChoice;
                 deferredPrompt = null;
+                if (onComplete) onComplete();
             } else {
                 dom.manualInstallModal.classList.remove('hidden');
+                window._manualInstallCloseCallback = onComplete;
             }
         }
 
@@ -1143,6 +1160,17 @@
             // Initialize Lucide icons
             lucide.createIcons();
 
+            // 處理 ?pwa=1 安裝觸發與 iOS 網址快照陷阱防護
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('pwa') === '1') {
+                isPwaPromptActive = true;
+                // 立即洗掉網址列上的參數，防止 iOS 將帶有參數的網址存入桌面捷徑中
+                const cleanUrl = window.location.pathname;
+                window.history.replaceState(null, '', cleanUrl);
+                dom.installPromptModal.classList.remove('hidden');
+                localStorage.setItem('install_prompt_shown', 'true');
+            }
+
             dom.startDateInput.value = localStorage.getItem('gemini_start_date') || '';
             dom.rateSelector.value = localStorage.getItem('tts_rate') || '1.0';
 
@@ -1219,11 +1247,22 @@
 
             dom.installCloseBtn.addEventListener('click', () => {
                 dom.installPromptModal.classList.add('hidden');
+                // 防護 Modal 衝突：關閉後才檢查是否需要叫出設定精靈
+                if (isPwaPromptActive) {
+                    if (!localStorage.getItem('tour_completed')) setTimeout(openSetupWizard, 400);
+                    isPwaPromptActive = false;
+                }
             });
 
             dom.installPromptBtn.addEventListener('click', () => {
                 dom.installPromptModal.classList.add('hidden');
-                triggerInstall();
+                triggerInstall(() => {
+                    // 等待手動教學 Modal 關閉後，再檢查是否需要叫出設定精靈
+                    if (isPwaPromptActive) {
+                        if (!localStorage.getItem('tour_completed')) setTimeout(openSetupWizard, 400);
+                        isPwaPromptActive = false;
+                    }
+                });
             });
 
             dom.startTourBtn.addEventListener('click', e => { e.stopPropagation(); dom.settingsMenu.classList.add('hidden'); startTour(); });
@@ -1451,8 +1490,10 @@
                 for (let i = 1; i <= 358; i++) { if (!readProgress[i]) { firstUnreadDay = i; break; } }
                 changeDay(firstUnreadDay);
 
-                // 🔥 觸發條件改為啟動設定精靈 🔥
-                if (!localStorage.getItem('tour_completed')) setTimeout(openSetupWizard, 800);
+                // 🔥 觸發條件改為啟動設定精靈：需同時滿足「未看過導覽」且「非透過 PWA 推廣參數進來」 🔥
+                if (!localStorage.getItem('tour_completed') && !isPwaPromptActive) {
+                    setTimeout(openSetupWizard, 800);
+                }
             } catch (error) {
                 console.error("檔案載入錯誤:", error);
                 dom.statusText.classList.remove('hidden'); 
@@ -1998,6 +2039,6 @@
 
         window.addEventListener('DOMContentLoaded', init);
     </script>
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.35</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.36</div>
 </body>
 </html>
