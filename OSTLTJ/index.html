@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v1.34 移除 SVG Emoji 圖示，統一使用 icon-192.png 作為 favicon 與 PWA 圖示 -->
 <!-- v1.33 優化初始設定精靈 (Setup Wizard)，於第一步加入歡迎畫面與「匯入既有進度」的分流選項 -->
 <!-- v1.32 修復匯入功能中 tts_voice_name 錯誤讀取本地端而非備份檔資料的 Bug -->
 <!-- v1.31 配合專案遷移至獨立資料夾，修正 rcuv.json 讀取路徑與頁尾首頁連結 (加上 target="_blank") -->
@@ -58,8 +59,6 @@
             }
         })();
     </script>
-    <!-- 使用書本 Emoji 作為網站圖示 -->
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📖</text></svg>">
     <!-- 引入 Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- 引入 PapaParse (用於極速解析 CSV) -->
@@ -1858,6 +1857,6 @@
 
         window.addEventListener('DOMContentLoaded', init);
     </script>
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.33</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.34</div>
 </body>
 </html>
