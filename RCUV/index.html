@@ -1,14 +1,11 @@
 <!DOCTYPE html>
 <!-- 
-  版本號：v1.1
+  版本號：v1.2
   修改主旨：
-  1. 正式第一版：導入 localforage (IndexedDB) 本地快取，達成本地資料秒開與斷網離線操作。
-  2. 實作 ?ref= 網址微縮化解析器，支援多種單/跨章節縮寫，並建立 66 卷書中英對照。
-  3. 實作狀態儲存式的「暫停 (Pause)」與「恢復 (Resume)」語音機制，附帶防 GC 回收與平滑捲動 (offset=48)。
+  1. 刪除頂端列「📖 聖經選讀與朗讀」文字。
+  2. 將「書卷」、「從(章/節)」、「到(章/節)」共五個選單整合至頂端列 (Sticky Header)，並移除「起點/迄點」文字以極大化經文閱讀空間。
+  3. 保留 v1.1 的 localforage 快取、?ref= 網址解析器、語音暫停/繼續與防 GC 機制等所有核心邏輯。
   4. 全面採用內聯 SVG，零外部圖示庫依賴。
-  5. 經文抽取嚴格使用 Object.keys(chapterData).map(Number).sort((a,b)=>a-b) 避免順序錯亂。
-  6. 補齊 popstate 監聽器，確保瀏覽器上一頁/下一頁能完美觸發 UI 雙向綁定。
-  7. 修改預設 HTML <title> 為正式名稱，並加入 Open Graph 標籤優化社群分享預覽。
 -->
 <html lang="zh-TW">
 <head>
@@ -44,11 +41,29 @@
 
     <!-- 頂部導航與分享區塊 -->
     <header class="bg-white border-b border-stone-200 sticky top-0 z-30 shadow-sm">
-        <div class="max-w-4xl mx-auto px-4 py-3 flex justify-between items-center">
-            <h1 class="text-xl font-bold text-stone-800 flex items-center">
-                📖 聖經選讀與朗讀
-            </h1>
-            <div class="flex items-center gap-2">
+        <div class="max-w-4xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-3">
+            <!-- 整合後的控制選單區塊 -->
+            <div class="flex flex-wrap items-center gap-2 flex-1">
+                <select id="book-select" disabled class="py-1 px-2 border border-stone-300 rounded-md focus:ring-2 focus:ring-amber-500 outline-none bg-stone-50 text-stone-800 disabled:opacity-60 font-bold text-sm sm:text-base">
+                    <option>載入中...</option>
+                </select>
+                
+                <div class="flex items-center bg-stone-50 border border-stone-300 rounded-md px-1 focus-within:ring-2 focus-within:ring-amber-500">
+                    <span class="text-xs font-bold text-stone-500 pl-1 shrink-0">從</span>
+                    <select id="from-chapter" disabled class="py-1 px-1 bg-transparent text-stone-800 font-medium outline-none text-sm border-none focus:ring-0"><option>載入中...</option></select>
+                    <span class="text-stone-400 text-xs font-bold">:</span>
+                    <select id="from-verse" disabled class="py-1 px-1 bg-transparent text-stone-800 font-medium outline-none text-sm border-none focus:ring-0"><option>載入中...</option></select>
+                </div>
+
+                <div class="flex items-center bg-stone-50 border border-stone-300 rounded-md px-1 focus-within:ring-2 focus-within:ring-amber-500">
+                    <span class="text-xs font-bold text-stone-500 pl-1 shrink-0">到</span>
+                    <select id="to-chapter" disabled class="py-1 px-1 bg-transparent text-stone-800 font-medium outline-none text-sm border-none focus:ring-0"><option>載入中...</option></select>
+                    <span class="text-stone-400 text-xs font-bold">:</span>
+                    <select id="to-verse" disabled class="py-1 px-1 bg-transparent text-stone-800 font-medium outline-none text-sm border-none focus:ring-0"><option>載入中...</option></select>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-1 shrink-0">
                 <!-- 分享/複製按鈕 (動態切換) -->
                 <button id="btn-share" class="p-2 rounded-full text-stone-500 hover:bg-stone-100 hover:text-stone-800 transition" title="分享">
                     <!-- Share Icon (預設隱藏，若支援 Web Share API 則顯示) -->
@@ -70,48 +85,6 @@
 
     <main class="max-w-4xl mx-auto px-4 py-6">
         
-        <!-- 控制面板 (下拉選單) -->
-        <section class="bg-white rounded-2xl shadow-sm border border-stone-200 p-5 mb-6">
-            <div class="mb-4">
-                <label class="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-1">書卷</label>
-                <select id="book-select" disabled class="w-full sm:w-1/2 px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none transition bg-stone-50 text-stone-700 disabled:opacity-60 font-bold text-lg">
-                    <option>載入中...</option>
-                </select>
-            </div>
-            
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <!-- 從 (From) -->
-                <div class="bg-stone-50 p-4 rounded-xl border border-stone-100">
-                    <label class="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">從 (起點)</label>
-                    <div class="flex gap-2">
-                        <div class="w-1/2">
-                            <span class="text-xs text-stone-500 ml-1">章</span>
-                            <select id="from-chapter" disabled class="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none bg-white text-stone-700 disabled:opacity-60"><option>載入中...</option></select>
-                        </div>
-                        <div class="w-1/2">
-                            <span class="text-xs text-stone-500 ml-1">節</span>
-                            <select id="from-verse" disabled class="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none bg-white text-stone-700 disabled:opacity-60"><option>載入中...</option></select>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 到 (To) -->
-                <div class="bg-stone-50 p-4 rounded-xl border border-stone-100">
-                    <label class="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">到 (迄點)</label>
-                    <div class="flex gap-2">
-                        <div class="w-1/2">
-                            <span class="text-xs text-stone-500 ml-1">章</span>
-                            <select id="to-chapter" disabled class="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none bg-white text-stone-700 disabled:opacity-60"><option>載入中...</option></select>
-                        </div>
-                        <div class="w-1/2">
-                            <span class="text-xs text-stone-500 ml-1">節</span>
-                            <select id="to-verse" disabled class="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none bg-white text-stone-700 disabled:opacity-60"><option>載入中...</option></select>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
         <!-- 動作列與播放控制 -->
         <section class="flex justify-center mb-6 h-12 relative">
             <div id="action-bar" class="flex gap-3 transition-all duration-300">
@@ -193,7 +166,7 @@
     </div>
 
     <!-- 右下角版本號標示 (用於確認佈署狀態) -->
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.1</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.2</div>
 
     <script>
         // ==========================================
