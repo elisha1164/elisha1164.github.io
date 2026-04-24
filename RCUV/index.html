@@ -1,12 +1,13 @@
 <!DOCTYPE html>
 <!-- 
-  版本號：v1.16
+  版本號：v1.0
   修改主旨：
-  1. 導入 localforage (IndexedDB) 本地快取，達成本地資料秒開與斷網離線操作。
+  1. 正式第一版：導入 localforage (IndexedDB) 本地快取，達成本地資料秒開與斷網離線操作。
   2. 實作 ?ref= 網址微縮化解析器，支援多種單/跨章節縮寫，並建立 66 卷書中英對照。
-  3. 徹底實作狀態儲存式的「暫停 (Pause)」與「恢復 (Resume)」語音機制，附帶防 GC 回收。
+  3. 實作狀態儲存式的「暫停 (Pause)」與「恢復 (Resume)」語音機制，附帶防 GC 回收與平滑捲動 (offset=48)。
   4. 全面採用內聯 SVG，零外部圖示庫依賴。
   5. 經文抽取嚴格使用 Object.keys(chapterData).map(Number).sort((a,b)=>a-b) 避免順序錯亂。
+  6. 補齊 popstate 監聽器，確保瀏覽器上一頁/下一頁能完美觸發 UI 雙向綁定。
 -->
 <html lang="zh-TW">
 <head>
@@ -79,11 +80,11 @@
                     <div class="flex gap-2">
                         <div class="w-1/2">
                             <span class="text-xs text-stone-500 ml-1">章</span>
-                            <select id="from-chapter" disabled class="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none bg-white text-stone-700 disabled:opacity-60"><option>--</option></select>
+                            <select id="from-chapter" disabled class="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none bg-white text-stone-700 disabled:opacity-60"><option>載入中...</option></select>
                         </div>
                         <div class="w-1/2">
                             <span class="text-xs text-stone-500 ml-1">節</span>
-                            <select id="from-verse" disabled class="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none bg-white text-stone-700 disabled:opacity-60"><option>--</option></select>
+                            <select id="from-verse" disabled class="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none bg-white text-stone-700 disabled:opacity-60"><option>載入中...</option></select>
                         </div>
                     </div>
                 </div>
@@ -94,11 +95,11 @@
                     <div class="flex gap-2">
                         <div class="w-1/2">
                             <span class="text-xs text-stone-500 ml-1">章</span>
-                            <select id="to-chapter" disabled class="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none bg-white text-stone-700 disabled:opacity-60"><option>--</option></select>
+                            <select id="to-chapter" disabled class="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none bg-white text-stone-700 disabled:opacity-60"><option>載入中...</option></select>
                         </div>
                         <div class="w-1/2">
                             <span class="text-xs text-stone-500 ml-1">節</span>
-                            <select id="to-verse" disabled class="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none bg-white text-stone-700 disabled:opacity-60"><option>--</option></select>
+                            <select id="to-verse" disabled class="w-full mt-1 px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none bg-white text-stone-700 disabled:opacity-60"><option>載入中...</option></select>
                         </div>
                     </div>
                 </div>
@@ -111,25 +112,21 @@
                 <!-- 播放按鈕 -->
                 <button id="btn-play" class="bg-amber-600 hover:bg-amber-700 text-white px-6 py-3 rounded-full font-bold shadow-md hover:shadow-lg transition-all flex items-center gap-2 transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
                     <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
-                    朗讀經文
                 </button>
 
                 <!-- 暫停按鈕 (播放中顯示) -->
                 <button id="btn-pause" class="hidden bg-stone-800 hover:bg-stone-900 text-white px-6 py-3 rounded-full font-bold shadow-md transition-all items-center gap-2 transform active:scale-95">
                     <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
-                    暫停
                 </button>
 
                 <!-- 繼續按鈕 (暫停中顯示) -->
                 <button id="btn-resume" class="hidden bg-amber-600 hover:bg-amber-700 text-white px-6 py-3 rounded-full font-bold shadow-md transition-all items-center gap-2 transform active:scale-95">
                     <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
-                    繼續
                 </button>
 
                 <!-- 停止按鈕 (播放/暫停中顯示) -->
                 <button id="btn-stop" class="hidden bg-red-100 hover:bg-red-200 text-red-700 px-6 py-3 rounded-full font-bold shadow-md transition-all items-center gap-2 transform active:scale-95 border border-red-200">
                     <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clip-rule="evenodd"></path></svg>
-                    停止
                 </button>
             </div>
         </section>
@@ -188,6 +185,9 @@
             <p id="footnote-content" class="text-stone-700 leading-relaxed bg-amber-50 p-4 rounded-xl border border-amber-100 text-lg font-serif"></p>
         </div>
     </div>
+
+    <!-- 右下角版本號標示 (用於確認佈署狀態) -->
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.0</div>
 
     <script>
         // ==========================================
@@ -311,7 +311,8 @@
             
             if (refParam) {
                 // 解析 ?ref=Gen1:1-2:5, Gen1-2, Gen1, Gen 等格式
-                const match = refParam.match(/^([A-Za-z0-9]+)(.*?)$/);
+                // 精準分離書卷與章節座標
+                const match = refParam.match(/^(\d?[A-Za-z]+)(.*?)$/);
                 if (match) {
                     const bAbbrev = match[1];
                     const coords = match[2];
@@ -322,7 +323,8 @@
                         if (!coords) {
                             // Gen (整卷)
                             state.fc = 1; state.fv = 1;
-                            state.tc = Object.keys(bibleData[state.b]).length;
+                            const chapters = Object.keys(bibleData[state.b]).map(Number).sort((a,b)=>a-b);
+                            state.tc = chapters[chapters.length - 1];
                             state.tv = 999; // 稍後驗證時會自動校正為最後一節
                         } else {
                             const parts = coords.split('-');
@@ -362,7 +364,8 @@
             els.fChap.value = state.fc; updateVerseSelects('from');
             els.fVerse.value = state.fv;
             els.tChap.value = state.tc; updateVerseSelects('to');
-            // 校正 tv=999 的情況
+            
+            // 校正 tv=999 的情況 (選取該章最後一節)
             if(state.tv === 999 || !els.tVerse.querySelector(`option[value="${state.tv}"]`)) {
                  const opts = els.tVerse.options;
                  els.tVerse.value = opts[opts.length-1].value;
@@ -373,22 +376,27 @@
             enforceValidationAndExtract();
         }
 
+        // 綁定 popstate 事件，支援瀏覽器「上一頁/下一頁」的完整 SPA 體驗
+        window.addEventListener('popstate', () => {
+            if (isDataReady) parseUrlAndRender();
+        });
+
         function updateUrlAndTitle() {
             if (!isDataReady) return;
             
             const b = els.bookSelect.value;
-            const fc = els.fChap.value;
-            const fv = els.fVerse.value;
-            const tc = els.tChap.value;
-            const tv = els.tVerse.value;
+            const fc = parseInt(els.fChap.value);
+            const fv = parseInt(els.fVerse.value);
+            const tc = parseInt(els.tChap.value);
+            const tv = parseInt(els.tVerse.value);
             
             const abbrev = revBookMap[b];
             let refStr = "";
             let titleStr = "";
 
-            const isWholeBook = (fc == 1 && fv == 1 && tc == els.tChap.options[els.tChap.options.length-1].value && tv == els.tVerse.options[els.tVerse.options.length-1].value);
-            const isWholeChapter = (fv == 1 && tc == fc && tv == els.tVerse.options[els.tVerse.options.length-1].value);
-            const isMultiWholeChapters = (fv == 1 && tv == els.tVerse.options[els.tVerse.options.length-1].value);
+            const isWholeBook = (fc === 1 && fv === 1 && tc === parseInt(els.tChap.options[els.tChap.options.length-1].value) && tv === parseInt(els.tVerse.options[els.tVerse.options.length-1].value));
+            const isWholeChapter = (fv === 1 && tc === fc && tv === parseInt(els.tVerse.options[els.tVerse.options.length-1].value));
+            const isMultiWholeChapters = (fv === 1 && tv === parseInt(els.tVerse.options[els.tVerse.options.length-1].value));
 
             if (isWholeBook) {
                 refStr = abbrev;
@@ -413,7 +421,10 @@
 
             // 更新網址與標題
             const newUrl = `${window.location.pathname}?ref=${refStr}`;
-            window.history.pushState(null, '', newUrl);
+            // 只有在 URL 真的不同時才 pushState，避免不必要的歷史紀錄堆疊
+            if (window.location.search !== `?ref=${refStr}`) {
+                window.history.pushState(null, '', newUrl);
+            }
             document.title = `${titleStr} | 聖經選讀與朗讀`;
         }
 
