@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v1.35 實作三元播放控制 UI 與全域暫停/恢復 (Pause & Resume) 機制 (Option A 狀態連動) -->
 <!-- v1.34 移除 SVG Emoji 圖示，統一使用 icon-192.png 作為 favicon 與 PWA 圖示 -->
 <!-- v1.33 優化初始設定精靈 (Setup Wizard)，於第一步加入歡迎畫面與「匯入既有進度」的分流選項 -->
 <!-- v1.32 修復匯入功能中 tts_voice_name 錯誤讀取本地端而非備份檔資料的 Bug -->
@@ -195,7 +196,11 @@
                         <!-- 全部朗讀按鈕 -->
                         <button id="playAllBtn" class="bg-amber-100 text-amber-800 hover:bg-amber-200 px-4 py-1.5 rounded-full text-sm font-medium transition flex items-center shadow-sm border border-amber-200">
                             <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
-                            一鍵全部朗讀
+                            <span class="btn-text">一鍵全部朗讀</span>
+                        </button>
+                        <button id="pauseAllBtn" class="bg-blue-100 text-blue-700 hover:bg-blue-200 px-4 py-1.5 rounded-full text-sm font-medium transition flex items-center shadow-sm border border-blue-200 hidden">
+                            <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
+                            暫停
                         </button>
                         <button id="stopAllBtn" class="bg-red-100 text-red-700 hover:bg-red-200 px-4 py-1.5 rounded-full text-sm font-medium transition flex items-center shadow-sm border border-red-200 hidden">
                             <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clip-rule="evenodd"></path></svg>
@@ -219,7 +224,11 @@
                                 </button>
                                 <button id="playBtn" class="bg-stone-800 text-white hover:bg-stone-700 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center shadow-sm">
                                     <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
-                                    朗讀
+                                    <span class="btn-text">朗讀</span>
+                                </button>
+                                <button id="pauseBtn" class="bg-blue-100 text-blue-700 hover:bg-blue-200 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center shadow-sm hidden">
+                                    <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
+                                    暫停
                                 </button>
                                 <button id="stopBtn" class="bg-red-100 text-red-700 hover:bg-red-200 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center shadow-sm hidden">
                                     <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clip-rule="evenodd"></path></svg>
@@ -277,7 +286,11 @@
                     <div class="flex gap-2">
                         <button id="playScriptureBtn" class="bg-stone-800 text-white hover:bg-stone-700 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center shadow-sm">
                             <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
-                            朗讀經文
+                            <span class="btn-text">朗讀經文</span>
+                        </button>
+                        <button id="pauseScriptureBtn" class="bg-blue-100 text-blue-700 hover:bg-blue-200 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center shadow-sm hidden">
+                            <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
+                            暫停
                         </button>
                         <button id="stopScriptureBtn" class="bg-red-100 text-red-700 hover:bg-red-200 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center shadow-sm hidden">
                             <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clip-rule="evenodd"></path></svg>
@@ -301,7 +314,11 @@
                     <div class="flex gap-2">
                         <button id="playReflectionBtn" class="bg-amber-700 text-white hover:bg-amber-800 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center shadow-sm">
                             <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
-                            <span id="playReflectionText">朗讀問題</span>
+                            <span id="playReflectionText" class="btn-text">朗讀問題</span>
+                        </button>
+                        <button id="pauseReflectionBtn" class="bg-blue-100 text-blue-700 hover:bg-blue-200 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center shadow-sm hidden">
+                            <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
+                            暫停
                         </button>
                         <button id="stopReflectionBtn" class="bg-red-100 text-red-700 hover:bg-red-200 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center shadow-sm hidden">
                             <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clip-rule="evenodd"></path></svg>
@@ -588,6 +605,18 @@
         let isPlayingAll = false;
         let playAllQueue = [];
 
+        // 新增：全域語音播放狀態管理物件
+        window._speechState = {
+            isPaused: false,
+            chunks: [],
+            idx: 0,
+            onEnd: null,
+            mappings: null,
+            isGlobal: false,
+            activeSection: null,
+            debounceTimer: null
+        };
+
         const APP_LOAD_TIME = Date.now();
         const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000; 
         
@@ -650,6 +679,7 @@
             readProgressCheckbox: document.getElementById('readProgressCheckbox'),
             readProgressText: document.getElementById('readProgressText'),
             playAllBtn: document.getElementById('playAllBtn'),
+            pauseAllBtn: document.getElementById('pauseAllBtn'),
             stopAllBtn: document.getElementById('stopAllBtn'),
             contentTitle: document.getElementById('contentTitle'),
             translatedText: document.getElementById('translatedText'),
@@ -664,11 +694,13 @@
             reflectionTitle: document.getElementById('reflectionTitle'),
             reflectionText: document.getElementById('reflectionText'),
             playBtn: document.getElementById('playBtn'),
+            pauseBtn: document.getElementById('pauseBtn'),
             stopBtn: document.getElementById('stopBtn'),
             playScriptureBtn: document.getElementById('playScriptureBtn'),
+            pauseScriptureBtn: document.getElementById('pauseScriptureBtn'),
             stopScriptureBtn: document.getElementById('stopScriptureBtn'),
             playReflectionBtn: document.getElementById('playReflectionBtn'),
-            playReflectionText: document.getElementById('playReflectionText'),
+            pauseReflectionBtn: document.getElementById('pauseReflectionBtn'),
             stopReflectionBtn: document.getElementById('stopReflectionBtn'),
             toggleOriginalBtn: document.getElementById('toggleOriginalBtn'),
             settingsBtn: document.getElementById('settingsBtn'),
@@ -1140,13 +1172,19 @@
             dom.nextDayBtn.addEventListener('click', () => changeDay(currentDay + 1));
             
             dom.playAllBtn.addEventListener('click', handlePlayAll);
+            dom.pauseAllBtn.addEventListener('click', handlePause);
             dom.stopAllBtn.addEventListener('click', handleStop);
 
             dom.playBtn.addEventListener('click', handlePlayContent);
+            dom.pauseBtn.addEventListener('click', handlePause);
             dom.stopBtn.addEventListener('click', handleStop);
+            
             dom.playScriptureBtn.addEventListener('click', handlePlayScripture);
+            dom.pauseScriptureBtn.addEventListener('click', handlePause);
             dom.stopScriptureBtn.addEventListener('click', handleStop);
+            
             dom.playReflectionBtn.addEventListener('click', handlePlayReflection);
+            dom.pauseReflectionBtn.addEventListener('click', handlePause);
             dom.stopReflectionBtn.addEventListener('click', handleStop);
             
             dom.toggleOriginalBtn.addEventListener('click', () => {
@@ -1579,46 +1617,129 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        function setActivePlayingUI(section) {
-            dom.playBtn.classList.remove('hidden'); dom.stopBtn.classList.add('hidden');
-            dom.playScriptureBtn.classList.remove('hidden'); dom.stopScriptureBtn.classList.add('hidden');
-            dom.playReflectionBtn.classList.remove('hidden'); dom.stopReflectionBtn.classList.add('hidden');
-            
-            let targetEl = null;
+        // 全新的播放狀態 UI 連動控制器
+        function updatePlaybackUI() {
+            const playIds = ['playBtn', 'playScriptureBtn', 'playReflectionBtn', 'playAllBtn'];
+            const pauseIds = ['pauseBtn', 'pauseScriptureBtn', 'pauseReflectionBtn', 'pauseAllBtn'];
+            const stopIds = ['stopBtn', 'stopScriptureBtn', 'stopReflectionBtn', 'stopAllBtn'];
 
-            if (section === 'content') { 
-                dom.playBtn.classList.add('hidden'); dom.stopBtn.classList.remove('hidden'); 
-                targetEl = dom.titleHeaderBox; 
-            }
-            if (section === 'scripture') { 
-                dom.playScriptureBtn.classList.add('hidden'); dom.stopScriptureBtn.classList.remove('hidden'); 
-                targetEl = dom.scriptureText.parentElement; 
-            }
-            if (section === 'reflection') { 
-                dom.playReflectionBtn.classList.add('hidden'); dom.stopReflectionBtn.classList.remove('hidden'); 
-                targetEl = dom.reflectionSection; 
-            }
-            if (section === 'video') {
-                targetEl = dom.videoSection; 
+            // 1. 初始化：隱藏所有暫停與停止，顯示所有播放按鈕
+            pauseIds.forEach(id => { if (dom[id]) dom[id].classList.add('hidden'); });
+            stopIds.forEach(id => { if (dom[id]) dom[id].classList.add('hidden'); });
+            playIds.forEach(id => { if (dom[id]) dom[id].classList.remove('hidden'); });
+
+            // 2. 恢復預設文字節點
+            if (dom.playAllBtn) dom.playAllBtn.querySelector('.btn-text').textContent = '一鍵全部朗讀';
+            if (dom.playBtn) dom.playBtn.querySelector('.btn-text').textContent = '朗讀';
+            if (dom.playScriptureBtn) dom.playScriptureBtn.querySelector('.btn-text').textContent = '朗讀經文';
+            if (dom.playReflectionBtn) dom.playReflectionBtn.querySelector('.btn-text').textContent = '朗讀問題';
+
+            const state = window._speechState;
+            if (!state || !state.activeSection) return;
+
+            // 3. 收集需要進行連動的群組 (若為全域播放，則頂部與特定區塊同步控制)
+            let activeGroup = [];
+            if (state.isGlobal) {
+                activeGroup.push({ play: 'playAllBtn', pause: 'pauseAllBtn', stop: 'stopAllBtn', resumeText: '繼續全部' });
             }
 
-            if (isPlayingAll && targetEl) {
-                const y = targetEl.getBoundingClientRect().top + window.scrollY - 24; 
-                window.scrollTo({ top: y, behavior: 'smooth' });
-            }
+            if (state.activeSection === 'content') activeGroup.push({ play: 'playBtn', pause: 'pauseBtn', stop: 'stopBtn', resumeText: '繼續' });
+            if (state.activeSection === 'scripture') activeGroup.push({ play: 'playScriptureBtn', pause: 'pauseScriptureBtn', stop: 'stopScriptureBtn', resumeText: '繼續' });
+            if (state.activeSection === 'reflection') activeGroup.push({ play: 'playReflectionBtn', pause: 'pauseReflectionBtn', stop: 'stopReflectionBtn', resumeText: '繼續' });
+
+            // 4. 根據 isPaused 狀態更新指定按鈕群組的樣式
+            activeGroup.forEach(group => {
+                const playBtn = dom[group.play];
+                const pauseBtn = dom[group.pause];
+                const stopBtn = dom[group.stop];
+
+                if (!playBtn || !pauseBtn || !stopBtn) return;
+
+                if (state.isPaused) {
+                    playBtn.classList.remove('hidden');
+                    playBtn.querySelector('.btn-text').textContent = group.resumeText;
+                    pauseBtn.classList.add('hidden');
+                    stopBtn.classList.remove('hidden');
+                } else {
+                    playBtn.classList.add('hidden');
+                    pauseBtn.classList.remove('hidden');
+                    stopBtn.classList.remove('hidden');
+                }
+            });
         }
 
-        function speakTextChunks(text, onStart, onEnd, mappings = null) {
+        // 全新的語音執行核心 (獨立於資料準備)
+        function executeSpeech() {
+            let state = window._speechState;
+            if (!state || state.chunks.length === 0 || state.isPaused) return;
+
+            window._currentSpeechCancel = () => {
+                state.isPaused = true;
+                synth.cancel();
+            };
+
+            function next() {
+                if (state.isPaused) return;
+                if (state.idx >= state.chunks.length) {
+                    window._currentSpeechCancel = null;
+                    if (state.onEnd) state.onEnd();
+                    return;
+                }
+
+                const chunkObj = state.chunks[state.idx];
+                const utterance = new SpeechSynthesisUtterance(chunkObj.text);
+                window._currentUtterance = utterance; // 防止 Safari GC
+
+                if (dom.voiceSelector.value !== "" && voices[dom.voiceSelector.value]) {
+                    utterance.voice = voices[dom.voiceSelector.value];
+                }
+                utterance.lang = 'zh-TW';
+                utterance.rate = parseFloat(dom.rateSelector.value);
+
+                utterance.onstart = () => {
+                    if (state.mappings && state.mappings.length > 0) {
+                        const targetMap = state.mappings.find(m => chunkObj.startIndex >= m.startIndex && chunkObj.startIndex < m.endIndex);
+                        if (targetMap && targetMap.element) {
+                            const container = dom.scriptureText; 
+                            const el = targetMap.element;
+                            const containerRect = container.getBoundingClientRect();
+                            const elRect = el.getBoundingClientRect();
+                            const offset = 48; 
+                            const targetScrollTop = container.scrollTop + (elRect.top - containerRect.top) - offset;
+                            container.scrollTo({ top: Math.max(0, targetScrollTop), behavior: 'smooth' });
+                        }
+                    }
+                };
+
+                utterance.onend = () => {
+                    if (state.isPaused) return;
+                    state.idx++;
+                    next();
+                };
+
+                utterance.onerror = (e) => {
+                    if (state.isPaused || e.error === 'canceled' || e.error === 'interrupted') return;
+                    console.error("語音播放錯誤:", e);
+                    dom.statusText.innerHTML = `<span class="text-red-600 font-bold bg-red-50 border border-red-200 px-3 py-1.5 rounded-lg shadow-sm">⚠️ 語音引擎中斷，錯誤代碼: ${e.error}</span>`;
+                    dom.statusText.classList.remove('hidden');
+                    state.idx++;
+                    next();
+                };
+
+                try { synth.speak(utterance); } catch (e) { console.error("TTS 引擎拒絕發聲:", e); state.idx++; next(); }
+            }
+            next();
+        }
+
+        // 修改後的語音準備函數
+        function speakTextChunks(text, onStart, onEnd, mappings = null, section = null, isGlobal = false) {
             if (!text) return;
 
             const rawChunks = [];
             let match;
             const regex = /[^。！？；.!?;\n]+[。！？；.!?;\n]*/g;
             while ((match = regex.exec(text)) !== null) {
-                rawChunks.push({
-                    text: match[0],
-                    startIndex: match.index
-                });
+                rawChunks.push({ text: match[0], startIndex: match.index });
             }
             if (rawChunks.length === 0 && text.trim()) {
                 rawChunks.push({ text: text, startIndex: 0 });
@@ -1639,9 +1760,7 @@
                     currText = trimmedPart;
                     currStartIndex = p.startIndex + partText.indexOf(trimmedPart);
                 } else {
-                    if (!currText) {
-                        currStartIndex = p.startIndex + partText.indexOf(trimmedPart);
-                    }
+                    if (!currText) currStartIndex = p.startIndex + partText.indexOf(trimmedPart);
                     currText += (currText ? " " : "") + trimmedPart;
                 }
             });
@@ -1649,69 +1768,66 @@
 
             if (!chunks.length) return;
 
-            let idx = 0, isCanceled = false;
-            window._currentSpeechCancel = () => { isCanceled = true; synth.cancel(); };
+            // 建立全新的全域播放狀態
+            window._speechState = {
+                isPaused: false,
+                chunks: chunks,
+                idx: 0,
+                onEnd: onEnd,
+                mappings: mappings,
+                isGlobal: isGlobal,
+                activeSection: section,
+                debounceTimer: null
+            };
 
-            function next() {
-                if (isCanceled) return;
-                if (idx >= chunks.length) { window._currentSpeechCancel = null; if (onEnd) onEnd(); return; }
+            if (onStart) onStart();
+            updatePlaybackUI();
+            executeSpeech();
+        }
 
-                const chunkObj = chunks[idx];
-                const utterance = new SpeechSynthesisUtterance(chunkObj.text);
-                window._currentUtterance = utterance; // 🔥 防止 iOS/Safari 的 Garbage Collection 中斷語音
+        // 統一暫停控制器
+        function handlePause() {
+            if (!window._speechState || window._speechState.isPaused) return;
+            
+            // 防抖鎖定 (Debounce Lock)，避免連續狂按造成引擎當機
+            if (window._speechState.debounceTimer) return;
+            window._speechState.debounceTimer = setTimeout(() => {
+                if (window._speechState) window._speechState.debounceTimer = null;
+            }, 300);
 
-                if (dom.voiceSelector.value !== "" && voices[dom.voiceSelector.value]) utterance.voice = voices[dom.voiceSelector.value];
-                utterance.lang = 'zh-TW';
-                
-                utterance.rate = parseFloat(dom.rateSelector.value);
-                
-                utterance.onstart = () => { 
-                    if (idx === 0 && onStart) onStart(); 
-                    
-                    if (mappings && mappings.length > 0) {
-                        const targetMap = mappings.find(m => chunkObj.startIndex >= m.startIndex && chunkObj.startIndex < m.endIndex);
-                        if (targetMap && targetMap.element) {
-                            const container = dom.scriptureText;
-                            const el = targetMap.element;
-                            const containerRect = container.getBoundingClientRect();
-                            const elRect = el.getBoundingClientRect();
-                            
-                            const offset = 48; 
-                            const targetScrollTop = container.scrollTop + (elRect.top - containerRect.top) - offset;
-                            
-                            container.scrollTo({ top: Math.max(0, targetScrollTop), behavior: 'smooth' });
-                        }
-                    }
-                };
-                
-                utterance.onend = () => { if (isCanceled) return; idx++; next(); };
-                utterance.onerror = (e) => { 
-                    if (isCanceled || e.error === 'canceled' || e.error === 'interrupted') return;
-                    console.error("語音播放錯誤:", e);
-                    // 將錯誤訊息顯示在畫面頂部供 Debug
-                    dom.statusText.innerHTML = `<span class="text-red-600 font-bold bg-red-50 border border-red-200 px-3 py-1.5 rounded-lg shadow-sm">⚠️ 語音引擎中斷，錯誤代碼: ${e.error}</span>`;
-                    dom.statusText.classList.remove('hidden');
-                    idx++; next(); 
-                };
-                
-                try { synth.speak(utterance); } catch (e) { console.error("TTS 引擎拒絕發聲:", e); idx++; next(); }
+            window._speechState.isPaused = true;
+            synth.cancel(); // 會觸發前一個 utterance.onerror(canceled)
+            updatePlaybackUI();
+            releaseWakeLock();
+        }
+
+        // 統一恢復播放檢查器 (若有暫停的內容則接續，回傳 true 阻擋原本的點擊事件)
+        function checkResume() {
+            if (window._speechState && window._speechState.isPaused) {
+                window._speechState.isPaused = false;
+                requestWakeLock();
+                updatePlaybackUI();
+                executeSpeech();
+                return true;
             }
-            next();
+            return false;
         }
 
         function handlePlayAll() {
+            if (checkResume()) return;
+            
             isPlayingAll = true;
             playAllQueue = [];
-            
-            dom.playAllBtn.classList.add('hidden');
-            dom.stopAllBtn.classList.remove('hidden');
             
             const devTxt = bibleData[currentDay].contentCh.main;
             if (devTxt && devTxt.trim() !== "") {
                 playAllQueue.push(() => {
                     speakTextChunks(`${dom.displayTitle.textContent}。 引導短文。\n\n${devTxt}`,
-                        () => { requestWakeLock(); setActivePlayingUI('content'); },
-                        processPlayAllQueue
+                        () => { requestWakeLock(); },
+                        processPlayAllQueue,
+                        null,
+                        'content',
+                        true
                     );
                 });
             }
@@ -1732,9 +1848,11 @@
             if (scrMappings.length > 0) {
                 playAllQueue.push(() => {
                     speakTextChunks(scrTxt,
-                        () => { requestWakeLock(); setActivePlayingUI('scripture'); },
+                        () => { requestWakeLock(); },
                         processPlayAllQueue,
-                        scrMappings 
+                        scrMappings,
+                        'scripture',
+                        true
                     );
                 });
             }
@@ -1743,8 +1861,11 @@
             if (refTxt && refTxt.trim() !== "") {
                 playAllQueue.push(() => {
                     speakTextChunks(`反思問題。\n\n${refTxt}`,
-                        () => { requestWakeLock(); setActivePlayingUI('reflection'); },
-                        processPlayAllQueue
+                        () => { requestWakeLock(); },
+                        processPlayAllQueue,
+                        null,
+                        'reflection',
+                        true
                     );
                 });
             }
@@ -1759,8 +1880,11 @@
                     }
 
                     speakTextChunks(promptTxt,
-                        () => { requestWakeLock(); setActivePlayingUI('video'); },
-                        processPlayAllQueue
+                        () => { requestWakeLock(); },
+                        processPlayAllQueue,
+                        null,
+                        'video',
+                        true
                     );
                 });
             }
@@ -1794,17 +1918,24 @@
         }
 
         function handlePlayContent() {
+            if (checkResume()) return;
+            
             isPlayingAll = false; playAllQueue = []; 
             const txt = bibleData[currentDay].contentCh.main;
             if (!txt || txt.trim() === "") return;
             if (synth.speaking) synth.cancel();
             speakTextChunks(`${dom.displayTitle.textContent}。 引導短文。\n\n${txt}`,
-                () => { requestWakeLock(); setActivePlayingUI('content'); dom.playAllBtn.classList.add('hidden'); dom.stopAllBtn.classList.remove('hidden'); },
-                handleStop
+                () => { requestWakeLock(); },
+                handleStop,
+                null,
+                'content',
+                false
             );
         }
 
         function handlePlayScripture() {
+            if (checkResume()) return;
+            
             isPlayingAll = false; playAllQueue = [];
             
             let txt = '今日經文。\n\n';
@@ -1823,20 +1954,27 @@
             
             if (synth.speaking) synth.cancel();
             speakTextChunks(txt,
-                () => { requestWakeLock(); setActivePlayingUI('scripture'); dom.playAllBtn.classList.add('hidden'); dom.stopAllBtn.classList.remove('hidden'); },
+                () => { requestWakeLock(); },
                 handleStop,
-                mappings 
+                mappings,
+                'scripture',
+                false
             );
         }
 
         function handlePlayReflection() {
+            if (checkResume()) return;
+            
             isPlayingAll = false; playAllQueue = [];
             const txt = bibleData[currentDay].contentCh.questions;
             if (!txt || txt.trim() === "") return;
             if (synth.speaking) synth.cancel();
             speakTextChunks(`反思問題。\n\n${txt}`,
-                () => { requestWakeLock(); setActivePlayingUI('reflection'); dom.playAllBtn.classList.add('hidden'); dom.stopAllBtn.classList.remove('hidden'); },
-                handleStop
+                () => { requestWakeLock(); },
+                handleStop,
+                null,
+                'reflection',
+                false
             );
         }
 
@@ -1845,18 +1983,21 @@
             playAllQueue = [];
             releaseWakeLock();
             
+            // 透過提早鎖定狀態，防止殘留的 onend 事件又把 idx 推進
+            if (window._speechState) window._speechState.isPaused = true; 
+            
             const cancelFn = window._currentSpeechCancel;
             window._currentSpeechCancel = null; 
             window._currentUtterance = null; // 釋放記憶體
             if (cancelFn) cancelFn(); else synth.cancel();
             
-            setActivePlayingUI(null); 
-            dom.stopAllBtn.classList.add('hidden'); 
-            dom.playAllBtn.classList.remove('hidden');
+            // 徹底銷毀狀態並重置 UI
+            window._speechState = null; 
+            updatePlaybackUI(); 
         }
 
         window.addEventListener('DOMContentLoaded', init);
     </script>
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.34</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.35</div>
 </body>
 </html>
