@@ -1,9 +1,11 @@
 <!DOCTYPE html>
 <!-- 
-  版本號：v1.7
+  版本號：v1.8
   修改主旨：
   1. 更新 iOS (Safari) 專用的 apple-touch-icon 為 icon-180.png。
   2. 將 favicon 更改為 icon-192.png 並加上 sizes 屬性。
+  3. 實作「事前防呆」動態過濾，迄點章節不再顯示小於起點的數值。
+  4. 切換書卷時強制重設起迄章節為 1:1，並完美相容 ?ref= 解析器。
 -->
 <html lang="zh-TW">
 <head>
@@ -167,7 +169,7 @@
     </div>
 
     <!-- 右下角版本號標示 (用於確認佈署狀態) -->
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.7</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.8</div>
 
     <script>
         // ==========================================
@@ -336,16 +338,24 @@
                 }
             }
 
-            // 更新選單 UI (觸發連動)
+            // 更新選單 UI (觸發連動，但不強制重設，以配合 URL 參數)
             els.bookSelect.value = state.b;
-            updateChapterSelects();
+            updateChapterSelects(false);
             
-            // 安全填寫數值 (若超過範圍，下拉選單的防呆會處理)
-            els.fChap.value = state.fc; updateVerseSelects('from');
-            els.fVerse.value = state.fv;
-            els.tChap.value = state.tc; updateVerseSelects('to');
+            // 安全填寫數值並觸發依賴更新
+            // 1. 設定 from-chapter 並重建 from-verse
+            if (els.fChap.querySelector(`option[value="${state.fc}"]`)) els.fChap.value = state.fc;
+            updateVerseSelects('from', false);
             
-            // 校正 tv=999 的情況 (選取該章最後一節)
+            // 2. 設定 from-verse 並重建 to-chapter
+            if (els.fVerse.querySelector(`option[value="${state.fv}"]`)) els.fVerse.value = state.fv;
+            updateToChapterSelect(false);
+            
+            // 3. 設定 to-chapter 並重建 to-verse
+            if (els.tChap.querySelector(`option[value="${state.tc}"]`)) els.tChap.value = state.tc;
+            updateToVerseSelect(false);
+            
+            // 4. 校正 tv=999 的情況 (選取該章最後一節)
             if(state.tv === 999 || !els.tVerse.querySelector(`option[value="${state.tv}"]`)) {
                  const opts = els.tVerse.options;
                  els.tVerse.value = opts[opts.length-1].value;
@@ -422,89 +432,131 @@
             });
         }
 
-        function updateChapterSelects() {
+        function updateChapterSelects(reset = false) {
             const book = els.bookSelect.value;
             if (!bibleData[book]) return;
             
-            // 嚴格依照數值排序 Chapters
             const chapters = Object.keys(bibleData[book]).map(Number).sort((a,b)=>a-b);
+            const oldFChap = reset ? chapters[0] : (parseInt(els.fChap.value) || chapters[0]);
             
-            const buildOptions = (selectEl, selectedVal) => {
-                selectEl.innerHTML = '';
-                chapters.forEach(c => {
-                    const opt = document.createElement('option');
-                    opt.value = c; opt.textContent = c;
-                    selectEl.appendChild(opt);
-                });
-                if (selectEl.querySelector(`option[value="${selectedVal}"]`)) {
-                    selectEl.value = selectedVal;
-                }
-            };
-
-            buildOptions(els.fChap, els.fChap.value);
-            buildOptions(els.tChap, els.tChap.value);
+            els.fChap.innerHTML = '';
+            chapters.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c; opt.textContent = c;
+                els.fChap.appendChild(opt);
+            });
             
-            updateVerseSelects('from');
-            updateVerseSelects('to');
+            if (els.fChap.querySelector(`option[value="${oldFChap}"]`)) {
+                els.fChap.value = oldFChap;
+            } else {
+                els.fChap.value = chapters[0];
+            }
+            
+            updateVerseSelects('from', reset);
+            updateToChapterSelect(reset);
         }
 
-        function updateVerseSelects(target) {
+        function updateVerseSelects(target, reset = false) {
+            if (target === 'to') {
+                updateToVerseSelect(reset);
+                return;
+            }
             const book = els.bookSelect.value;
-            const chapEl = target === 'from' ? els.fChap : els.tChap;
-            const verseEl = target === 'from' ? els.fVerse : els.tVerse;
-            
-            const chap = chapEl.value;
+            const chap = els.fChap.value;
             if (!bibleData[book] || !bibleData[book][chap]) return;
 
-            // 嚴格依照數值排序 Verses
             const verses = Object.keys(bibleData[book][chap]).map(Number).sort((a,b)=>a-b);
-            const currentVal = verseEl.value;
+            const oldVal = reset ? verses[0] : (parseInt(els.fVerse.value) || verses[0]);
             
-            verseEl.innerHTML = '';
+            els.fVerse.innerHTML = '';
             verses.forEach(v => {
                 const opt = document.createElement('option');
                 opt.value = v; opt.textContent = v;
-                verseEl.appendChild(opt);
+                els.fVerse.appendChild(opt);
             });
 
-            // 如果舊的值不存在 (例如切換到較短的章節)，選取最後一節
-            if (verseEl.querySelector(`option[value="${currentVal}"]`)) {
-                verseEl.value = currentVal;
+            if (els.fVerse.querySelector(`option[value="${oldVal}"]`)) {
+                els.fVerse.value = oldVal;
             } else {
-                verseEl.value = target === 'from' ? verses[0] : verses[verses.length - 1];
+                els.fVerse.value = verses[0];
+            }
+        }
+
+        function updateToChapterSelect(reset = false) {
+            const book = els.bookSelect.value;
+            if (!bibleData[book]) return;
+            
+            const chapters = Object.keys(bibleData[book]).map(Number).sort((a,b)=>a-b);
+            const fChapVal = parseInt(els.fChap.value) || 1;
+            
+            // 事前防呆：過濾掉小於起始章節的選項
+            const validToChapters = chapters.filter(c => c >= fChapVal);
+            const oldTChap = reset ? validToChapters[0] : (parseInt(els.tChap.value) || validToChapters[0]);
+
+            els.tChap.innerHTML = '';
+            validToChapters.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c; opt.textContent = c;
+                els.tChap.appendChild(opt);
+            });
+
+            if (els.tChap.querySelector(`option[value="${oldTChap}"]`)) {
+                els.tChap.value = oldTChap;
+            } else {
+                els.tChap.value = validToChapters[0];
+            }
+
+            updateToVerseSelect(reset);
+        }
+
+        function updateToVerseSelect(reset = false) {
+            const book = els.bookSelect.value;
+            const tChap = parseInt(els.tChap.value);
+            const fChap = parseInt(els.fChap.value);
+            const fVerse = parseInt(els.fVerse.value);
+
+            if (!bibleData[book] || !bibleData[book][tChap]) return;
+
+            let verses = Object.keys(bibleData[book][tChap]).map(Number).sort((a,b)=>a-b);
+
+            // 事前防呆：如果起始與結束同章，過濾掉小於起始節數的選項
+            if (tChap === fChap) {
+                verses = verses.filter(v => v >= fVerse);
+            }
+
+            const oldVal = reset ? verses[0] : (parseInt(els.tVerse.value) || verses[0]);
+
+            els.tVerse.innerHTML = '';
+            verses.forEach(v => {
+                const opt = document.createElement('option');
+                opt.value = v; opt.textContent = v;
+                els.tVerse.appendChild(opt);
+            });
+
+            if (els.tVerse.querySelector(`option[value="${oldVal}"]`)) {
+                els.tVerse.value = oldVal;
+            } else {
+                els.tVerse.value = verses[0];
             }
         }
 
         function enforceValidationAndExtract() {
             if (!isDataReady) return;
             
-            const fc = parseInt(els.fChap.value);
-            const fv = parseInt(els.fVerse.value);
-            let tc = parseInt(els.tChap.value);
-            let tv = parseInt(els.tVerse.value);
-
-            // 防呆邏輯：結束不能小於起始
-            if (tc < fc) {
-                els.tChap.value = fc;
-                updateVerseSelects('to');
-                tc = fc;
-                tv = parseInt(els.tVerse.value); // 更新 tv 因為 options 重建了
-            }
+            // 由於 UI 選單建立時已實作事前防呆（動態過濾不合法的選項），
+            // 系統保證迄點必定 >= 起點，因此移除舊版事後校正邏輯，直接執行更新。
             
-            if (tc === fc && tv < fv) {
-                els.tVerse.value = fv;
-                tv = fv;
-            }
-
             updateUrlAndTitle();
             extractAndRenderScripture();
         }
 
         // 綁定事件
-        els.bookSelect.addEventListener('change', () => { updateChapterSelects(); enforceValidationAndExtract(); });
-        els.fChap.addEventListener('change', () => { updateVerseSelects('from'); enforceValidationAndExtract(); });
-        els.fVerse.addEventListener('change', enforceValidationAndExtract);
-        els.tChap.addEventListener('change', () => { updateVerseSelects('to'); enforceValidationAndExtract(); });
+        // 當書卷切換時，傳入 reset = true，強制重設所有章節為 1
+        els.bookSelect.addEventListener('change', () => { updateChapterSelects(true); enforceValidationAndExtract(); });
+        
+        els.fChap.addEventListener('change', () => { updateVerseSelects('from'); updateToChapterSelect(); enforceValidationAndExtract(); });
+        els.fVerse.addEventListener('change', () => { updateToVerseSelect(); enforceValidationAndExtract(); });
+        els.tChap.addEventListener('change', () => { updateToVerseSelect(); enforceValidationAndExtract(); });
         els.tVerse.addEventListener('change', enforceValidationAndExtract);
 
         // ==========================================
