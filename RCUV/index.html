@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!-- 
-  版本號：v1.0
+  版本號：v1.1
   修改主旨：
   1. 正式第一版：導入 localforage (IndexedDB) 本地快取，達成本地資料秒開與斷網離線操作。
   2. 實作 ?ref= 網址微縮化解析器，支援多種單/跨章節縮寫，並建立 66 卷書中英對照。
@@ -8,12 +8,18 @@
   4. 全面採用內聯 SVG，零外部圖示庫依賴。
   5. 經文抽取嚴格使用 Object.keys(chapterData).map(Number).sort((a,b)=>a-b) 避免順序錯亂。
   6. 補齊 popstate 監聽器，確保瀏覽器上一頁/下一頁能完美觸發 UI 雙向綁定。
+  7. 修改預設 HTML <title> 為正式名稱，並加入 Open Graph 標籤優化社群分享預覽。
 -->
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>載入中... | 聖經經文選讀與朗讀</title>
+    <title>和合本 2010 朗讀</title>
+    
+    <!-- Open Graph Tags for Social Media Sharing -->
+    <meta property="og:title" content="📖 和合本 2010 朗讀">
+    <meta property="og:description" content="享受聖經閱讀與高擬真語音朗讀體驗。">
+    <meta property="og:type" content="website">
     
     <!-- Tailwind CSS (CDN) -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -187,7 +193,7 @@
     </div>
 
     <!-- 右下角版本號標示 (用於確認佈署狀態) -->
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.0</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.1</div>
 
     <script>
         // ==========================================
@@ -425,7 +431,7 @@
             if (window.location.search !== `?ref=${refStr}`) {
                 window.history.pushState(null, '', newUrl);
             }
-            document.title = `${titleStr} | 聖經選讀與朗讀`;
+            document.title = `${titleStr} | 和合本 2010 朗讀`;
         }
 
         // ==========================================
