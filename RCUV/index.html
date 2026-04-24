@@ -1,11 +1,12 @@
 <!DOCTYPE html>
 <!-- 
-  版本號：v1.2
+  版本號：v1.3
   修改主旨：
   1. 刪除頂端列「📖 聖經選讀與朗讀」文字。
   2. 將「書卷」、「從(章/節)」、「到(章/節)」共五個選單整合至頂端列 (Sticky Header)，並移除「起點/迄點」文字以極大化經文閱讀空間。
-  3. 保留 v1.1 的 localforage 快取、?ref= 網址解析器、語音暫停/繼續與防 GC 機制等所有核心邏輯。
-  4. 全面採用內聯 SVG，零外部圖示庫依賴。
+  3. 將播放、暫停、繼續、停止等語音控制按鈕整合至頂端列右側，移除原本獨立的動作列區塊。
+  4. 保留 localforage 快取、?ref= 網址解析器、防 GC 機制等所有核心邏輯。
+  5. 全面採用內聯 SVG，零外部圖示庫依賴。
 -->
 <html lang="zh-TW">
 <head>
@@ -63,7 +64,25 @@
                 </div>
             </div>
 
+            <!-- 右側：語音控制與分享設定按鈕區塊 -->
             <div class="flex items-center gap-1 shrink-0">
+                <!-- 播放控制按鈕 -->
+                <button id="btn-play" class="p-2 rounded-full bg-amber-600 hover:bg-amber-700 text-white shadow-sm transition transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed" title="朗讀">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
+                </button>
+                <button id="btn-pause" class="hidden p-2 rounded-full bg-stone-800 hover:bg-stone-900 text-white shadow-sm transition transform active:scale-95" title="暫停">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
+                </button>
+                <button id="btn-resume" class="hidden p-2 rounded-full bg-amber-600 hover:bg-amber-700 text-white shadow-sm transition transform active:scale-95" title="繼續">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
+                </button>
+                <button id="btn-stop" class="hidden p-2 rounded-full bg-red-100 hover:bg-red-200 text-red-700 shadow-sm transition transform active:scale-95" title="停止">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clip-rule="evenodd"></path></svg>
+                </button>
+
+                <!-- 分隔線 -->
+                <div class="w-px h-5 bg-stone-300 mx-1"></div>
+
                 <!-- 分享/複製按鈕 (動態切換) -->
                 <button id="btn-share" class="p-2 rounded-full text-stone-500 hover:bg-stone-100 hover:text-stone-800 transition" title="分享">
                     <!-- Share Icon (預設隱藏，若支援 Web Share API 則顯示) -->
@@ -84,32 +103,6 @@
     </header>
 
     <main class="max-w-4xl mx-auto px-4 py-6">
-        
-        <!-- 動作列與播放控制 -->
-        <section class="flex justify-center mb-6 h-12 relative">
-            <div id="action-bar" class="flex gap-3 transition-all duration-300">
-                <!-- 播放按鈕 -->
-                <button id="btn-play" class="bg-amber-600 hover:bg-amber-700 text-white px-6 py-3 rounded-full font-bold shadow-md hover:shadow-lg transition-all flex items-center gap-2 transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
-                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
-                </button>
-
-                <!-- 暫停按鈕 (播放中顯示) -->
-                <button id="btn-pause" class="hidden bg-stone-800 hover:bg-stone-900 text-white px-6 py-3 rounded-full font-bold shadow-md transition-all items-center gap-2 transform active:scale-95">
-                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
-                </button>
-
-                <!-- 繼續按鈕 (暫停中顯示) -->
-                <button id="btn-resume" class="hidden bg-amber-600 hover:bg-amber-700 text-white px-6 py-3 rounded-full font-bold shadow-md transition-all items-center gap-2 transform active:scale-95">
-                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
-                </button>
-
-                <!-- 停止按鈕 (播放/暫停中顯示) -->
-                <button id="btn-stop" class="hidden bg-red-100 hover:bg-red-200 text-red-700 px-6 py-3 rounded-full font-bold shadow-md transition-all items-center gap-2 transform active:scale-95 border border-red-200">
-                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clip-rule="evenodd"></path></svg>
-                </button>
-            </div>
-        </section>
-
         <!-- 經文顯示區 -->
         <section class="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden">
             <div id="scripture-container" class="p-6 md:p-8 text-stone-800 leading-loose font-serif min-h-[300px] text-lg">
@@ -166,7 +159,7 @@
     </div>
 
     <!-- 右下角版本號標示 (用於確認佈署狀態) -->
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.2</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.3</div>
 
     <script>
         // ==========================================
