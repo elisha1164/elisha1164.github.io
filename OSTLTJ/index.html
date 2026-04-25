@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v1.37 補回一鍵全部朗讀的巨觀捲動功能，並修正 updatePlaybackUI 使頂部按鈕成為全域代理控制器 (方案A完整版) -->
 <!-- v1.36 實作 ?pwa=1 網址參數觸發安裝機制，並處理 iOS 網址快照與 Modal 衝突防護 -->
 <!-- v1.35 實作三元播放控制 UI 與全域暫停/恢復 (Pause & Resume) 機制 (Option A 狀態連動) -->
 <!-- v1.34 移除 SVG Emoji 圖示，統一使用 icon-192.png 作為 favicon 與 PWA 圖示 -->
@@ -1678,11 +1679,16 @@
             const state = window._speechState;
             if (!state || !state.activeSection) return;
 
-            // 3. 收集需要進行連動的群組 (若為全域播放，則頂部與特定區塊同步控制)
+            // 3. 收集需要進行連動的群組 (強制將頂部按鈕作為全域代理控制器)
             let activeGroup = [];
-            if (state.isGlobal) {
-                activeGroup.push({ play: 'playAllBtn', pause: 'pauseAllBtn', stop: 'stopAllBtn', resumeText: '繼續全部' });
-            }
+            
+            // 無論是否為全域播放，頂部按鈕必定同步狀態，並動態給予精確文案
+            activeGroup.push({ 
+                play: 'playAllBtn', 
+                pause: 'pauseAllBtn', 
+                stop: 'stopAllBtn', 
+                resumeText: state.isGlobal ? '繼續全部' : '繼續目前段落' 
+            });
 
             if (state.activeSection === 'content') activeGroup.push({ play: 'playBtn', pause: 'pauseBtn', stop: 'stopBtn', resumeText: '繼續' });
             if (state.activeSection === 'scripture') activeGroup.push({ play: 'playScriptureBtn', pause: 'pauseScriptureBtn', stop: 'stopScriptureBtn', resumeText: '繼續' });
@@ -1820,6 +1826,20 @@
                 activeSection: section,
                 debounceTimer: null
             };
+
+            // 補回巨觀區塊捲動 (Macro Scrolling)
+            if (isGlobal && section) {
+                let targetEl = null;
+                if (section === 'content') targetEl = dom.titleHeaderBox;
+                if (section === 'scripture') targetEl = dom.scriptureText.parentElement;
+                if (section === 'reflection') targetEl = dom.reflectionSection;
+                if (section === 'video') targetEl = dom.videoSection;
+
+                if (targetEl) {
+                    const y = targetEl.getBoundingClientRect().top + window.scrollY - 24; 
+                    window.scrollTo({ top: y, behavior: 'smooth' });
+                }
+            }
 
             if (onStart) onStart();
             updatePlaybackUI();
