@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <!-- 
-  版本號：v1.8
+  版本號：v1.9
   修改主旨：
-  1. 更新 iOS (Safari) 專用的 apple-touch-icon 為 icon-180.png。
-  2. 將 favicon 更改為 icon-192.png 並加上 sizes 屬性。
-  3. 實作「事前防呆」動態過濾，迄點章節不再顯示小於起點的數值。
-  4. 切換書卷時強制重設起迄章節為 1:1，並完美相容 ?ref= 解析器。
+  1. 導入 PptxGenJS，實作純前端匯出 PPTX 簡報功能，並於載入時同步快取以達成絕對離線可用。
+  2. 簡報設計：16:9 比例、深底白字、微軟正黑體，具備母片浮水印 (Master Slide) 與安全邊距。
+  3. 匯出演算法：去除註解標記與節號數字，一節經文轉換為一張獨立投影片。
+  4. 匯出防呆：自訂全形冒號檔名，並限制一次最多僅能匯出 5 個章的跨度以防記憶體溢位。
 -->
 <html lang="zh-TW">
 <head>
@@ -34,6 +34,9 @@
     
     <!-- localforage (CDN) 用於 IndexedDB 封裝 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js"></script>
+
+    <!-- PptxGenJS (CDN) 用於純前端匯出 PPTX 簡報 (包含 JSZip) -->
+    <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 
     <!-- 防範 LINE/FB 內建瀏覽器強制跳出機制 -->
     <script>
@@ -92,6 +95,11 @@
 
                 <!-- 分隔線 -->
                 <div class="w-px h-5 bg-stone-300 mx-1"></div>
+
+                <!-- 匯出簡報按鈕 -->
+                <button id="btn-export-ppt" class="p-2 rounded-full text-stone-500 hover:bg-stone-100 hover:text-stone-800 transition flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed" title="匯出簡報 (PPTX)">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="1" ry="1"></rect><path stroke-linecap="round" stroke-linejoin="round" d="M8 20h8m-4-4v4"></path></svg>
+                </button>
 
                 <!-- 分享/複製按鈕 (動態切換) -->
                 <button id="btn-share" class="p-2 rounded-full text-stone-500 hover:bg-stone-100 hover:text-stone-800 transition" title="分享">
@@ -169,7 +177,7 @@
     </div>
 
     <!-- 右下角版本號標示 (用於確認佈署狀態) -->
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.8</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.9</div>
 
     <script>
         // ==========================================
@@ -222,6 +230,7 @@
             btnPause: document.getElementById('btn-pause'),
             btnResume: document.getElementById('btn-resume'),
             btnStop: document.getElementById('btn-stop'),
+            btnExportPpt: document.getElementById('btn-export-ppt'),
             voiceSelect: document.getElementById('voice-select'),
             rateSelect: document.getElementById('rate-select')
         };
@@ -264,6 +273,7 @@
                 els.statusBar.classList.add('hidden');
                 document.querySelectorAll('select').forEach(el => el.disabled = false);
                 els.btnPlay.disabled = false;
+                els.btnExportPpt.disabled = false;
 
                 // 語音初始化
                 populateVoiceList();
@@ -851,7 +861,113 @@
         });
 
         // ==========================================
-        // 7. Modals 與分享工具
+        // 7. PPTX 簡報匯出模組
+        // ==========================================
+        function exportPPTX() {
+            if (typeof pptxgen === 'undefined') {
+                alert('簡報匯出模組尚未載入完成或處於離線狀態，請確認網路連線後重試。');
+                return;
+            }
+
+            const book = els.bookSelect.value;
+            const fc = parseInt(els.fChap.value);
+            const fv = parseInt(els.fVerse.value);
+            const tc = parseInt(els.tChap.value);
+            const tv = parseInt(els.tVerse.value);
+
+            // 效能防呆限制：最多 5 章
+            if (tc - fc + 1 > 5) {
+                alert('為確保效能，一次最多僅能匯出 5 個章。');
+                return;
+            }
+
+            // UI 狀態：鎖定按鈕並顯示產生中
+            const originalContent = els.btnExportPpt.innerHTML;
+            els.btnExportPpt.disabled = true;
+            els.btnExportPpt.innerHTML = `<span class="text-xs font-bold px-1 animate-pulse">⏳ 產生中...</span>`;
+
+            try {
+                let pres = new pptxgen();
+                pres.layout = 'LAYOUT_16x9';
+
+                // 建立公版母片 (Master Slide)
+                pres.defineSlideMaster({
+                    title: "BIBLE_MASTER",
+                    background: { color: "1E1E1E" },
+                    objects: [
+                        { text: { text: "和合本 2010", options: { x: '5%', y: '92%', w: '90%', h: '5%', align: 'right', color: '888888', fontSize: 14, fontFace: "Microsoft JhengHei" } } }
+                    ]
+                });
+
+                // 資料萃取與投影片建立迴圈
+                const chapters = Object.keys(bibleData[book]).map(Number).sort((a,b)=>a-b);
+                chapters.forEach(c => {
+                    if (c >= fc && c <= tc) {
+                        const verses = Object.keys(bibleData[book][c]).map(Number).sort((a,b)=>a-b);
+                        verses.forEach(v => {
+                            if (c === fc && c === tc) {
+                                if (v < fv || v > tv) return;
+                            } else if (c === fc) {
+                                if (v < fv) return;
+                            } else if (c === tc) {
+                                if (v > tv) return;
+                            }
+
+                            // 取得原始經文，剔除註解標記，且不保留節號
+                            let rawText = bibleData[book][c][v];
+                            let cleanText = rawText.replace(/\?註：(.*?)\?/g, '').trim();
+
+                            let slide = pres.addSlide({ masterName: "BIBLE_MASTER" });
+                            
+                            // 加入標題 (例如: 創世記 1:1)
+                            slide.addText(`${book} ${c}:${v}`, { 
+                                x: '5%', y: '8%', w: '90%', h: '10%', 
+                                color: 'FFFFFF', fontSize: 32, fontFace: "Microsoft JhengHei", 
+                                valign: 'top', align: 'left' 
+                            });
+                            
+                            // 加入經文內文
+                            slide.addText(cleanText, { 
+                                x: '5%', y: '22%', w: '90%', h: '70%', 
+                                color: 'FFFFFF', fontSize: 48, fontFace: "Microsoft JhengHei", 
+                                valign: 'top', align: 'left' 
+                            });
+                        });
+                    }
+                });
+
+                // 動態決定檔名 (使用全形冒號避免作業系統檔名錯誤)
+                let filename = '';
+                if (fc === tc) {
+                    filename = `${book}${fc}：${fv}-${tv}.pptx`;
+                } else {
+                    filename = `${book}${fc}：${fv}-${tc}：${tv}.pptx`;
+                }
+
+                // 觸發下載並復原 UI 狀態
+                pres.writeFile({ fileName: filename }).then(() => {
+                    els.btnExportPpt.disabled = false;
+                    els.btnExportPpt.innerHTML = originalContent;
+                }).catch(err => {
+                    console.error("PPTX 寫入錯誤:", err);
+                    alert('檔案產生失敗，請稍後再試。');
+                    els.btnExportPpt.disabled = false;
+                    els.btnExportPpt.innerHTML = originalContent;
+                });
+
+            } catch (err) {
+                console.error("PPTX 產生過程發生例外錯誤:", err);
+                alert('匯出模組發生錯誤，請重新整理頁面。');
+                els.btnExportPpt.disabled = false;
+                els.btnExportPpt.innerHTML = originalContent;
+            }
+        }
+
+        // 綁定匯出 PPTX 按鈕事件
+        els.btnExportPpt.addEventListener('click', exportPPTX);
+
+        // ==========================================
+        // 8. Modals 與分享工具
         // ==========================================
         function toggleSettingsModal() {
             document.getElementById('settings-modal').classList.toggle('hidden');
