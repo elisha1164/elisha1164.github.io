@@ -1,11 +1,10 @@
 <!DOCTYPE html>
 <!-- 
-  版本號：v1.9
+  版本號：v1.10
   修改主旨：
-  1. 導入 PptxGenJS，實作純前端匯出 PPTX 簡報功能，並於載入時同步快取以達成絕對離線可用。
-  2. 簡報設計：16:9 比例、深底白字、微軟正黑體，具備母片浮水印 (Master Slide) 與安全邊距。
-  3. 匯出演算法：去除註解標記與節號數字，一節經文轉換為一張獨立投影片。
-  4. 匯出防呆：自訂全形冒號檔名，並限制一次最多僅能匯出 5 個章的跨度以防記憶體溢位。
+  1. 修復 jsdelivr npm bundle 載入失敗問題，改為透過 cdnjs 拆分載入 JSZip 與 PptxGenJS。
+  2. 強化 PptxGenJS 全域類別相容性檢測 (支援 pptxgen 與 PptxGenJS 命名空間)，解決無法匯出的錯誤。
+  3. 保留 v1.9 的 PptxGenJS 匯出邏輯、防呆機制與母片設定。
 -->
 <html lang="zh-TW">
 <head>
@@ -35,8 +34,10 @@
     <!-- localforage (CDN) 用於 IndexedDB 封裝 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js"></script>
 
-    <!-- PptxGenJS (CDN) 用於純前端匯出 PPTX 簡報 (包含 JSZip) -->
-    <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+    <!-- JSZip (PptxGenJS 必備核心依賴) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <!-- PptxGenJS (純前端匯出 PPTX 簡報) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pptxgenjs/3.12.0/pptxgen.min.js"></script>
 
     <!-- 防範 LINE/FB 內建瀏覽器強制跳出機制 -->
     <script>
@@ -177,7 +178,7 @@
     </div>
 
     <!-- 右下角版本號標示 (用於確認佈署狀態) -->
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.9</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.10</div>
 
     <script>
         // ==========================================
@@ -864,7 +865,10 @@
         // 7. PPTX 簡報匯出模組
         // ==========================================
         function exportPPTX() {
-            if (typeof pptxgen === 'undefined') {
+            // 強化全域變數檢測：支援 pptxgen 或 PptxGenJS (依載入環境可能有所不同)
+            const PptxClass = window.pptxgen || window.PptxGenJS;
+            
+            if (!PptxClass) {
                 alert('簡報匯出模組尚未載入完成或處於離線狀態，請確認網路連線後重試。');
                 return;
             }
@@ -887,7 +891,7 @@
             els.btnExportPpt.innerHTML = `<span class="text-xs font-bold px-1 animate-pulse">⏳ 產生中...</span>`;
 
             try {
-                let pres = new pptxgen();
+                let pres = new PptxClass();
                 pres.layout = 'LAYOUT_16x9';
 
                 // 建立公版母片 (Master Slide)
