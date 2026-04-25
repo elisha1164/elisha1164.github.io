@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <!-- 
-  版本號：v1.10
+  版本號：v1.11
   修改主旨：
-  1. 修復 jsdelivr npm bundle 載入失敗問題，改為透過 cdnjs 拆分載入 JSZip 與 PptxGenJS。
-  2. 強化 PptxGenJS 全域類別相容性檢測 (支援 pptxgen 與 PptxGenJS 命名空間)，解決無法匯出的錯誤。
-  3. 保留 v1.9 的 PptxGenJS 匯出邏輯、防呆機制與母片設定。
+  1. 解決 CDN 404 與 CORB 阻擋問題，改為採用官方指定之 unpkg 來源。
+  2. 實作 CDN 自動備援 (Fallback) 機制：若 unpkg 載入失敗，自動切換至 jsdelivr 來源，確保絕對可用性。
+  3. 保留 PptxGenJS 匯出邏輯、全域相容性檢測與所有防呆機制。
 -->
 <html lang="zh-TW">
 <head>
@@ -34,10 +34,15 @@
     <!-- localforage (CDN) 用於 IndexedDB 封裝 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js"></script>
 
-    <!-- JSZip (PptxGenJS 必備核心依賴) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <!-- PptxGenJS (純前端匯出 PPTX 簡報) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pptxgenjs/3.12.0/pptxgen.min.js"></script>
+    <!-- PptxGenJS (純前端匯出 PPTX 簡報) - 主要來源 -->
+    <script src="https://unpkg.com/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+    
+    <!-- PptxGenJS - 備援機制 (Fallback) -->
+    <script>
+        if (typeof window.pptxgen === 'undefined' && typeof window.PptxGenJS === 'undefined') {
+            document.write('<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"><\/script>');
+        }
+    </script>
 
     <!-- 防範 LINE/FB 內建瀏覽器強制跳出機制 -->
     <script>
@@ -178,7 +183,7 @@
     </div>
 
     <!-- 右下角版本號標示 (用於確認佈署狀態) -->
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.10</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.11</div>
 
     <script>
         // ==========================================
