@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <!-- 
-  版本號：v1.12
+  版本號：v1.13
   修改主旨：
-  1. 解決 CDN 404 與 CORB 阻擋問題，改為採用官方指定之 unpkg 來源。
-  2. 實作 CDN 自動備援 (Fallback) 機制：若 unpkg 載入失敗，自動切換至 jsdelivr 來源，確保絕對可用性。
-  3. 調整 PPTX 匯出的經文內文字體大小，由 48pt 縮小至 44pt。
+  1. 將語音與朗讀設定介面由 Modal 改為右上角的下拉選單 (Dropdown)。
+  2. 取消設定介面的「完成」確認鍵，改為選項變更時即時生效並儲存。
+  3. 整合 PWA 安裝邏輯：若裝置支援，下拉選單內會動態顯示「安裝到桌面」按鈕。
 -->
 <html lang="zh-TW">
 <head>
@@ -114,10 +114,39 @@
                     <!-- Copy Icon (預設顯示，作為 Fallback) -->
                     <svg id="icon-copy" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
                 </button>
-                <!-- 設定按鈕 -->
-                <button id="btn-settings" class="p-2 rounded-full text-stone-500 hover:bg-stone-100 hover:text-stone-800 transition" title="語音設定">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                </button>
+                
+                <!-- 設定按鈕與下拉選單容器 -->
+                <div class="relative" id="settings-container">
+                    <button id="btn-settings" class="p-2 rounded-full text-stone-500 hover:bg-stone-100 hover:text-stone-800 transition" title="設定">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    </button>
+                    
+                    <!-- 設定下拉選單 -->
+                    <div id="settings-dropdown" class="hidden absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-lg border border-stone-200 p-4 z-50">
+                        <div class="mb-4">
+                            <label class="block text-sm font-bold text-stone-600 mb-2">🗣️ 系統語音</label>
+                            <select id="voice-select" class="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none transition bg-stone-50 text-stone-800 font-medium text-sm">
+                                <option value="">(系統無可用中文語音)</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-2">
+                            <label class="block text-sm font-bold text-stone-600 mb-2">⏱️ 朗讀語速</label>
+                            <select id="rate-select" class="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none transition bg-stone-50 text-stone-800 font-medium text-sm">
+                                <option value="0.8">慢速 (0.8x)</option>
+                                <option value="1.0" selected>正常 (1.0x)</option>
+                                <option value="1.2">稍快 (1.2x)</option>
+                                <option value="1.5">快速 (1.5x)</option>
+                            </select>
+                        </div>
+                        
+                        <!-- PWA 安裝按鈕 (預設隱藏，由 JS 控制顯示) -->
+                        <button id="btn-install-pwa" class="hidden w-full bg-amber-100 text-amber-800 py-2 mt-4 rounded-lg hover:bg-amber-200 transition font-bold text-sm flex items-center justify-center gap-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                            安裝到桌面
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
         <!-- 全域狀態列 -->
@@ -136,38 +165,6 @@
 
     </main>
 
-    <!-- 設定彈出框 (Modal) -->
-    <div id="settings-modal" class="fixed inset-0 bg-stone-900/40 hidden flex items-center justify-center z-50 transition-opacity backdrop-blur-sm" onclick="if(event.target === this) toggleSettingsModal()">
-        <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4 relative transform transition-transform scale-100">
-            <button onclick="toggleSettingsModal()" class="absolute top-4 right-4 text-stone-400 hover:text-stone-600 transition bg-stone-100 hover:bg-stone-200 rounded-full p-1">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-            </button>
-            <div class="flex items-center mb-6">
-                <svg class="w-6 h-6 mr-2 text-stone-700" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                <h4 class="font-bold text-stone-800 text-lg">語音與朗讀設定</h4>
-            </div>
-            
-            <div class="mb-4">
-                <label class="block text-sm font-bold text-stone-600 mb-2">🗣️ 系統語音</label>
-                <select id="voice-select" class="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none transition bg-stone-50 text-stone-800 font-medium">
-                    <option value="">(系統無可用中文語音)</option>
-                </select>
-            </div>
-
-            <div class="mb-6">
-                <label class="block text-sm font-bold text-stone-600 mb-2">⏱️ 朗讀語速</label>
-                <select id="rate-select" class="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none transition bg-stone-50 text-stone-800 font-medium">
-                    <option value="0.8">慢速 (0.8x)</option>
-                    <option value="1.0" selected>正常 (1.0x)</option>
-                    <option value="1.2">稍快 (1.2x)</option>
-                    <option value="1.5">快速 (1.5x)</option>
-                </select>
-            </div>
-            
-            <button onclick="toggleSettingsModal()" class="w-full bg-stone-800 text-white py-2.5 rounded-lg hover:bg-stone-900 transition font-bold shadow-sm">完成</button>
-        </div>
-    </div>
-
     <!-- 註釋彈出框 (Footnote Modal) -->
     <div id="footnote-modal" class="fixed inset-0 bg-stone-900/40 hidden flex items-center justify-center z-50 transition-opacity backdrop-blur-sm" onclick="if(event.target === this) toggleFootnoteModal()">
         <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full mx-4 relative transform transition-transform scale-100">
@@ -183,7 +180,7 @@
     </div>
 
     <!-- 右下角版本號標示 (用於確認佈署狀態) -->
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.12</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.13</div>
 
     <script>
         // ==========================================
@@ -237,6 +234,10 @@
             btnResume: document.getElementById('btn-resume'),
             btnStop: document.getElementById('btn-stop'),
             btnExportPpt: document.getElementById('btn-export-ppt'),
+            btnSettings: document.getElementById('btn-settings'),
+            settingsDropdown: document.getElementById('settings-dropdown'),
+            settingsContainer: document.getElementById('settings-container'),
+            btnInstallPwa: document.getElementById('btn-install-pwa'),
             voiceSelect: document.getElementById('voice-select'),
             rateSelect: document.getElementById('rate-select')
         };
@@ -668,7 +669,7 @@
             });
         }
 
-        // 綁定設定改變事件
+        // 綁定設定改變事件 (選項改變時即時儲存與生效)
         els.voiceSelect.addEventListener('change', e => {
             if (e.target.value !== "" && voices[e.target.value]) localforage.setItem('tts_voice_name', voices[e.target.value].name);
         });
@@ -976,13 +977,22 @@
         els.btnExportPpt.addEventListener('click', exportPPTX);
 
         // ==========================================
-        // 8. Modals 與分享工具
+        // 8. Modals, Dropdowns 與分享工具
         // ==========================================
-        function toggleSettingsModal() {
-            document.getElementById('settings-modal').classList.toggle('hidden');
-        }
-        document.getElementById('btn-settings').addEventListener('click', toggleSettingsModal);
+        // 下拉選單切換邏輯
+        els.btnSettings.addEventListener('click', (e) => {
+            e.stopPropagation();
+            els.settingsDropdown.classList.toggle('hidden');
+        });
 
+        // 點擊外部自動關閉下拉選單
+        document.addEventListener('click', (e) => {
+            if (els.settingsContainer && !els.settingsContainer.contains(e.target)) {
+                els.settingsDropdown.classList.add('hidden');
+            }
+        });
+
+        // 註釋 Modal 切換邏輯
         function toggleFootnoteModal(content = '') {
             const modal = document.getElementById('footnote-modal');
             const txtEl = document.getElementById('footnote-content');
@@ -1019,6 +1029,29 @@
                 copyUrl();
             }
         });
+
+        // PWA 安裝邏輯
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            // 避免預設提示
+            e.preventDefault();
+            // 存儲事件
+            deferredPrompt = e;
+            // 解除隱藏安裝按鈕
+            if (els.btnInstallPwa) els.btnInstallPwa.classList.remove('hidden');
+        });
+
+        if (els.btnInstallPwa) {
+            els.btnInstallPwa.addEventListener('click', async () => {
+                if (deferredPrompt) {
+                    deferredPrompt.prompt();
+                    const { outcome } = await deferredPrompt.userChoice;
+                    deferredPrompt = null;
+                    els.btnInstallPwa.classList.add('hidden');
+                    els.settingsDropdown.classList.add('hidden'); // 安裝完順便收起選單
+                }
+            });
+        }
 
         // 啟動系統
         window.addEventListener('DOMContentLoaded', initApp);
