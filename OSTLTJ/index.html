@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v1.39 優化標題區排版，移除副標題殘留的底部邊距 (Margin Shifting) -->
 <!-- v1.38 實作「動態錨點重置」解決更改放假日導致的歷史偏移問題，並優化主標題排版 -->
 <!-- v1.37 補回一鍵全部朗讀的巨觀捲動功能，並修正 updatePlaybackUI 使頂部按鈕成為全域代理控制器 (方案A完整版) -->
 <!-- v1.36 實作 ?pwa=1 網址參數觸發安裝機制，並處理 iOS 網址快照與 Modal 衝突防護 -->
@@ -84,9 +85,9 @@
         <header class="relative flex justify-center items-start mb-8">
             <div class="text-center mt-2">
                 <h1 class="text-3xl sm:text-4xl font-bold text-stone-700 mb-1">📖 指向耶穌的大故事</h1>
-                <div class="text-base text-stone-500 font-medium mb-3">358 天讀完整本聖經</div>
+                <div class="text-base text-stone-500 font-medium">358 天讀完整本聖經</div>
                 <!-- 初始化文字，成功後會隱藏 -->
-                <p class="text-stone-500 transition-opacity duration-300" id="statusText">正在初始化系統...</p>
+                <p class="text-stone-500 transition-opacity duration-300 mt-3" id="statusText">正在初始化系統...</p>
             </div>
             
             <!-- 進階設定按鈕 -->
@@ -2119,6 +2120,6 @@
 
         window.addEventListener('DOMContentLoaded', init);
     </script>
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.38</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.39</div>
 </body>
 </html>
