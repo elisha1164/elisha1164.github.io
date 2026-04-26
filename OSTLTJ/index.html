@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v1.38 實作「動態錨點重置」解決更改放假日導致的歷史偏移問題，並優化主標題排版 -->
 <!-- v1.37 補回一鍵全部朗讀的巨觀捲動功能，並修正 updatePlaybackUI 使頂部按鈕成為全域代理控制器 (方案A完整版) -->
 <!-- v1.36 實作 ?pwa=1 網址參數觸發安裝機制，並處理 iOS 網址快照與 Modal 衝突防護 -->
 <!-- v1.35 實作三元播放控制 UI 與全域暫停/恢復 (Pause & Resume) 機制 (Option A 狀態連動) -->
@@ -82,7 +83,8 @@
         <!-- 標題區 -->
         <header class="relative flex justify-center items-start mb-8">
             <div class="text-center mt-2">
-                <h1 class="text-3xl sm:text-4xl font-bold text-stone-700 mb-2">📖 指向耶穌的大故事：一年讀完整本聖經</h1>
+                <h1 class="text-3xl sm:text-4xl font-bold text-stone-700 mb-1">📖 指向耶穌的大故事</h1>
+                <div class="text-base text-stone-500 font-medium mb-3">358 天讀完整本聖經</div>
                 <!-- 初始化文字，成功後會隱藏 -->
                 <p class="text-stone-500 transition-opacity duration-300" id="statusText">正在初始化系統...</p>
             </div>
@@ -557,7 +559,8 @@
             </div>
 
             <div class="bg-amber-50 text-amber-800 p-3 rounded-lg text-sm mb-6 border border-amber-200 shadow-sm text-center font-medium">
-                <span id="estimatedCompletionText">讀經計畫預計完成日期：計算中...</span>
+                <div id="estimatedCompletionText">讀經計畫預計完成日期：計算中...</div>
+                <div id="calibrationNotice" class="text-xs text-stone-500 mt-2 hidden font-normal"></div>
             </div>
 
             <div class="flex flex-col gap-2">
@@ -759,7 +762,9 @@
             wizardBackBtn: document.getElementById('wizardBackBtn'),
             wizardFinishBtn: document.getElementById('wizardFinishBtn'),
             wizardRestCheckboxes: document.querySelectorAll('.wizard-rest-cb'),
-            wizardEstimatedCompletionText: document.getElementById('wizardEstimatedCompletionText')
+            wizardEstimatedCompletionText: document.getElementById('wizardEstimatedCompletionText'),
+            // 🔥 新增：動態錨點重置提示元素
+            calibrationNotice: document.getElementById('calibrationNotice')
         };
 
         function cleanString(str) {
@@ -852,7 +857,7 @@
             return results;
         }
 
-        function calculateCurrentDay(startDateStr) {
+        function calculateCurrentDay(startDateStr, tempRestDays = restDays) {
             if (!startDateStr) return null;
             const parts = startDateStr.split('-');
             const startDate = new Date(parts[0], parts[1] - 1, parts[2]); 
@@ -868,7 +873,7 @@
 
             while (curr < today) {
                 curr.setDate(curr.getDate() + 1);
-                if (!restDays.includes(curr.getDay())) {
+                if (!tempRestDays.includes(curr.getDay())) {
                     readingDaysCount++;
                 }
             }
@@ -877,6 +882,24 @@
             if (targetDay < 1) targetDay = 1;
             if (targetDay > 358) targetDay = 358;
             return targetDay;
+        }
+
+        // 新增：利用目標天數與新的放假規則，反推開始日期
+        function reverseCalculateStartDate(targetReadingDay, tempRestDays) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            let daysToSubtract = targetReadingDay - 1;
+            let curr = new Date(today);
+
+            if (tempRestDays.length >= 7) return null; // 防呆
+
+            while (daysToSubtract > 0) {
+                curr.setDate(curr.getDate() - 1);
+                if (!tempRestDays.includes(curr.getDay())) {
+                    daysToSubtract--;
+                }
+            }
+            return curr;
         }
 
         function getDateForReadingDay(startDateStr, targetReadingDay, tempRestDays = restDays) {
@@ -1042,19 +1065,49 @@
         }
 
         function updateEstimatedCompletion() {
-            const startDateStr = dom.startDateInput.value || localStorage.getItem('gemini_start_date');
-            if (!startDateStr) {
+            const oldStartDateStr = dom.startDateInput.value || localStorage.getItem('gemini_start_date');
+            const tempRestDays = Array.from(dom.restDaysCheckboxes).filter(cb => cb.checked).map(cb => parseInt(cb.value));
+            
+            if (!oldStartDateStr) {
                 dom.estimatedCompletionText.textContent = '請先設定開始日期';
+                if (dom.calibrationNotice) dom.calibrationNotice.classList.add('hidden');
                 return;
             }
-            const tempRestDays = Array.from(dom.restDaysCheckboxes).filter(cb => cb.checked).map(cb => parseInt(cb.value));
-            const endDate = getDateForReadingDay(startDateStr, 358, tempRestDays);
+
+            // 取得舊的放假規則，以真實世界的今天為基準算出錨點 (targetDay)
+            const targetDay = calculateCurrentDay(oldStartDateStr, restDays) || 1;
+            
+            // 使用新規則反推新的開始日期
+            const newStartDate = reverseCalculateStartDate(targetDay, tempRestDays);
+            let newStartDateStr = oldStartDateStr;
+            
+            if (newStartDate) {
+                const offset = newStartDate.getTimezoneOffset() * 60000;
+                newStartDateStr = new Date(newStartDate.getTime() - offset).toISOString().split('T')[0];
+            }
+
+            // 使用新開始日期推算結束日
+            const endDate = getDateForReadingDay(newStartDateStr, 358, tempRestDays);
             
             if (endDate) {
                 dom.estimatedCompletionText.textContent = `讀經計畫預計完成日期：${endDate.getFullYear()}年${endDate.getMonth() + 1}月${endDate.getDate()}日`;
             } else {
                 dom.estimatedCompletionText.textContent = '日期計算錯誤';
             }
+
+            // 判斷是否需要顯示校準提示
+            if (dom.calibrationNotice) {
+                if (newStartDateStr !== oldStartDateStr) {
+                    const d = new Date(newStartDateStr);
+                    dom.calibrationNotice.textContent = `為了不打亂已完成的讀經進度，系統將自動重新校準「開始日期」至 ${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日。`;
+                    dom.calibrationNotice.classList.remove('hidden');
+                } else {
+                    dom.calibrationNotice.classList.add('hidden');
+                }
+            }
+
+            // 暫存這個新的開始日期，等使用者按下套用時再寫入
+            window._pendingNewStartDateStr = newStartDateStr;
         }
 
         // 🔥 新增：動態計算精靈中的預計完成日期 🔥
@@ -1319,9 +1372,16 @@
                 localStorage.setItem('gemini_rest_days', JSON.stringify(restDays));
                 dom.restDaysModal.classList.add('hidden');
                 
+                // 套用被校準後的新開始日期
+                if (window._pendingNewStartDateStr) {
+                    localStorage.setItem('gemini_start_date', window._pendingNewStartDateStr);
+                    dom.startDateInput.value = window._pendingNewStartDateStr;
+                    window._pendingNewStartDateStr = null; // 清除暫存
+                }
+                
                 const startDateStr = localStorage.getItem('gemini_start_date');
                 if (startDateStr) {
-                    const newDay = calculateCurrentDay(startDateStr);
+                    const newDay = calculateCurrentDay(startDateStr, restDays);
                     if (newDay !== null && newDay !== currentDay) {
                         changeDay(newDay);
                     } else {
@@ -2059,6 +2119,6 @@
 
         window.addEventListener('DOMContentLoaded', init);
     </script>
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.37</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.38</div>
 </body>
 </html>
