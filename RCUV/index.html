@@ -1,17 +1,18 @@
 <!DOCTYPE html>
 <!-- 
-  版本號：v1.16
+  版本號：v1.17
   修改主旨：
-  1. 移除書卷簡寫表的表格標題 (thead)，簡化介面呈現。
+  1. 將全站 3 處「和合本 2010 朗讀」統一修改為「和合本 2010」。
+  2. 優化原生分享功能 (Web Share API)，動態擷取當前經文作為分享文字 (去除節號與換行，超過 200 字自動截斷並加上刪節號)。
 -->
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>和合本 2010 朗讀</title>
+    <title>和合本 2010</title>
     
     <!-- Open Graph Tags for Social Media Sharing -->
-    <meta property="og:title" content="📖 和合本 2010 朗讀">
+    <meta property="og:title" content="📖 和合本 2010">
     <meta property="og:description" content="享受聖經閱讀與高擬真語音朗讀體驗。">
     <meta property="og:type" content="website">
 
@@ -207,7 +208,7 @@
     </div>
 
     <!-- 右下角版本號標示 (用於確認佈署狀態) -->
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.16</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.17</div>
 
     <script>
         // ==========================================
@@ -499,7 +500,7 @@
             if (window.location.search !== `?ref=${refStr}`) {
                 window.history.pushState(null, '', newUrl);
             }
-            document.title = `${titleStr} | 和合本 2010 朗讀`;
+            document.title = `${titleStr} | 和合本 2010`;
         }
 
         // ==========================================
@@ -1112,11 +1113,22 @@
         }
 
         document.getElementById('btn-share').addEventListener('click', async () => {
+            // 產生分享用的純文字經文 (不含節號、換行，超過 200 字截斷)
+            let shareText = '';
+            els.container.querySelectorAll('span.text-stone-800').forEach(el => {
+                shareText += el.innerText.replace(/📝/g, '').replace(/\n/g, '');
+            });
+            // 移除可能的多餘空白
+            shareText = shareText.replace(/\s+/g, '');
+            if (shareText.length > 200) {
+                shareText = shareText.substring(0, 200) + '...';
+            }
+
             if (navigator.share) {
                 try {
                     await navigator.share({
                         title: document.title,
-                        text: '與您分享聖經經文',
+                        text: shareText || '與您分享聖經經文',
                         url: window.location.href
                     });
                 } catch (e) { console.log('分享取消或失敗'); }
