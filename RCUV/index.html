@@ -1,9 +1,8 @@
 <!DOCTYPE html>
 <!-- 
-  版本號：v1.14
+  版本號：v1.16
   修改主旨：
-  1. 於設定下拉選單中新增「書卷簡寫表」按鈕。
-  2. 新增書卷簡寫表 Modal，展示完整中文名（中文標準簡寫以粗體標示）與對應的英文簡寫。
+  1. 移除書卷簡寫表的表格標題 (thead)，簡化介面呈現。
 -->
 <html lang="zh-TW">
 <head>
@@ -199,12 +198,6 @@
             </div>
             <div class="p-4 overflow-y-auto">
                 <table class="w-full text-left border-collapse">
-                    <thead class="sticky top-0 bg-white z-10 shadow-sm">
-                        <tr>
-                            <th class="border-b border-stone-300 pb-2 pt-1 text-stone-500 font-bold text-sm px-2">書卷完整中文名</th>
-                            <th class="border-b border-stone-300 pb-2 pt-1 text-stone-500 font-bold text-sm px-2">英文簡寫</th>
-                        </tr>
-                    </thead>
                     <tbody id="abbrev-table-body" class="text-stone-700 text-sm">
                         <!-- JS 動態產生表格內容 -->
                     </tbody>
@@ -214,7 +207,7 @@
     </div>
 
     <!-- 右下角版本號標示 (用於確認佈署狀態) -->
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.14</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.16</div>
 
     <script>
         // ==========================================
@@ -255,7 +248,7 @@
         const bookOrderArray = Object.values(bookMap);
 
         // 書卷中文標準簡寫標記對應表 (用於動態產生簡寫表)
-        const bookAbbrevFormat = {
+        const bookAbbrevFormatCh = {
             "Gen": "<strong>創</strong>世記", "Ex": "<strong>出</strong>埃及記", "Lev": "<strong>利</strong>未記", "Num": "<strong>民</strong>數記", "Deut": "<strong>申</strong>命記",
             "Josh": "約<strong>書</strong>亞記", "Judg": "<strong>士</strong>師記", "Ruth": "路<strong>得</strong>記", "1Sam": "<strong>撒</strong>母耳記<strong>上</strong>", "2Sam": "<strong>撒</strong>母耳記<strong>下</strong>",
             "1Kings": "列<strong>王</strong>紀<strong>上</strong>", "2Kings": "列<strong>王</strong>紀<strong>下</strong>", "1Chron": "歷<strong>代</strong>志<strong>上</strong>", "2Chron": "歷<strong>代</strong>志<strong>下</strong>",
@@ -270,6 +263,24 @@
             "1Tim": "<strong>提</strong>摩太<strong>前</strong>書", "2Tim": "<strong>提</strong>摩太<strong>後</strong>書", "Titus": "提<strong>多</strong>書", "Philem": "腓利<strong>門</strong>書", "Heb": "希伯<strong>來</strong>書",
             "James": "<strong>雅</strong>各書", "1Pet": "<strong>彼</strong>得<strong>前</strong>書", "2Pet": "<strong>彼</strong>得<strong>後</strong>書", "1John": "<strong>約</strong>翰<strong>一</strong>書", "2John": "<strong>約</strong>翰<strong>二</strong>書",
             "3John": "<strong>約</strong>翰<strong>三</strong>書", "Jude": "<strong>猶</strong>大書", "Rev": "<strong>啟</strong>示錄"
+        };
+
+        // 書卷英文完整名稱與標準簡寫標記對應表 (用於動態產生簡寫表)
+        const bookAbbrevFormatEn = {
+            "Gen": "<strong>Gen</strong>esis", "Ex": "<strong>Ex</strong>odus", "Lev": "<strong>Lev</strong>iticus", "Num": "<strong>Num</strong>bers", "Deut": "<strong>Deut</strong>eronomy",
+            "Josh": "<strong>Josh</strong>ua", "Judg": "<strong>Judg</strong>es", "Ruth": "<strong>Ruth</strong>", "1Sam": "<strong>1 Sam</strong>uel", "2Sam": "<strong>2 Sam</strong>uel",
+            "1Kings": "<strong>1 Kings</strong>", "2Kings": "<strong>2 Kings</strong>", "1Chron": "<strong>1 Chron</strong>icles", "2Chron": "<strong>2 Chron</strong>icles",
+            "Ezra": "<strong>Ezra</strong>", "Neh": "<strong>Neh</strong>emiah", "Est": "<strong>Est</strong>her", "Job": "<strong>Job</strong>", "Ps": "<strong>Ps</strong>alms",
+            "Prov": "<strong>Prov</strong>erbs", "Eccles": "<strong>Eccles</strong>iastes", "Song": "<strong>Song</strong> of Solomon", "Isa": "<strong>Isa</strong>iah", "Jer": "<strong>Jer</strong>emiah",
+            "Lam": "<strong>Lam</strong>entations", "Ezek": "<strong>Ezek</strong>iel", "Dan": "<strong>Dan</strong>iel", "Hos": "<strong>Hos</strong>ea", "Joel": "<strong>Joel</strong>",
+            "Amos": "<strong>Amos</strong>", "Obad": "<strong>Obad</strong>iah", "Jonah": "<strong>Jonah</strong>", "Mic": "<strong>Mic</strong>ah", "Nah": "<strong>Nah</strong>um",
+            "Hab": "<strong>Hab</strong>akkuk", "Zeph": "<strong>Zeph</strong>aniah", "Hag": "<strong>Hag</strong>gai", "Zech": "<strong>Zech</strong>ariah", "Mal": "<strong>Mal</strong>achi",
+            "Matt": "<strong>Matt</strong>hew", "Mark": "<strong>Mark</strong>", "Luke": "<strong>Luke</strong>", "John": "<strong>John</strong>", "Acts": "<strong>Acts</strong>",
+            "Rom": "<strong>Rom</strong>ans", "1Cor": "<strong>1 Cor</strong>inthians", "2Cor": "<strong>2 Cor</strong>inthians", "Gal": "<strong>Gal</strong>atians", "Eph": "<strong>Eph</strong>esians",
+            "Phil": "<strong>Phil</strong>ippians", "Col": "<strong>Col</strong>ossians", "1Thess": "<strong>1 Thess</strong>alonians", "2Thess": "<strong>2 Thess</strong>alonians",
+            "1Tim": "<strong>1 Tim</strong>othy", "2Tim": "<strong>2 Tim</strong>othy", "Titus": "<strong>Titus</strong>", "Philem": "<strong>Philem</strong>on", "Heb": "<strong>Heb</strong>rews",
+            "James": "<strong>James</strong>", "1Pet": "<strong>1 Pet</strong>er", "2Pet": "<strong>2 Pet</strong>er", "1John": "<strong>1 John</strong>", "2John": "<strong>2 John</strong>",
+            "3John": "<strong>3 John</strong>", "Jude": "<strong>Jude</strong>", "Rev": "<strong>Rev</strong>elation"
         };
 
         // DOM 元素快取
@@ -1073,11 +1084,12 @@
         function initAbbrevTable() {
             const tbody = document.getElementById('abbrev-table-body');
             let html = '';
-            for (const [enAbbrev, chFormatted] of Object.entries(bookAbbrevFormat)) {
+            for (const [enAbbrev, chFormatted] of Object.entries(bookAbbrevFormatCh)) {
+                const enFormatted = bookAbbrevFormatEn[enAbbrev];
                 html += `
                     <tr class="border-b border-stone-100 hover:bg-stone-50 transition">
                         <td class="py-2 px-3">${chFormatted}</td>
-                        <td class="py-2 px-3 font-mono text-stone-500">${enAbbrev}</td>
+                        <td class="py-2 px-3 font-mono text-stone-500">${enFormatted}</td>
                     </tr>
                 `;
             }
