@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <!-- 
-  版本號：v1.11
+  版本號：v1.12
   修改主旨：
   1. 解決 CDN 404 與 CORB 阻擋問題，改為採用官方指定之 unpkg 來源。
   2. 實作 CDN 自動備援 (Fallback) 機制：若 unpkg 載入失敗，自動切換至 jsdelivr 來源，確保絕對可用性。
-  3. 保留 PptxGenJS 匯出邏輯、全域相容性檢測與所有防呆機制。
+  3. 調整 PPTX 匯出的經文內文字體大小，由 48pt 縮小至 44pt。
 -->
 <html lang="zh-TW">
 <head>
@@ -183,7 +183,7 @@
     </div>
 
     <!-- 右下角版本號標示 (用於確認佈署狀態) -->
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.11</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.12</div>
 
     <script>
         // ==========================================
@@ -938,7 +938,7 @@
                             // 加入經文內文
                             slide.addText(cleanText, { 
                                 x: '5%', y: '22%', w: '90%', h: '70%', 
-                                color: 'FFFFFF', fontSize: 48, fontFace: "Microsoft JhengHei", 
+                                color: 'FFFFFF', fontSize: 44, fontFace: "Microsoft JhengHei", 
                                 valign: 'top', align: 'left' 
                             });
                         });
