@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v1.41 實作智慧載入定位邏輯：若未讀天數大於今日進度，則退回載入最後一個已完成天數，避免未來焦慮 -->
 <!-- v1.40 修正網頁標題與文案描述：精確化「358 天」與優化部分字句 -->
 <!-- v1.39 優化標題區排版，移除副標題殘留的底部邊距 (Margin Shifting) -->
 <!-- v1.38 實作「動態錨點重置」解決更改放假日導致的歷史偏移問題，並優化主標題排版 -->
@@ -1551,7 +1552,17 @@
                 
                 let firstUnreadDay = 358;
                 for (let i = 1; i <= 358; i++) { if (!readProgress[i]) { firstUnreadDay = i; break; } }
-                changeDay(firstUnreadDay);
+                
+                let targetLoadDay = firstUnreadDay;
+                const savedStartDate = localStorage.getItem('gemini_start_date');
+                if (savedStartDate) {
+                    const actualTodayIndex = calculateCurrentDay(savedStartDate, restDays);
+                    if (actualTodayIndex !== null && firstUnreadDay > actualTodayIndex) {
+                        targetLoadDay = Math.max(1, firstUnreadDay - 1);
+                    }
+                }
+                
+                changeDay(targetLoadDay);
 
                 // 🔥 觸發條件改為啟動設定精靈：需同時滿足「未看過導覽」且「非透過 PWA 推廣參數進來」 🔥
                 if (!localStorage.getItem('tour_completed') && !isPwaPromptActive) {
@@ -2121,6 +2132,6 @@
 
         window.addEventListener('DOMContentLoaded', init);
     </script>
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.40</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.41</div>
 </body>
 </html>
