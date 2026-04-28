@@ -494,7 +494,7 @@
         async function fetchDatabases() {
             const [devoRes, rcuvRes] = await Promise.all([
                 fetch(`devotional.json?v=${APP_VERSION}`),
-                fetch(`rcuv.json?v=${APP_VERSION}`)
+                fetch(`../rcuv.json?v=${APP_VERSION}`)
             ]);
 
             if (!devoRes.ok || !rcuvRes.ok) throw new Error("JSON Fetch Failed");
