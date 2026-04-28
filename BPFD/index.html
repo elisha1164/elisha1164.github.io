@@ -1,11 +1,8 @@
 <!-- 
-  版本號：v1.3
+  版本號：v1.4
   修改主旨：
-  1. 精簡頂部 UI，將絕對日期、純 Icon 打勾按鈕與一鍵朗讀整合至導航列。加寬日期切換器。
-  2. 移除原 Dashboard 卡片。
-  3. 將部分名稱 (part) 與部分標題 (part_title) 分拆並置中顯示於頁面頂部。
-  4. 每日靈修標題 (devotion_title) 移入「靈修短文」卡片作為主標題。
-  5. 老張工具間連結補回新分頁開啟 (target="_blank")。
+  1. 修復點選週次輸入框時焦點強制跳轉至天數的問題。
+  2. 隱藏日期切換器輸入框的上下微調按鈕 (spinners)。
 -->
 <!DOCTYPE html>
 <html lang="zh-TW">
@@ -61,6 +58,16 @@
         
         /* Highlight for active TTS verse */
         .tts-highlight { background-color: #fef3c7; border-radius: 0.25rem; transition: background-color 0.3s; }
+        
+        /* Hide number input spinners */
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
     </style>
 
     <!-- In-App Browser Escape Guard -->
@@ -231,11 +238,11 @@
                     <button id="prevDayBtn" onclick="changeDay(-1)" class="p-1.5 bg-stone-200 rounded-full hover:bg-stone-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                         <i data-lucide="chevron-left" class="w-5 h-5 text-stone-600"></i>
                     </button>
-                    <div class="flex items-center text-base sm:text-lg font-bold text-stone-800 bg-white px-2 py-1 rounded-lg shadow-sm border border-stone-100 cursor-pointer" onclick="focusDayInput()">
+                    <div class="flex items-center text-base sm:text-lg font-bold text-stone-800 bg-white px-2 py-1 rounded-lg shadow-sm border border-stone-100 cursor-pointer">
                         <span>第</span>
-                        <input type="number" id="weekInput" min="1" max="50" class="w-10 text-center bg-transparent focus:outline-none focus:ring-2 focus:ring-amber-500 rounded px-1 appearance-none" onchange="jumpToProgress()">
+                        <input type="number" id="weekInput" min="1" max="50" class="w-10 text-center bg-transparent focus:outline-none focus:ring-2 focus:ring-amber-500 rounded px-1" onchange="jumpToProgress()">
                         <span>週 - </span>
-                        <input type="number" id="dayInput" min="1" max="3" class="w-8 text-center bg-transparent focus:outline-none focus:ring-2 focus:ring-amber-500 rounded px-1 appearance-none" onchange="jumpToProgress()">
+                        <input type="number" id="dayInput" min="1" max="3" class="w-8 text-center bg-transparent focus:outline-none focus:ring-2 focus:ring-amber-500 rounded px-1" onchange="jumpToProgress()">
                     </div>
                     <button id="nextDayBtn" onclick="changeDay(1)" class="p-1.5 bg-stone-200 rounded-full hover:bg-stone-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                         <i data-lucide="chevron-right" class="w-5 h-5 text-stone-600"></i>
@@ -408,7 +415,7 @@
 
         <!-- Fixed Version Number -->
         <div class="fixed bottom-2 right-2 text-[10px] text-stone-300 font-mono select-none pointer-events-none z-0">
-            v1.3
+            v1.4
         </div>
     </div>
 
@@ -936,11 +943,6 @@
             }
 
             checkAndShowCongrats();
-        }
-
-        function focusDayInput() {
-            document.getElementById('dayInput').focus();
-            document.getElementById('dayInput').select();
         }
 
         function jumpToProgress() {
