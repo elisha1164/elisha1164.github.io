@@ -1,11 +1,11 @@
 {
-  "id": "RCUV",
-  "name": "和合本 2010",
-  "short_name": "和合本 2010",
+  "id": "BPFD",
+  "name": "聖經大故事家庭靈修",
+  "short_name": "大故事靈修",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#f5f5f4",
-  "theme_color": "#1c1917",
+  "background_color": "#fafaf9",
+  "theme_color": "#fafaf9",
   "icons": [
     {
       "src": "icon-192.png",

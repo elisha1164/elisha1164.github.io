@@ -1,6 +1,11 @@
 <!-- 
-  版本號：v1.0
-  修改主旨：初始版本建立，完全依據 FSD v1.9 規格實作所有功能、防呆機制與 UX 優化。
+  版本號：v1.3
+  修改主旨：
+  1. 精簡頂部 UI，將絕對日期、純 Icon 打勾按鈕與一鍵朗讀整合至導航列。加寬日期切換器。
+  2. 移除原 Dashboard 卡片。
+  3. 將部分名稱 (part) 與部分標題 (part_title) 分拆並置中顯示於頁面頂部。
+  4. 每日靈修標題 (devotion_title) 移入「靈修短文」卡片作為主標題。
+  5. 老張工具間連結補回新分頁開啟 (target="_blank")。
 -->
 <!DOCTYPE html>
 <html lang="zh-TW">
@@ -145,14 +150,13 @@
         </div>
     </div>
 
-    <!-- Reset Confirm Modal (Dual-Track Validation) -->
+    <!-- Reset Confirm Modal -->
     <div id="resetConfirmModal" class="fixed inset-0 z-50 bg-stone-900/50 backdrop-blur-sm flex items-center justify-center hidden p-4" onclick="if(event.target === this) closeModal('resetConfirmModal')">
         <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl text-center">
             <i data-lucide="alert-triangle" class="w-12 h-12 text-red-500 mx-auto mb-4"></i>
             <h3 id="resetConfirmTitle" class="text-xl font-bold text-stone-800 mb-2">確定要重置進度嗎？</h3>
             <p id="resetConfirmText" class="text-stone-500 mb-6 text-sm">這將清空所有的已讀紀錄。您的語音與閱讀日設定將會保留。</p>
             
-            <!-- Contextual Smart Anchor Text -->
             <div id="resetAnchorNotice" class="hidden mb-6 p-3 bg-blue-50 text-blue-800 rounded-xl text-sm border border-blue-200 text-left">
                 <i data-lucide="calendar-clock" class="inline w-4 h-4 mr-1"></i> 
                 <span id="resetAnchorText"></span>
@@ -219,54 +223,83 @@
     <div class="max-w-xl mx-auto min-h-screen flex flex-col relative bg-stone-50 pb-20">
         
         <!-- Top Navigation Bar -->
-        <header class="sticky top-0 z-30 bg-stone-50/90 backdrop-blur-md border-b border-stone-200 px-4 py-3 flex justify-between items-center shadow-sm">
-            <div class="flex items-center space-x-2" id="tour-day-selector">
-                <button id="prevDayBtn" onclick="changeDay(-1)" class="p-2 bg-stone-200 rounded-full hover:bg-stone-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                    <i data-lucide="chevron-left" class="w-5 h-5 text-stone-600"></i>
-                </button>
-                <div class="flex items-center text-lg font-bold text-stone-800 bg-white px-3 py-1 rounded-lg shadow-sm border border-stone-100 cursor-pointer" onclick="focusDayInput()">
-                    <span>第</span>
-                    <input type="number" id="weekInput" min="1" max="50" class="w-8 text-center bg-transparent focus:outline-none focus:ring-2 focus:ring-amber-500 rounded px-1 appearance-none" onchange="jumpToProgress()">
-                    <span>週 - </span>
-                    <input type="number" id="dayInput" min="1" max="3" class="w-6 text-center bg-transparent focus:outline-none focus:ring-2 focus:ring-amber-500 rounded px-1 appearance-none" onchange="jumpToProgress()">
+        <header class="sticky top-0 z-30 bg-stone-50/90 backdrop-blur-md border-b border-stone-200 px-4 py-2 flex justify-between items-center shadow-sm">
+            
+            <!-- Left: Date Switcher & Absolute Date -->
+            <div class="flex flex-col items-start" id="tour-day-selector">
+                <div class="flex items-center space-x-1">
+                    <button id="prevDayBtn" onclick="changeDay(-1)" class="p-1.5 bg-stone-200 rounded-full hover:bg-stone-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i data-lucide="chevron-left" class="w-5 h-5 text-stone-600"></i>
+                    </button>
+                    <div class="flex items-center text-base sm:text-lg font-bold text-stone-800 bg-white px-2 py-1 rounded-lg shadow-sm border border-stone-100 cursor-pointer" onclick="focusDayInput()">
+                        <span>第</span>
+                        <input type="number" id="weekInput" min="1" max="50" class="w-10 text-center bg-transparent focus:outline-none focus:ring-2 focus:ring-amber-500 rounded px-1 appearance-none" onchange="jumpToProgress()">
+                        <span>週 - </span>
+                        <input type="number" id="dayInput" min="1" max="3" class="w-8 text-center bg-transparent focus:outline-none focus:ring-2 focus:ring-amber-500 rounded px-1 appearance-none" onchange="jumpToProgress()">
+                    </div>
+                    <button id="nextDayBtn" onclick="changeDay(1)" class="p-1.5 bg-stone-200 rounded-full hover:bg-stone-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i data-lucide="chevron-right" class="w-5 h-5 text-stone-600"></i>
+                    </button>
                 </div>
-                <button id="nextDayBtn" onclick="changeDay(1)" class="p-2 bg-stone-200 rounded-full hover:bg-stone-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                    <i data-lucide="chevron-right" class="w-5 h-5 text-stone-600"></i>
-                </button>
+                <!-- Absolute Date directly below switcher -->
+                <span id="displayDate" class="text-[11px] sm:text-xs font-medium text-stone-500 mt-1 ml-9">--</span>
             </div>
             
-            <div class="relative">
-                <button id="settingsBtn" onclick="toggleSettingsMenu()" class="p-2 bg-stone-200 rounded-full hover:bg-stone-300 transition-colors">
-                    <i data-lucide="settings" class="w-5 h-5 text-stone-600"></i>
+            <!-- Right: Actions & Settings -->
+            <div class="flex items-center space-x-1">
+                
+                <!-- Toggle Read Button -->
+                <button id="toggleReadBtn" onclick="toggleReadStatus()" class="p-2 rounded-full transition-colors flex items-center justify-center" title="標記為已讀">
+                    <i data-lucide="circle" id="toggleReadIcon" class="w-6 h-6 text-stone-400"></i>
                 </button>
+                
+                <!-- Global TTS Controls -->
+                <div class="flex gap-1" id="playAllBtn">
+                    <button id="btn_global_play" onclick="handlePlayAll()" class="p-2 bg-stone-800 hover:bg-stone-900 text-white rounded-full transition-colors shadow-sm" title="一鍵全部朗讀">
+                        <i data-lucide="play" class="w-5 h-5 text-white"></i>
+                    </button>
+                    <button id="btn_global_pause" onclick="handlePause()" class="p-2 bg-amber-500 hover:bg-amber-600 text-white rounded-full transition-colors shadow-sm hidden" title="暫停朗讀">
+                        <i data-lucide="pause" class="w-5 h-5 text-white"></i>
+                    </button>
+                    <button id="btn_global_stop" onclick="handleStop()" class="p-2 bg-stone-200 hover:bg-stone-300 text-stone-700 rounded-full transition-colors shadow-sm hidden" title="停止朗讀">
+                        <i data-lucide="square" class="w-5 h-5 text-stone-700"></i>
+                    </button>
+                </div>
+
                 <!-- Settings Dropdown -->
-                <div id="settingsMenu" class="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-stone-100 hidden z-50 overflow-hidden transform origin-top-right transition-all">
-                    <div class="p-4 bg-stone-50 border-b border-stone-100">
-                        <label class="block text-xs font-bold text-stone-500 mb-1 uppercase tracking-wider">語音設定</label>
-                        <select id="voiceSelector" onchange="saveVoiceSettings()" class="w-full text-sm border-stone-200 rounded-lg p-2 mb-2 bg-white focus:ring-amber-500 focus:border-amber-500 truncate"></select>
-                        <select id="rateSelector" onchange="saveVoiceSettings()" class="w-full text-sm border-stone-200 rounded-lg p-2 bg-white focus:ring-amber-500 focus:border-amber-500">
-                            <option value="0.8">慢速 (0.8x)</option>
-                            <option value="1.0" selected>正常 (1.0x)</option>
-                            <option value="1.2">稍快 (1.2x)</option>
-                            <option value="1.5">快速 (1.5x)</option>
-                        </select>
-                    </div>
-                    <div class="p-4 bg-stone-50 border-b border-stone-100">
-                        <label class="block text-xs font-bold text-stone-500 mb-1 uppercase tracking-wider">進度起算日</label>
-                        <div class="flex gap-2">
-                            <input type="date" id="menuStartDate" onchange="updateStartDate(this.value)" class="w-full text-sm border-stone-200 rounded-lg p-2 bg-white focus:ring-amber-500">
-                            <button onclick="setStartDateToToday()" class="text-xs bg-stone-200 hover:bg-stone-300 text-stone-700 px-3 rounded-lg font-medium whitespace-nowrap transition-colors">設為今日</button>
+                <div class="relative pl-1">
+                    <button id="settingsBtn" onclick="toggleSettingsMenu()" class="p-2 bg-stone-200 rounded-full hover:bg-stone-300 transition-colors">
+                        <i data-lucide="settings" class="w-5 h-5 text-stone-600"></i>
+                    </button>
+                    
+                    <div id="settingsMenu" class="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-stone-100 hidden z-50 overflow-hidden transform origin-top-right transition-all">
+                        <div class="p-4 bg-stone-50 border-b border-stone-100">
+                            <label class="block text-xs font-bold text-stone-500 mb-1 uppercase tracking-wider">語音設定</label>
+                            <select id="voiceSelector" onchange="saveVoiceSettings()" class="w-full text-sm border-stone-200 rounded-lg p-2 mb-2 bg-white focus:ring-amber-500 focus:border-amber-500 truncate"></select>
+                            <select id="rateSelector" onchange="saveVoiceSettings()" class="w-full text-sm border-stone-200 rounded-lg p-2 bg-white focus:ring-amber-500 focus:border-amber-500">
+                                <option value="0.8">慢速 (0.8x)</option>
+                                <option value="1.0" selected>正常 (1.0x)</option>
+                                <option value="1.2">稍快 (1.2x)</option>
+                                <option value="1.5">快速 (1.5x)</option>
+                            </select>
                         </div>
-                    </div>
-                    <div class="py-2">
-                        <button onclick="openReadingDaysModal(); toggleSettingsMenu();" class="w-full text-left px-4 py-2 text-sm text-stone-700 hover:bg-stone-50 flex items-center"><i data-lucide="calendar" class="w-4 h-4 mr-3 text-stone-400"></i> 設定閱讀日</button>
-                        <button id="installMenuBtn" onclick="triggerInstall(); toggleSettingsMenu();" class="w-full text-left px-4 py-2 text-sm text-stone-700 hover:bg-stone-50 flex items-center hidden"><i data-lucide="download-cloud" class="w-4 h-4 mr-3 text-stone-400"></i> 安裝到桌面 (APP)</button>
-                        <button onclick="exportData(); toggleSettingsMenu();" class="w-full text-left px-4 py-2 text-sm text-stone-700 hover:bg-stone-50 flex items-center"><i data-lucide="download" class="w-4 h-4 mr-3 text-stone-400"></i> 匯出備份</button>
-                        <button onclick="document.getElementById('importFile').click(); toggleSettingsMenu();" class="w-full text-left px-4 py-2 text-sm text-stone-700 hover:bg-stone-50 flex items-center"><i data-lucide="upload" class="w-4 h-4 mr-3 text-stone-400"></i> 匯入進度</button>
-                        <button onclick="startTour(); toggleSettingsMenu();" class="w-full text-left px-4 py-2 text-sm text-stone-700 hover:bg-stone-50 flex items-center"><i data-lucide="help-circle" class="w-4 h-4 mr-3 text-stone-400"></i> 重新導覽</button>
-                        <button onclick="reportIssue(); toggleSettingsMenu();" class="w-full text-left px-4 py-2 text-sm text-stone-700 hover:bg-stone-50 flex items-center"><i data-lucide="message-square-warning" class="w-4 h-4 mr-3 text-stone-400"></i> 問題回報與建議</button>
-                        <div class="border-t border-stone-100 my-1"></div>
-                        <button onclick="showResetConfirm(); toggleSettingsMenu();" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center font-medium"><i data-lucide="trash-2" class="w-4 h-4 mr-3 text-red-500"></i> 進度重置</button>
+                        <div class="p-4 bg-stone-50 border-b border-stone-100">
+                            <label class="block text-xs font-bold text-stone-500 mb-1 uppercase tracking-wider">進度起算日</label>
+                            <div class="flex gap-2">
+                                <input type="date" id="menuStartDate" onchange="updateStartDate(this.value)" class="w-full text-sm border-stone-200 rounded-lg p-2 bg-white focus:ring-amber-500">
+                                <button onclick="setStartDateToToday()" class="text-xs bg-stone-200 hover:bg-stone-300 text-stone-700 px-3 rounded-lg font-medium whitespace-nowrap transition-colors">設為今日</button>
+                            </div>
+                        </div>
+                        <div class="py-2">
+                            <button onclick="openReadingDaysModal(); toggleSettingsMenu();" class="w-full text-left px-4 py-2 text-sm text-stone-700 hover:bg-stone-50 flex items-center"><i data-lucide="calendar" class="w-4 h-4 mr-3 text-stone-400"></i> 設定閱讀日</button>
+                            <button id="installMenuBtn" onclick="triggerInstall(); toggleSettingsMenu();" class="w-full text-left px-4 py-2 text-sm text-stone-700 hover:bg-stone-50 flex items-center hidden"><i data-lucide="download-cloud" class="w-4 h-4 mr-3 text-stone-400"></i> 安裝到桌面 (APP)</button>
+                            <button onclick="exportData(); toggleSettingsMenu();" class="w-full text-left px-4 py-2 text-sm text-stone-700 hover:bg-stone-50 flex items-center"><i data-lucide="download" class="w-4 h-4 mr-3 text-stone-400"></i> 匯出備份</button>
+                            <button onclick="document.getElementById('importFile').click(); toggleSettingsMenu();" class="w-full text-left px-4 py-2 text-sm text-stone-700 hover:bg-stone-50 flex items-center"><i data-lucide="upload" class="w-4 h-4 mr-3 text-stone-400"></i> 匯入進度</button>
+                            <button onclick="startTour(); toggleSettingsMenu();" class="w-full text-left px-4 py-2 text-sm text-stone-700 hover:bg-stone-50 flex items-center"><i data-lucide="help-circle" class="w-4 h-4 mr-3 text-stone-400"></i> 重新導覽</button>
+                            <button onclick="reportIssue(); toggleSettingsMenu();" class="w-full text-left px-4 py-2 text-sm text-stone-700 hover:bg-stone-50 flex items-center"><i data-lucide="message-square-warning" class="w-4 h-4 mr-3 text-stone-400"></i> 問題回報與建議</button>
+                            <div class="border-t border-stone-100 my-1"></div>
+                            <button onclick="showResetConfirm(); toggleSettingsMenu();" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center font-medium"><i data-lucide="trash-2" class="w-4 h-4 mr-3 text-red-500"></i> 進度重置</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -275,36 +308,11 @@
         <!-- Main Content Area -->
         <main class="flex-grow p-4 space-y-6">
             
-            <!-- Context Info -->
-            <div class="flex justify-between items-center text-sm font-medium text-stone-500 px-1">
-                <span id="displayDate">--</span>
-                <span id="partTitle" class="truncate ml-4 max-w-[60%] text-right text-amber-700">--</span>
+            <!-- Part Title Centered Section -->
+            <div class="text-center mt-2 mb-4">
+                <p id="partLabel" class="text-base font-medium text-stone-500 tracking-wider">--</p>
+                <h2 id="partName" class="text-xl sm:text-2xl font-bold text-amber-800 mt-1">--</h2>
             </div>
-
-            <!-- Dashboard Card -->
-            <section id="titleHeaderBox" class="bg-white rounded-2xl p-6 shadow-md border border-stone-100 transition-colors duration-300">
-                <h1 id="devotionTitle" class="text-2xl font-extrabold text-stone-800 mb-6 leading-tight">載入中...</h1>
-                
-                <div class="flex flex-col sm:flex-row gap-3">
-                    <button id="toggleReadBtn" onclick="toggleReadStatus()" class="flex-1 py-3 px-4 rounded-xl font-bold flex items-center justify-center transition-all duration-300 shadow-sm border">
-                        <i data-lucide="check-circle" id="toggleReadIcon" class="w-5 h-5 mr-2"></i>
-                        <span id="toggleReadText">標記為已讀</span>
-                    </button>
-                    
-                    <!-- Global TTS Controls -->
-                    <div class="flex-1 flex gap-2" id="playAllBtn">
-                        <button id="btn_global_play" onclick="handlePlayAll()" class="flex-1 bg-stone-800 hover:bg-stone-900 text-white py-3 px-4 rounded-xl font-bold flex items-center justify-center transition-colors shadow-sm">
-                            <i data-lucide="play" class="w-5 h-5 mr-2"></i> <span id="text_global_play">一鍵全部朗讀</span>
-                        </button>
-                        <button id="btn_global_pause" onclick="handlePause()" class="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-3 px-4 rounded-xl font-bold flex items-center justify-center transition-colors shadow-sm hidden">
-                            <i data-lucide="pause" class="w-5 h-5"></i>
-                        </button>
-                        <button id="btn_global_stop" onclick="handleStop()" class="flex-none bg-stone-200 hover:bg-stone-300 text-stone-700 py-3 px-4 rounded-xl font-bold flex items-center justify-center transition-colors shadow-sm hidden">
-                            <i data-lucide="square" class="w-5 h-5"></i>
-                        </button>
-                    </div>
-                </div>
-            </section>
 
             <!-- Q&A Card -->
             <section id="qaCard" class="bg-white rounded-2xl p-6 shadow-md border border-stone-100">
@@ -319,7 +327,8 @@
                         <button id="btn_qa_stop" onclick="handleStop()" class="p-2 bg-stone-100 text-stone-600 rounded-lg hidden"><i data-lucide="square" class="w-4 h-4"></i></button>
                     </div>
                 </div>
-                <h4 id="qaUnitTitle" class="text-sm font-bold text-blue-600 mb-4 uppercase tracking-wider"></h4>
+                <h4 id="qaUnitTitle" class="text-sm font-bold text-blue-600 mb-1 uppercase tracking-wider"></h4>
+                <p id="qaParsedReference" class="text-xs text-stone-500 mb-4 font-serif"></p>
                 <div id="qaContent" class="space-y-4 text-lg">
                     <div class="flex items-start bg-blue-50/50 p-4 rounded-xl">
                         <span class="font-black text-blue-600 mr-3 text-xl leading-none pt-1">Q</span>
@@ -352,12 +361,13 @@
 
             <!-- Devotion Card -->
             <section id="devotionCard" class="bg-white rounded-2xl p-6 shadow-md border border-stone-100">
-                <div class="flex justify-between items-center mb-4 pb-2 border-b border-stone-100">
-                    <h2 class="text-lg font-bold text-stone-800 flex items-center">
-                        <i data-lucide="align-left" class="w-5 h-5 mr-2 text-stone-500"></i> 靈修短文
+                <div class="flex justify-between items-start mb-4 pb-2 border-b border-stone-100">
+                    <h2 class="text-xl font-extrabold text-stone-800 flex items-center leading-tight pr-4">
+                        <i data-lucide="align-left" class="w-5 h-5 mr-2 text-amber-600 shrink-0 mt-0.5"></i> 
+                        <span id="devotionTitle">載入中...</span>
                     </h2>
                     <!-- TTS Local Controls -->
-                    <div class="flex gap-1">
+                    <div class="flex gap-1 shrink-0">
                         <button id="btn_devotion_play" onclick="handleLocalPlay('devotion')" class="p-2 bg-stone-100 hover:bg-stone-200 rounded-lg text-stone-600 transition-colors"><i data-lucide="play" class="w-4 h-4"></i></button>
                         <button id="btn_devotion_pause" onclick="handlePause()" class="p-2 bg-amber-100 text-amber-700 rounded-lg hidden"><i data-lucide="pause" class="w-4 h-4"></i></button>
                         <button id="btn_devotion_stop" onclick="handleStop()" class="p-2 bg-stone-100 text-stone-600 rounded-lg hidden"><i data-lucide="square" class="w-4 h-4"></i></button>
@@ -390,16 +400,15 @@
 
         <!-- Footer -->
         <footer class="mt-8 text-center text-stone-400 text-xs px-4 border-t border-stone-200 pt-6 pb-4">
-            <p>和合本修訂版版權屬香港聖經公會所有，蒙允准使用。</p>
-            <p class="mt-1 mb-4">基於 358天讀經計畫 研發</p>
-            <a href="https://tools.johnsonlu.org" target="_blank" class="inline-flex items-center text-stone-500 hover:text-stone-700 transition-colors bg-stone-200/50 px-3 py-1.5 rounded-full">
+            <p class="mb-4">經文引自《和合本 2010（和合本修訂版）》，版權屬香港聖經公會所有，蒙允准使用。</p>
+            <a href="../index.html" target="_blank" class="inline-flex items-center text-stone-500 hover:text-stone-700 transition-colors bg-stone-200/50 px-3 py-1.5 rounded-full">
                 <i data-lucide="wrench" class="w-3 h-3 mr-1"></i> 老張工具間
             </a>
         </footer>
 
         <!-- Fixed Version Number -->
         <div class="fixed bottom-2 right-2 text-[10px] text-stone-300 font-mono select-none pointer-events-none z-0">
-            v1.0
+            v1.3
         </div>
     </div>
 
@@ -407,7 +416,7 @@
         // ==========================================
         // 1. Constants & State Variables
         // ==========================================
-        const APP_VERSION = '1.0';
+        const APP_VERSION = '1.3';
         const APP_LOAD_TIME = Date.now();
         const TOTAL_DAYS = 150;
         
@@ -507,7 +516,12 @@
             rawDevo.forEach((part, partIdx) => {
                 const partTitle = part.part;
                 part.part_content.forEach(qa => {
-                    const baseQaData = { unit_title: qa.unit_title, question: qa.question, answer: qa.answer };
+                    const baseQaData = { 
+                        unit_title: qa.unit_title, 
+                        parsed_reference: qa.parsed_reference,
+                        question: qa.question, 
+                        answer: qa.answer 
+                    };
                     qa.devotions.forEach(dev => {
                         const weekNum = Math.ceil(globalDay / 3);
                         devotionDict[globalDay] = {
@@ -757,13 +771,23 @@
             const targetDate = getDateForGlobalDay(dayIndex);
             const dateOpts = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' };
             document.getElementById('displayDate').innerText = targetDate.toLocaleDateString('zh-TW', dateOpts);
-            document.getElementById('partTitle').innerText = data.part_title;
+
+            // Setup Part Title
+            const pTitle = data.part_title || '';
+            const parts = pTitle.split(' ');
+            if (parts.length > 1) {
+                document.getElementById('partLabel').innerText = parts[0];
+                document.getElementById('partName').innerText = parts.slice(1).join(' ');
+            } else {
+                document.getElementById('partLabel').innerText = '';
+                document.getElementById('partName').innerText = pTitle;
+            }
 
             // Disable buttons logic
             document.getElementById('prevDayBtn').disabled = (dayIndex === 1);
             document.getElementById('nextDayBtn').disabled = (dayIndex === TOTAL_DAYS);
 
-            // Dashboard
+            // Devotion Title
             document.getElementById('devotionTitle').innerText = data.day_data.devotion_title;
             updateStatusUI();
 
@@ -780,6 +804,7 @@
                 
                 // Render Q&A
                 document.getElementById('qaUnitTitle').innerText = data.qa_data.unit_title || '';
+                document.getElementById('qaParsedReference').innerText = data.qa_data.parsed_reference || '';
                 document.getElementById('qaQuestion').innerText = data.qa_data.question;
                 document.getElementById('qaAnswer').innerText = data.qa_data.answer;
 
@@ -873,34 +898,23 @@
             const isRead = !!progress[currentDay];
             const actualTodayIndex = getActualTodayIndex();
             
-            const card = document.getElementById('titleHeaderBox');
-            const title = document.getElementById('devotionTitle');
-            const btn = document.getElementById('toggleReadBtn');
             const icon = document.getElementById('toggleReadIcon');
-            const txt = document.getElementById('toggleReadText');
+            const btn = document.getElementById('toggleReadBtn');
 
-            card.classList.remove('bg-green-50', 'bg-stone-100', 'bg-red-50');
-            title.classList.remove('text-green-800', 'text-stone-500', 'text-red-800');
-            btn.classList.remove('bg-green-100', 'text-green-700', 'border-green-200', 'bg-white', 'text-stone-500', 'border-stone-200', 'bg-red-100', 'text-red-600', 'border-red-200');
+            icon.classList.remove('text-green-600', 'text-stone-400', 'text-red-500');
 
             if (isRead) {
-                card.classList.add('bg-green-50');
-                title.classList.add('text-green-800');
-                btn.classList.add('bg-green-100', 'text-green-700', 'border-green-200');
                 icon.setAttribute('data-lucide', 'check-circle');
-                txt.innerText = '✅ 已完成閱讀';
+                icon.classList.add('text-green-600');
+                btn.setAttribute('title', '✅ 已完成閱讀 (點擊可取消)');
             } else if (currentDay > actualTodayIndex) {
-                card.classList.add('bg-stone-100');
-                title.classList.add('text-stone-500');
-                btn.classList.add('bg-white', 'text-stone-500', 'border-stone-200');
                 icon.setAttribute('data-lucide', 'circle');
-                txt.innerText = '標記為已讀';
+                icon.classList.add('text-stone-400');
+                btn.setAttribute('title', '標記為已讀');
             } else {
-                card.classList.add('bg-red-50');
-                title.classList.add('text-red-800');
-                btn.classList.add('bg-red-100', 'text-red-600', 'border-red-200');
                 icon.setAttribute('data-lucide', 'circle');
-                txt.innerText = '⭕ 待閱讀...';
+                icon.classList.add('text-red-500');
+                btn.setAttribute('title', '⭕ 待閱讀 (點擊標記)');
             }
             lucide.createIcons();
         }
@@ -1002,8 +1016,30 @@
 
         function updatePlaybackUI() {
             const st = window._speechState;
-            const sections = ['global', 'qa', 'scripture', 'devotion', 'reflection'];
             
+            // Global buttons in header
+            const gPlay = document.getElementById('btn_global_play');
+            const gPause = document.getElementById('btn_global_pause');
+            const gStop = document.getElementById('btn_global_stop');
+
+            if(!st.activeSection) {
+                gPlay.classList.remove('hidden');
+                gPause.classList.add('hidden');
+                gStop.classList.add('hidden');
+            } else if (st.activeSection) {
+                if(!st.isPaused) {
+                    gPlay.classList.add('hidden');
+                    gPause.classList.remove('hidden');
+                    gStop.classList.remove('hidden');
+                } else {
+                    gPause.classList.add('hidden');
+                    gPlay.classList.remove('hidden');
+                    gStop.classList.remove('hidden');
+                }
+            }
+
+            // Local buttons
+            const sections = ['qa', 'scripture', 'devotion', 'reflection'];
             sections.forEach(sec => {
                 const pBtn = document.getElementById(`btn_${sec}_play`);
                 const pauseBtn = document.getElementById(`btn_${sec}_pause`);
@@ -1012,13 +1048,10 @@
                 if(!pBtn || !pauseBtn || !stopBtn) return;
 
                 if(!st.activeSection) {
-                    // Default State
                     pBtn.classList.remove('hidden');
                     pauseBtn.classList.add('hidden');
                     stopBtn.classList.add('hidden');
-                    if(sec === 'global') document.getElementById('text_global_play').innerText = '一鍵全部朗讀';
                 } else if (st.activeSection === sec || (st.activeSection !== 'global' && sec === 'global')) {
-                    // Active or Global Proxy
                     if(!st.isPaused) {
                         pBtn.classList.add('hidden');
                         pauseBtn.classList.remove('hidden');
@@ -1027,10 +1060,8 @@
                         pauseBtn.classList.add('hidden');
                         pBtn.classList.remove('hidden');
                         stopBtn.classList.remove('hidden');
-                        if(sec === 'global') document.getElementById('text_global_play').innerText = '繼續';
                     }
                 } else {
-                    // Inactive peer
                     pBtn.classList.remove('hidden');
                     pauseBtn.classList.add('hidden');
                     stopBtn.classList.add('hidden');
@@ -1609,7 +1640,7 @@
                 steps: [
                     { popover: { title: '👋 歡迎', description: '只要 1 分鐘，帶您快速了解家庭靈修的功能！' } },
                     { element: '#tour-day-selector', popover: { title: '日期切換', description: '點擊箭頭或直接修改數字，可自由跳轉進度。' } },
-                    { element: '#titleHeaderBox', popover: { title: '每日進度', description: '完成後記得點擊「標記為已讀」。資料安全保存在您的手機內！' } },
+                    { element: '#toggleReadBtn', popover: { title: '每日進度', description: '完成後記得點擊打勾。資料安全保存在您的手機內！' } },
                     { element: '#playAllBtn', popover: { title: '自動語音', description: '做家事或睡前，一鍵為全家接力朗讀短文、經文與討論問題。' } }
                 ]
             });
