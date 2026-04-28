@@ -65,10 +65,17 @@
         body.is-reading #reader-ui { opacity: 1; visibility: visible; }
 
         /* 極簡頂部工具列 */
-        #toolbar {
-            background-color: #fff; padding: 10px 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-            display: flex; gap: 8px; align-items: center; z-index: 10;
+        #header-container {
+            background-color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.05); z-index: 10; display: flex; flex-direction: column; flex-shrink: 0;
         }
+        #toolbar {
+            padding: 10px 15px; display: flex; gap: 8px; align-items: center;
+        }
+        #settings-panel {
+            padding: 8px 15px; background: #fdfdfd; border-top: 1px solid #f0f0f0; display: none; gap: 8px; align-items: center; justify-content: flex-end; flex-wrap: wrap;
+        }
+        #settings-panel.open { display: flex; }
+        #tts-rate-select { font-family: inherit; font-weight: bold; color: #555; outline: none; cursor: pointer; }
         
         /* 動態章節名稱顯示區 (防爆版設計) */
         #reading-progress {
@@ -244,15 +251,26 @@
     </div>
 
     <div id="reader-ui">
-        <div id="toolbar">
-            <button id="btn-close" class="tool-btn" title="關閉並返回首頁">✕</button>
-            <div id="reading-progress" title="當前章節">章節標題載入中...</div>
-            <button id="btn-tts" class="tool-btn" title="朗讀本頁 (自動翻頁)">▶</button>
-            <button id="btn-font-dec" class="tool-btn" title="縮小文字">A-</button>
-            <button id="btn-font-inc" class="tool-btn" title="放大文字">A+</button>
-            <button id="btn-line-dec" class="tool-btn" title="縮小行距">≡-</button>
-            <button id="btn-line-inc" class="tool-btn" title="放大行距">≡+</button>
-            <button id="print-btn" class="tool-btn" title="產生完整列印檔">🖨️</button>
+        <div id="header-container">
+            <div id="toolbar">
+                <button id="btn-close" class="tool-btn" title="關閉並返回首頁">✕</button>
+                <div id="reading-progress" title="當前章節">章節標題載入中...</div>
+                <button id="btn-tts" class="tool-btn" title="朗讀本頁 (自動翻頁)">▶</button>
+                <button id="btn-settings" class="tool-btn" title="設定">⚙️</button>
+            </div>
+            <div id="settings-panel">
+                <select id="tts-rate-select" class="tool-btn" title="語音速度">
+                    <option value="0.8">0.8x</option>
+                    <option value="1.0" selected>1.0x</option>
+                    <option value="1.2">1.2x</option>
+                    <option value="1.5">1.5x</option>
+                </select>
+                <button id="btn-font-dec" class="tool-btn" title="縮小文字">A-</button>
+                <button id="btn-font-inc" class="tool-btn" title="放大文字">A+</button>
+                <button id="btn-line-dec" class="tool-btn" title="縮小行距">≡-</button>
+                <button id="btn-line-inc" class="tool-btn" title="放大行距">≡+</button>
+                <button id="print-btn" class="tool-btn" title="產生完整列印檔">🖨️</button>
+            </div>
         </div>
 
         <div id="main-container">
@@ -284,9 +302,10 @@
 
     <div id="print-area"></div>
     
-    <div class="version-tag">v3.6</div>
+    <div class="version-tag">v3.7</div>
 
     <script>
+        // v3.7 (UI修改：新增齒輪設定按鈕，並將排版與列印功能移至隱藏的第二行，加入語音速度下拉選單)
         // v3.6 (修復先前版本意外更動的排版與縮排，保持語意不變性)
         // v3.5 (修復手動/自動翻頁時 cancel() 觸發的 interrupted 錯誤導致的舊迴圈殘留與句子亂序問題)
         // v3.4 (優化載入失敗提示文案：移除技術術語 CORS、統一「手動下載」用語、改為「回到本頁面」)
@@ -323,6 +342,7 @@
         let loadingTimeout = null; 
         let currentFontSize = 100;
         let currentLineHeight = 1.6;
+        let currentTtsRate = 1.0;
 
         // TTS 狀態與防休眠
         let isPlayingTTS = false;
@@ -353,6 +373,10 @@
         const btnTts = document.getElementById('btn-tts');
         const progressDisplay = document.getElementById('reading-progress');
         const glowingProgressBar = document.getElementById('glowing-progress-bar');
+        
+        const btnSettings = document.getElementById('btn-settings');
+        const settingsPanel = document.getElementById('settings-panel');
+        const ttsRateSelect = document.getElementById('tts-rate-select');
 
         const customModal = document.getElementById('custom-modal');
         const modalTitle = document.getElementById('modal-title');
@@ -396,6 +420,9 @@
             rendition.themes.register(themeName, { "body": { "line-height": `${currentLineHeight} !important` }, "p": { "line-height": `${currentLineHeight} !important` }, "div": { "line-height": `${currentLineHeight} !important` } });
             rendition.themes.select(themeName);
         }
+
+        btnSettings.addEventListener('click', () => { settingsPanel.classList.toggle('open'); });
+        ttsRateSelect.addEventListener('change', (e) => { currentTtsRate = parseFloat(e.target.value); });
 
         document.getElementById('btn-font-dec').addEventListener('click', () => { currentFontSize = Math.max(80, currentFontSize - 10); applyStyles(); });
         document.getElementById('btn-font-inc').addEventListener('click', () => { currentFontSize = Math.min(200, currentFontSize + 10); applyStyles(); });
@@ -684,6 +711,7 @@
             const utterance = new SpeechSynthesisUtterance(item.text);
             const voice = getBestVoice();
             if (voice) utterance.voice = voice;
+            utterance.rate = currentTtsRate;
             
             window.__currentUtterance = utterance;
             
