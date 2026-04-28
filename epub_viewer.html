@@ -284,9 +284,10 @@
 
     <div id="print-area"></div>
     
-    <div class="version-tag">v3.4</div>
+    <div class="version-tag">v3.5</div>
 
     <script>
+        // v3.5 (修復手動/自動翻頁時 cancel() 觸發的 interrupted 錯誤導致的舊迴圈殘留與句子亂序問題)
         // v3.4 (優化載入失敗提示文案：移除技術術語 CORS、統一「手動下載」用語、改為「回到本頁面」)
         // v3.3 (優化 CORS 錯誤提示文案，提供明確的手動下載與上傳步驟)
         // v3.2 (修復 epub.js 幻覺 API 導致的致命錯誤，正確實現語音驅動與段落換氣)
@@ -673,8 +674,9 @@
                 if (isOutside) {
                     isAutoTurning = true;
                     await rendition.display(item.cfi);
+                    // 延長 isAutoTurning 的保護時間，確保 display 觸發的 relocated 事件被完全攔截核銷
+                    await new Promise(r => setTimeout(r, 400));
                     isAutoTurning = false;
-                    await new Promise(r => setTimeout(r, 300));
                 }
             }
 
@@ -691,6 +693,10 @@
             };
             utterance.onerror = (e) => { 
                 console.warn("TTS Error", e); 
+                // 核心修復：如果語音是被系統 cancel() 強制中斷的，絕對不能接續舊迴圈，否則會導致新舊迴圈打架與亂序
+                if (e.error === 'interrupted' || e.error === 'canceled') {
+                    return;
+                }
                 currentSpeechIndex++; 
                 playNextChunk(); 
             }; 
