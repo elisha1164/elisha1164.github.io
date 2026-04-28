@@ -1,8 +1,10 @@
 <!-- 
-  版本號：v1.4
+  版本號：v1.7
   修改主旨：
-  1. 修復點選週次輸入框時焦點強制跳轉至天數的問題。
-  2. 隱藏日期切換器輸入框的上下微調按鈕 (spinners)。
+  1. 嚴格對接 JSON 的 part 與 part_title，移除多餘的字串切割邏輯，確保標題正確顯示。
+  2. 修復「靈修短文」卡片標題被覆寫的問題，將 devotion_title 移入卡片內部成為 <h3> 標題。
+  3. 強制所有 Markdown 的斜體 (*) 皆轉換為 <b> 粗體顯示，以符合中文閱讀體驗。
+  4. 強化 parsed_reference 的陣列物件轉換，避免顯示為 [object Object]。
 -->
 <!DOCTYPE html>
 <html lang="zh-TW">
@@ -63,10 +65,12 @@
         input[type="number"]::-webkit-inner-spin-button,
         input[type="number"]::-webkit-outer-spin-button {
             -webkit-appearance: none;
+            appearance: none;
             margin: 0;
         }
         input[type="number"] {
             -moz-appearance: textfield;
+            appearance: textfield;
         }
     </style>
 
@@ -368,10 +372,9 @@
 
             <!-- Devotion Card -->
             <section id="devotionCard" class="bg-white rounded-2xl p-6 shadow-md border border-stone-100">
-                <div class="flex justify-between items-start mb-4 pb-2 border-b border-stone-100">
-                    <h2 class="text-xl font-extrabold text-stone-800 flex items-center leading-tight pr-4">
-                        <i data-lucide="align-left" class="w-5 h-5 mr-2 text-amber-600 shrink-0 mt-0.5"></i> 
-                        <span id="devotionTitle">載入中...</span>
+                <div class="flex justify-between items-center mb-4 pb-2 border-b border-stone-100">
+                    <h2 class="text-lg font-bold text-stone-800 flex items-center">
+                        <i data-lucide="align-left" class="w-5 h-5 mr-2 text-stone-500"></i> 靈修短文
                     </h2>
                     <!-- TTS Local Controls -->
                     <div class="flex gap-1 shrink-0">
@@ -379,6 +382,9 @@
                         <button id="btn_devotion_pause" onclick="handlePause()" class="p-2 bg-amber-100 text-amber-700 rounded-lg hidden"><i data-lucide="pause" class="w-4 h-4"></i></button>
                         <button id="btn_devotion_stop" onclick="handleStop()" class="p-2 bg-stone-100 text-stone-600 rounded-lg hidden"><i data-lucide="square" class="w-4 h-4"></i></button>
                     </div>
+                </div>
+                <div class="mb-4">
+                    <h3 id="devotionTitle" class="text-xl font-extrabold text-stone-800 leading-tight">載入中...</h3>
                 </div>
                 <div id="devotionContent" class="text-lg text-stone-700 leading-relaxed space-y-4">
                     <!-- Rendered via JS -->
@@ -415,7 +421,7 @@
 
         <!-- Fixed Version Number -->
         <div class="fixed bottom-2 right-2 text-[10px] text-stone-300 font-mono select-none pointer-events-none z-0">
-            v1.4
+            v1.7
         </div>
     </div>
 
@@ -423,7 +429,7 @@
         // ==========================================
         // 1. Constants & State Variables
         // ==========================================
-        const APP_VERSION = '1.3';
+        const APP_VERSION = '1.7';
         const APP_LOAD_TIME = Date.now();
         const TOTAL_DAYS = 150;
         
@@ -521,7 +527,10 @@
             // Flatten logic
             let globalDay = 1;
             rawDevo.forEach((part, partIdx) => {
-                const partTitle = part.part;
+                // Ensure strictly matching the keys from JSON
+                const partLabel = part.part || '';
+                const partTitleName = part.part_title || '';
+                
                 part.part_content.forEach(qa => {
                     const baseQaData = { 
                         unit_title: qa.unit_title, 
@@ -533,7 +542,8 @@
                         const weekNum = Math.ceil(globalDay / 3);
                         devotionDict[globalDay] = {
                             global_day: globalDay,
-                            part_title: partTitle,
+                            part_label: partLabel,
+                            part_title: partTitleName,
                             week_number: weekNum,
                             is_review_week: (weekNum % 10 === 0),
                             qa_data: baseQaData,
@@ -753,10 +763,23 @@
         function parseMarkdown(text) {
             if (!text) return '';
             let html = text.replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>');
-            html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-            html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+            html = html.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>'); // Strict bold tag
+            html = html.replace(/\*(.*?)\*/g, '<b>$1</b>');    // Italics to Bold for Chinese readability
             html = html.replace(/&gt; (.*?)(?:<br>|$)/g, '<blockquote class="border-l-4 border-amber-500 pl-4 py-1 text-stone-600 italic bg-amber-50 rounded-r-lg my-2">$1</blockquote>');
             return html;
+        }
+
+        // Protects against [object Object] rendering
+        function formatReference(ref) {
+            if (!ref) return '';
+            if (typeof ref === 'string') return ref;
+            if (Array.isArray(ref)) {
+                return ref.map(r => `${r.book || ''} ${r.chapters || ''}`.trim()).join('；');
+            }
+            if (typeof ref === 'object') {
+                return `${ref.book || ''} ${ref.chapters || ''}`.trim();
+            }
+            return '';
         }
 
         function renderDay(dayIndex) {
@@ -779,22 +802,15 @@
             const dateOpts = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' };
             document.getElementById('displayDate').innerText = targetDate.toLocaleDateString('zh-TW', dateOpts);
 
-            // Setup Part Title
-            const pTitle = data.part_title || '';
-            const parts = pTitle.split(' ');
-            if (parts.length > 1) {
-                document.getElementById('partLabel').innerText = parts[0];
-                document.getElementById('partName').innerText = parts.slice(1).join(' ');
-            } else {
-                document.getElementById('partLabel').innerText = '';
-                document.getElementById('partName').innerText = pTitle;
-            }
+            // Strict rendering of part and part_title based on JSON structure
+            document.getElementById('partLabel').innerText = data.part_label || '';
+            document.getElementById('partName').innerText = data.part_title || '';
 
             // Disable buttons logic
             document.getElementById('prevDayBtn').disabled = (dayIndex === 1);
             document.getElementById('nextDayBtn').disabled = (dayIndex === TOTAL_DAYS);
 
-            // Devotion Title
+            // Devotion Title (Now inside the Devotion Card)
             document.getElementById('devotionTitle').innerText = data.day_data.devotion_title;
             updateStatusUI();
 
@@ -811,7 +827,7 @@
                 
                 // Render Q&A
                 document.getElementById('qaUnitTitle').innerText = data.qa_data.unit_title || '';
-                document.getElementById('qaParsedReference').innerText = data.qa_data.parsed_reference || '';
+                document.getElementById('qaParsedReference').innerText = formatReference(data.qa_data.parsed_reference);
                 document.getElementById('qaQuestion').innerText = data.qa_data.question;
                 document.getElementById('qaAnswer').innerText = data.qa_data.answer;
 
