@@ -264,6 +264,7 @@
                     <option value="1.0" selected>1.0x</option>
                     <option value="1.2">1.2x</option>
                     <option value="1.5">1.5x</option>
+                    <option value="2.0">2.0x</option>
                 </select>
                 <button id="btn-font-dec" class="tool-btn" title="縮小文字">A-</button>
                 <button id="btn-font-inc" class="tool-btn" title="放大文字">A+</button>
@@ -302,9 +303,10 @@
 
     <div id="print-area"></div>
     
-    <div class="version-tag">v3.7</div>
+    <div class="version-tag">v3.8</div>
 
     <script>
+        // v3.8 (優化 TTS 體驗：移除句尾補點、加入 2.0x 語速、起點優先尋找新段落、停頓時間與語速動態連動)
         // v3.7 (UI修改：新增齒輪設定按鈕，並將排版與列印功能移至隱藏的第二行，加入語音速度下拉選單)
         // v3.6 (修復先前版本意外更動的排版與縮排，保持語意不變性)
         // v3.5 (修復手動/自動翻頁時 cancel() 觸發的 interrupted 錯誤導致的舊迴圈殘留與句子亂序問題)
@@ -603,8 +605,6 @@
                         sentences.forEach(s => {
                             let cleanS = s.trim();
                             if (cleanS) {
-                                if (!/[。！？.!?]$/.test(cleanS)) cleanS += '。';
-                                
                                 let cfi = "";
                                 try {
                                     cfi = contents.cfiFromNode(node);
@@ -631,16 +631,31 @@
             walk(body);
 
             const currentCfi = loc.start.cfi;
+            const endCfi = loc.end.cfi;
             let startIndex = 0;
             try {
                 const cfiHelper = new ePub.CFI();
-                startIndex = newQueue.findIndex(item => {
+                let firstVisibleIndex = newQueue.findIndex(item => {
                     try {
                         return cfiHelper.compare(item.cfi, currentCfi) >= 0;
                     } catch(e) {
                         return false; 
                     }
                 });
+
+                if (firstVisibleIndex !== -1) {
+                    let firstNewParagraphIndex = -1;
+                    for (let i = firstVisibleIndex; i < newQueue.length; i++) {
+                        try {
+                            if (cfiHelper.compare(newQueue[i].cfi, endCfi) > 0) break;
+                            if (newQueue[i].isNewParagraph) {
+                                firstNewParagraphIndex = i;
+                                break;
+                            }
+                        } catch(e) { break; }
+                    }
+                    startIndex = firstNewParagraphIndex !== -1 ? firstNewParagraphIndex : firstVisibleIndex;
+                }
             } catch(e) {
                 // 如果 ePub.CFI 無法呼叫的 fallback 保護
                 startIndex = newQueue.findIndex(item => item.cfi >= currentCfi);
@@ -717,8 +732,8 @@
             
             utterance.onend = () => { 
                 currentSpeechIndex++; 
-                const delay = (ttsQueue[currentSpeechIndex] && ttsQueue[currentSpeechIndex].isNewParagraph) ? 500 : 50;
-                setTimeout(playNextChunk, delay); 
+                const baseDelay = (ttsQueue[currentSpeechIndex] && ttsQueue[currentSpeechIndex].isNewParagraph) ? 500 : 50;
+                setTimeout(playNextChunk, baseDelay / currentTtsRate); 
             };
             utterance.onerror = (e) => { 
                 console.warn("TTS Error", e); 
