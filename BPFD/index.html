@@ -1,0 +1,1636 @@
+<!-- 
+  版本號：v1.0
+  修改主旨：初始版本建立，完全依據 FSD v1.9 規格實作所有功能、防呆機制與 UX 優化。
+-->
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>聖經大故事家庭靈修</title>
+    
+    <!-- PWA Meta -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-title" content="家庭靈修">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
+
+    <!-- External Libs -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.css"/>
+    <script src="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.js.iife.js"></script>
+
+    <!-- App Configuration & Styles -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#fcfaf8',
+                            100: '#f7f2ea',
+                            500: '#d4b78f',
+                            600: '#b8905b',
+                            800: '#8c6b45',
+                            900: '#73573a'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Driver.js Custom Overrides for Tailwind Alignment */
+        .driver-popover-footer button { border-radius: 6px !important; text-shadow: none !important; }
+        
+        /* Smooth scrolling globally */
+        html { scroll-behavior: smooth; }
+        
+        /* Hide scrollbar for clean UI but allow scrolling */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #d6d3d1; border-radius: 3px; }
+        
+        /* Highlight for active TTS verse */
+        .tts-highlight { background-color: #fef3c7; border-radius: 0.25rem; transition: background-color 0.3s; }
+    </style>
+
+    <!-- In-App Browser Escape Guard -->
+    <script>
+        (function() {
+            const ua = navigator.userAgent || navigator.vendor || window.opera;
+            if (/Line|FBAN|FBAV|Instagram/i.test(ua)) {
+                if(window.location.search.indexOf('openExternalBrowser=1') === -1) {
+                    window.location.replace(window.location.href + (window.location.search ? '&' : '?') + 'openExternalBrowser=1');
+                }
+            }
+        })();
+    </script>
+</head>
+<body class="bg-stone-50 text-stone-800 font-sans antialiased selection:bg-amber-200">
+
+    <!-- Global Loading Screen -->
+    <div id="loadingScreen" class="fixed inset-0 z-[100] bg-stone-50 flex flex-col items-center justify-center transition-opacity duration-300">
+        <i data-lucide="book-open" class="w-16 h-16 text-amber-600 animate-pulse mb-4"></i>
+        <h2 class="text-xl font-bold text-stone-700">準備靈修時光...</h2>
+        <p id="statusText" class="text-stone-500 mt-2">正在從伺服器下載資料...</p>
+    </div>
+
+    <!-- In-App Browser Warning Modal -->
+    <div id="inAppWarningModal" class="fixed inset-0 z-[110] bg-stone-900/80 backdrop-blur-sm flex items-center justify-center hidden p-4" onclick="if(event.target === this) closeModal('inAppWarningModal')">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl text-center">
+            <i data-lucide="external-link" class="w-12 h-12 text-red-500 mx-auto mb-4"></i>
+            <h3 class="text-xl font-bold mb-2">請使用預設瀏覽器開啟</h3>
+            <p class="text-stone-600 mb-6 text-sm">LINE 或 Facebook 內建瀏覽器不支援語音朗讀，且會導致進度無法存檔。請點擊下方按鈕複製網址，並貼到 Safari 或 Chrome 中開啟。</p>
+            <button onclick="copyAppUrl()" class="w-full bg-stone-800 text-white py-3 rounded-xl font-medium">一鍵複製系統網址</button>
+        </div>
+    </div>
+
+    <!-- Setup Wizard Modal -->
+    <div id="setupWizardModal" class="fixed inset-0 z-50 bg-stone-900/50 backdrop-blur-sm flex items-center justify-center hidden p-4" onclick="if(event.target === this) closeModal('setupWizardModal')">
+        <div class="bg-white rounded-2xl p-6 sm:p-8 w-full max-w-md shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            <h2 class="text-2xl font-bold text-stone-800 mb-2">👋 歡迎來到家庭靈修</h2>
+            <p class="text-stone-500 mb-6 text-sm">這是一趟 50 週的聖經大故事旅程，什麼時候開始都是好日子！讓我們來設定專屬你們家的進度步調。</p>
+            
+            <div class="mb-5">
+                <label class="block text-sm font-bold text-stone-700 mb-2">1. 選擇旅程起點 (開始日期)</label>
+                <input type="date" id="wizardStartDate" class="w-full border-2 border-stone-200 rounded-xl p-3 focus:outline-none focus:border-amber-500 transition-colors">
+            </div>
+
+            <div class="mb-6">
+                <label class="block text-sm font-bold text-stone-700 mb-2">2. 設定家庭專屬閱讀日 (每週 3 天)</label>
+                <p class="text-xs text-stone-400 mb-3">勾選三個您與孩子最方便的時間。</p>
+                <div class="grid grid-cols-2 gap-2" id="wizardDaysContainer">
+                    <!-- Checkboxes injected via JS -->
+                </div>
+            </div>
+
+            <div id="calibrationNotice" class="hidden mb-4 p-3 bg-amber-50 text-amber-800 rounded-xl text-sm border border-amber-200">
+                <i data-lucide="info" class="inline w-4 h-4 mr-1"></i> <span id="calibrationNoticeText"></span>
+            </div>
+
+            <button id="wizardCompleteBtn" disabled onclick="completeSetup()" class="w-full bg-amber-600 disabled:bg-stone-300 disabled:cursor-not-allowed text-white py-3 rounded-xl font-bold text-lg transition-colors shadow-sm mb-4">
+                完成設定，開始旅程！
+            </button>
+
+            <div class="relative pt-4 border-t border-stone-100 text-center">
+                <p class="text-xs text-stone-400 mb-2">已經有舊進度了嗎？</p>
+                <button onclick="document.getElementById('importFile').click()" class="text-sm font-medium text-stone-600 underline">匯入既有進度</button>
+                <input type="file" id="importFile" accept=".json" class="hidden" onchange="handleImport(event)">
+            </div>
+        </div>
+    </div>
+
+    <!-- Congrats Modal -->
+    <div id="congratsModal" class="fixed inset-0 z-[60] bg-stone-900/40 backdrop-blur-sm flex items-center justify-center hidden p-4" onclick="if(event.target === this) handleCongratsSecondary()">
+        <div class="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl text-center relative overflow-hidden">
+            <div class="text-6xl animate-bounce mb-4">🎉</div>
+            <h2 class="text-3xl font-extrabold text-amber-600 mb-4">恭喜完成全年家庭靈修！</h2>
+            <p class="text-stone-600 mb-8 leading-relaxed">
+                太棒了！你們全家堅持完成了 50 週、共 150 天的讀經旅程。<br>
+                這趟指向耶穌的大故事旅程已經深植在孩子心中。<br><br>
+                準備好重置紀錄，為下一輪的閱讀之旅做準備了嗎？
+            </p>
+            <div class="flex flex-col space-y-3">
+                <button onclick="handleCongratsPrimary()" class="w-full bg-amber-600 hover:bg-amber-700 text-white py-3.5 rounded-xl font-bold text-lg transition-colors shadow-md flex items-center justify-center">
+                    <i data-lucide="rocket" class="w-5 h-5 mr-2"></i> 立即重置進度
+                </button>
+                <button onclick="handleCongratsSecondary()" class="w-full bg-stone-100 hover:bg-stone-200 text-stone-600 py-3 rounded-xl font-medium transition-colors">
+                    稍後再說
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reset Confirm Modal (Dual-Track Validation) -->
+    <div id="resetConfirmModal" class="fixed inset-0 z-50 bg-stone-900/50 backdrop-blur-sm flex items-center justify-center hidden p-4" onclick="if(event.target === this) closeModal('resetConfirmModal')">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl text-center">
+            <i data-lucide="alert-triangle" class="w-12 h-12 text-red-500 mx-auto mb-4"></i>
+            <h3 id="resetConfirmTitle" class="text-xl font-bold text-stone-800 mb-2">確定要重置進度嗎？</h3>
+            <p id="resetConfirmText" class="text-stone-500 mb-6 text-sm">這將清空所有的已讀紀錄。您的語音與閱讀日設定將會保留。</p>
+            
+            <!-- Contextual Smart Anchor Text -->
+            <div id="resetAnchorNotice" class="hidden mb-6 p-3 bg-blue-50 text-blue-800 rounded-xl text-sm border border-blue-200 text-left">
+                <i data-lucide="calendar-clock" class="inline w-4 h-4 mr-1"></i> 
+                <span id="resetAnchorText"></span>
+            </div>
+
+            <div class="flex flex-col gap-2">
+                <button id="resetActionBtn1" onclick="exportData(); performReset();" class="w-full bg-stone-800 text-white py-2.5 rounded-xl font-medium">匯出備份再重置</button>
+                <button id="resetActionBtn2" onclick="performReset()" class="w-full bg-red-600 text-white py-2.5 rounded-xl font-medium">立即重置 (不備份)</button>
+                <button id="resetActionBtnChangeDays" onclick="closeModal('resetConfirmModal'); openReadingDaysModal();" class="w-full bg-stone-100 text-stone-700 py-2.5 rounded-xl font-medium hidden">重新設定閱讀日</button>
+                <button onclick="closeModal('resetConfirmModal')" class="w-full bg-white border border-stone-200 text-stone-600 py-2.5 rounded-xl font-medium mt-2">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Change Reading Days Modal -->
+    <div id="readingDaysModal" class="fixed inset-0 z-50 bg-stone-900/50 backdrop-blur-sm flex items-center justify-center hidden p-4" onclick="if(event.target === this) closeModal('readingDaysModal')">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+            <h3 class="text-xl font-bold text-stone-800 mb-2">設定閱讀日</h3>
+            <p class="text-stone-500 mb-4 text-sm">勾選三個閱讀日。套用後，系統會自動校準開始日期，不會打亂您已完成的進度。</p>
+            <div class="grid grid-cols-2 gap-2 mb-6" id="editDaysContainer"></div>
+            <button id="editDaysSaveBtn" onclick="saveNewReadingDays()" class="w-full bg-amber-600 text-white py-2.5 rounded-xl font-bold disabled:bg-stone-300">儲存變更</button>
+        </div>
+    </div>
+
+    <!-- Footnote Modal -->
+    <div id="footnoteModal" class="fixed inset-0 z-[70] bg-stone-900/50 backdrop-blur-sm flex items-center justify-center hidden p-4" onclick="if(event.target === this) closeModal('footnoteModal')">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+            <div class="flex items-center text-amber-600 mb-3">
+                <i data-lucide="book-open-check" class="w-5 h-5 mr-2"></i>
+                <h3 class="text-lg font-bold">經文註釋</h3>
+            </div>
+            <p id="footnoteText" class="text-stone-700 leading-relaxed"></p>
+            <button onclick="closeModal('footnoteModal')" class="w-full mt-5 bg-stone-100 text-stone-700 py-2 rounded-xl font-medium">關閉</button>
+        </div>
+    </div>
+
+    <!-- PWA Install Prompts -->
+    <div id="installPromptModal" class="fixed inset-0 z-50 bg-stone-900/50 backdrop-blur-sm flex items-center justify-center hidden p-4" onclick="if(event.target === this) handleInstallPromptClose()">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl text-center">
+            <div class="w-16 h-16 bg-amber-100 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-inner">
+                <i data-lucide="download-cloud" class="w-8 h-8 text-amber-600"></i>
+            </div>
+            <h3 class="text-xl font-bold text-stone-800 mb-2">安裝到主畫面</h3>
+            <p class="text-stone-500 mb-6 text-sm">將家庭靈修加入手機桌面，就像一般的 APP，日後開啟更方便！</p>
+            <button onclick="triggerInstall()" class="w-full bg-amber-600 text-white py-3 rounded-xl font-bold mb-2">立即安裝</button>
+            <button onclick="handleInstallPromptClose()" class="w-full text-stone-400 py-2 text-sm">稍後再說</button>
+        </div>
+    </div>
+
+    <div id="manualInstallModal" class="fixed inset-0 z-50 bg-stone-900/50 backdrop-blur-sm flex items-end sm:items-center justify-center hidden pb-8 sm:p-4" onclick="if(event.target === this) closeModal('manualInstallModal')">
+        <div class="bg-white rounded-t-3xl sm:rounded-2xl p-6 w-full max-w-sm shadow-2xl text-center relative animate-[slideUp_0.3s_ease-out]">
+            <i data-lucide="share" class="w-10 h-10 text-blue-500 mx-auto mb-3"></i>
+            <h3 class="text-xl font-bold text-stone-800 mb-2">如何安裝到 iPhone 桌面</h3>
+            <p class="text-stone-600 mb-4 text-sm text-left">
+                1. 點擊瀏覽器下方的 <b>分享圖示</b> <br>
+                2. 往下滑動，選擇 <b>「加入主畫面」</b> <br>
+                3. 點擊右上角的 <b>「新增」</b>
+            </p>
+            <button onclick="closeModal('manualInstallModal')" class="w-full bg-stone-100 text-stone-700 py-3 rounded-xl font-medium">我知道了</button>
+        </div>
+    </div>
+
+    <!-- Main Layout -->
+    <div class="max-w-xl mx-auto min-h-screen flex flex-col relative bg-stone-50 pb-20">
+        
+        <!-- Top Navigation Bar -->
+        <header class="sticky top-0 z-30 bg-stone-50/90 backdrop-blur-md border-b border-stone-200 px-4 py-3 flex justify-between items-center shadow-sm">
+            <div class="flex items-center space-x-2" id="tour-day-selector">
+                <button id="prevDayBtn" onclick="changeDay(-1)" class="p-2 bg-stone-200 rounded-full hover:bg-stone-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                    <i data-lucide="chevron-left" class="w-5 h-5 text-stone-600"></i>
+                </button>
+                <div class="flex items-center text-lg font-bold text-stone-800 bg-white px-3 py-1 rounded-lg shadow-sm border border-stone-100 cursor-pointer" onclick="focusDayInput()">
+                    <span>第</span>
+                    <input type="number" id="weekInput" min="1" max="50" class="w-8 text-center bg-transparent focus:outline-none focus:ring-2 focus:ring-amber-500 rounded px-1 appearance-none" onchange="jumpToProgress()">
+                    <span>週 - </span>
+                    <input type="number" id="dayInput" min="1" max="3" class="w-6 text-center bg-transparent focus:outline-none focus:ring-2 focus:ring-amber-500 rounded px-1 appearance-none" onchange="jumpToProgress()">
+                </div>
+                <button id="nextDayBtn" onclick="changeDay(1)" class="p-2 bg-stone-200 rounded-full hover:bg-stone-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                    <i data-lucide="chevron-right" class="w-5 h-5 text-stone-600"></i>
+                </button>
+            </div>
+            
+            <div class="relative">
+                <button id="settingsBtn" onclick="toggleSettingsMenu()" class="p-2 bg-stone-200 rounded-full hover:bg-stone-300 transition-colors">
+                    <i data-lucide="settings" class="w-5 h-5 text-stone-600"></i>
+                </button>
+                <!-- Settings Dropdown -->
+                <div id="settingsMenu" class="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-stone-100 hidden z-50 overflow-hidden transform origin-top-right transition-all">
+                    <div class="p-4 bg-stone-50 border-b border-stone-100">
+                        <label class="block text-xs font-bold text-stone-500 mb-1 uppercase tracking-wider">語音設定</label>
+                        <select id="voiceSelector" onchange="saveVoiceSettings()" class="w-full text-sm border-stone-200 rounded-lg p-2 mb-2 bg-white focus:ring-amber-500 focus:border-amber-500 truncate"></select>
+                        <select id="rateSelector" onchange="saveVoiceSettings()" class="w-full text-sm border-stone-200 rounded-lg p-2 bg-white focus:ring-amber-500 focus:border-amber-500">
+                            <option value="0.8">慢速 (0.8x)</option>
+                            <option value="1.0" selected>正常 (1.0x)</option>
+                            <option value="1.2">稍快 (1.2x)</option>
+                            <option value="1.5">快速 (1.5x)</option>
+                        </select>
+                    </div>
+                    <div class="p-4 bg-stone-50 border-b border-stone-100">
+                        <label class="block text-xs font-bold text-stone-500 mb-1 uppercase tracking-wider">進度起算日</label>
+                        <div class="flex gap-2">
+                            <input type="date" id="menuStartDate" onchange="updateStartDate(this.value)" class="w-full text-sm border-stone-200 rounded-lg p-2 bg-white focus:ring-amber-500">
+                            <button onclick="setStartDateToToday()" class="text-xs bg-stone-200 hover:bg-stone-300 text-stone-700 px-3 rounded-lg font-medium whitespace-nowrap transition-colors">設為今日</button>
+                        </div>
+                    </div>
+                    <div class="py-2">
+                        <button onclick="openReadingDaysModal(); toggleSettingsMenu();" class="w-full text-left px-4 py-2 text-sm text-stone-700 hover:bg-stone-50 flex items-center"><i data-lucide="calendar" class="w-4 h-4 mr-3 text-stone-400"></i> 設定閱讀日</button>
+                        <button id="installMenuBtn" onclick="triggerInstall(); toggleSettingsMenu();" class="w-full text-left px-4 py-2 text-sm text-stone-700 hover:bg-stone-50 flex items-center hidden"><i data-lucide="download-cloud" class="w-4 h-4 mr-3 text-stone-400"></i> 安裝到桌面 (APP)</button>
+                        <button onclick="exportData(); toggleSettingsMenu();" class="w-full text-left px-4 py-2 text-sm text-stone-700 hover:bg-stone-50 flex items-center"><i data-lucide="download" class="w-4 h-4 mr-3 text-stone-400"></i> 匯出備份</button>
+                        <button onclick="document.getElementById('importFile').click(); toggleSettingsMenu();" class="w-full text-left px-4 py-2 text-sm text-stone-700 hover:bg-stone-50 flex items-center"><i data-lucide="upload" class="w-4 h-4 mr-3 text-stone-400"></i> 匯入進度</button>
+                        <button onclick="startTour(); toggleSettingsMenu();" class="w-full text-left px-4 py-2 text-sm text-stone-700 hover:bg-stone-50 flex items-center"><i data-lucide="help-circle" class="w-4 h-4 mr-3 text-stone-400"></i> 重新導覽</button>
+                        <button onclick="reportIssue(); toggleSettingsMenu();" class="w-full text-left px-4 py-2 text-sm text-stone-700 hover:bg-stone-50 flex items-center"><i data-lucide="message-square-warning" class="w-4 h-4 mr-3 text-stone-400"></i> 問題回報與建議</button>
+                        <div class="border-t border-stone-100 my-1"></div>
+                        <button onclick="showResetConfirm(); toggleSettingsMenu();" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center font-medium"><i data-lucide="trash-2" class="w-4 h-4 mr-3 text-red-500"></i> 進度重置</button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="flex-grow p-4 space-y-6">
+            
+            <!-- Context Info -->
+            <div class="flex justify-between items-center text-sm font-medium text-stone-500 px-1">
+                <span id="displayDate">--</span>
+                <span id="partTitle" class="truncate ml-4 max-w-[60%] text-right text-amber-700">--</span>
+            </div>
+
+            <!-- Dashboard Card -->
+            <section id="titleHeaderBox" class="bg-white rounded-2xl p-6 shadow-md border border-stone-100 transition-colors duration-300">
+                <h1 id="devotionTitle" class="text-2xl font-extrabold text-stone-800 mb-6 leading-tight">載入中...</h1>
+                
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <button id="toggleReadBtn" onclick="toggleReadStatus()" class="flex-1 py-3 px-4 rounded-xl font-bold flex items-center justify-center transition-all duration-300 shadow-sm border">
+                        <i data-lucide="check-circle" id="toggleReadIcon" class="w-5 h-5 mr-2"></i>
+                        <span id="toggleReadText">標記為已讀</span>
+                    </button>
+                    
+                    <!-- Global TTS Controls -->
+                    <div class="flex-1 flex gap-2" id="playAllBtn">
+                        <button id="btn_global_play" onclick="handlePlayAll()" class="flex-1 bg-stone-800 hover:bg-stone-900 text-white py-3 px-4 rounded-xl font-bold flex items-center justify-center transition-colors shadow-sm">
+                            <i data-lucide="play" class="w-5 h-5 mr-2"></i> <span id="text_global_play">一鍵全部朗讀</span>
+                        </button>
+                        <button id="btn_global_pause" onclick="handlePause()" class="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-3 px-4 rounded-xl font-bold flex items-center justify-center transition-colors shadow-sm hidden">
+                            <i data-lucide="pause" class="w-5 h-5"></i>
+                        </button>
+                        <button id="btn_global_stop" onclick="handleStop()" class="flex-none bg-stone-200 hover:bg-stone-300 text-stone-700 py-3 px-4 rounded-xl font-bold flex items-center justify-center transition-colors shadow-sm hidden">
+                            <i data-lucide="square" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Q&A Card -->
+            <section id="qaCard" class="bg-white rounded-2xl p-6 shadow-md border border-stone-100">
+                <div class="flex justify-between items-center mb-4 pb-2 border-b border-stone-100">
+                    <h2 class="text-lg font-bold text-stone-800 flex items-center">
+                        <i data-lucide="message-circle-question" class="w-5 h-5 mr-2 text-blue-500"></i> 本週問答
+                    </h2>
+                    <!-- TTS Local Controls -->
+                    <div class="flex gap-1">
+                        <button id="btn_qa_play" onclick="handleLocalPlay('qa')" class="p-2 bg-stone-100 hover:bg-stone-200 rounded-lg text-stone-600 transition-colors"><i data-lucide="play" class="w-4 h-4"></i></button>
+                        <button id="btn_qa_pause" onclick="handlePause()" class="p-2 bg-amber-100 text-amber-700 rounded-lg hidden"><i data-lucide="pause" class="w-4 h-4"></i></button>
+                        <button id="btn_qa_stop" onclick="handleStop()" class="p-2 bg-stone-100 text-stone-600 rounded-lg hidden"><i data-lucide="square" class="w-4 h-4"></i></button>
+                    </div>
+                </div>
+                <h4 id="qaUnitTitle" class="text-sm font-bold text-blue-600 mb-4 uppercase tracking-wider"></h4>
+                <div id="qaContent" class="space-y-4 text-lg">
+                    <div class="flex items-start bg-blue-50/50 p-4 rounded-xl">
+                        <span class="font-black text-blue-600 mr-3 text-xl leading-none pt-1">Q</span>
+                        <p id="qaQuestion" class="font-bold text-stone-800 font-serif"></p>
+                    </div>
+                    <div class="flex items-start p-4">
+                        <span class="font-black text-emerald-500 mr-3 text-xl leading-none pt-1">A</span>
+                        <p id="qaAnswer" class="text-stone-700 font-serif"></p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Scripture Card -->
+            <section id="scriptureCard" class="bg-white rounded-2xl p-6 shadow-md border border-stone-100">
+                <div class="flex justify-between items-center mb-6 pb-2 border-b border-stone-100">
+                    <h2 class="text-lg font-bold text-stone-800 flex items-center">
+                        <i data-lucide="book" class="w-5 h-5 mr-2 text-amber-600"></i> 今日經文
+                    </h2>
+                    <!-- TTS Local Controls -->
+                    <div class="flex gap-1">
+                        <button id="btn_scripture_play" onclick="handleLocalPlay('scripture')" class="p-2 bg-stone-100 hover:bg-stone-200 rounded-lg text-stone-600 transition-colors"><i data-lucide="play" class="w-4 h-4"></i></button>
+                        <button id="btn_scripture_pause" onclick="handlePause()" class="p-2 bg-amber-100 text-amber-700 rounded-lg hidden"><i data-lucide="pause" class="w-4 h-4"></i></button>
+                        <button id="btn_scripture_stop" onclick="handleStop()" class="p-2 bg-stone-100 text-stone-600 rounded-lg hidden"><i data-lucide="square" class="w-4 h-4"></i></button>
+                    </div>
+                </div>
+                <div id="scriptureContent" class="font-serif leading-loose space-y-2">
+                    <!-- Rendered via JS -->
+                </div>
+            </section>
+
+            <!-- Devotion Card -->
+            <section id="devotionCard" class="bg-white rounded-2xl p-6 shadow-md border border-stone-100">
+                <div class="flex justify-between items-center mb-4 pb-2 border-b border-stone-100">
+                    <h2 class="text-lg font-bold text-stone-800 flex items-center">
+                        <i data-lucide="align-left" class="w-5 h-5 mr-2 text-stone-500"></i> 靈修短文
+                    </h2>
+                    <!-- TTS Local Controls -->
+                    <div class="flex gap-1">
+                        <button id="btn_devotion_play" onclick="handleLocalPlay('devotion')" class="p-2 bg-stone-100 hover:bg-stone-200 rounded-lg text-stone-600 transition-colors"><i data-lucide="play" class="w-4 h-4"></i></button>
+                        <button id="btn_devotion_pause" onclick="handlePause()" class="p-2 bg-amber-100 text-amber-700 rounded-lg hidden"><i data-lucide="pause" class="w-4 h-4"></i></button>
+                        <button id="btn_devotion_stop" onclick="handleStop()" class="p-2 bg-stone-100 text-stone-600 rounded-lg hidden"><i data-lucide="square" class="w-4 h-4"></i></button>
+                    </div>
+                </div>
+                <div id="devotionContent" class="text-lg text-stone-700 leading-relaxed space-y-4">
+                    <!-- Rendered via JS -->
+                </div>
+            </section>
+
+            <!-- Reflection Card -->
+            <section id="reflectionCard" class="bg-amber-50 rounded-2xl p-6 shadow-md border border-amber-100">
+                <div class="flex justify-between items-center mb-4 pb-2 border-b border-amber-200">
+                    <h2 class="text-lg font-bold text-amber-900 flex items-center">
+                        <i data-lucide="users" class="w-5 h-5 mr-2 text-amber-600"></i> 討論問題
+                    </h2>
+                    <!-- TTS Local Controls -->
+                    <div class="flex gap-1">
+                        <button id="btn_reflection_play" onclick="handleLocalPlay('reflection')" class="p-2 bg-amber-200/50 hover:bg-amber-200 rounded-lg text-amber-800 transition-colors"><i data-lucide="play" class="w-4 h-4"></i></button>
+                        <button id="btn_reflection_pause" onclick="handlePause()" class="p-2 bg-amber-600 text-white rounded-lg hidden"><i data-lucide="pause" class="w-4 h-4"></i></button>
+                        <button id="btn_reflection_stop" onclick="handleStop()" class="p-2 bg-amber-200/50 text-amber-800 rounded-lg hidden"><i data-lucide="square" class="w-4 h-4"></i></button>
+                    </div>
+                </div>
+                <div id="reflectionContent" class="text-lg font-medium text-amber-900 leading-relaxed">
+                    <!-- Rendered via JS -->
+                </div>
+            </section>
+
+        </main>
+
+        <!-- Footer -->
+        <footer class="mt-8 text-center text-stone-400 text-xs px-4 border-t border-stone-200 pt-6 pb-4">
+            <p>和合本修訂版版權屬香港聖經公會所有，蒙允准使用。</p>
+            <p class="mt-1 mb-4">基於 358天讀經計畫 研發</p>
+            <a href="https://tools.johnsonlu.org" target="_blank" class="inline-flex items-center text-stone-500 hover:text-stone-700 transition-colors bg-stone-200/50 px-3 py-1.5 rounded-full">
+                <i data-lucide="wrench" class="w-3 h-3 mr-1"></i> 老張工具間
+            </a>
+        </footer>
+
+        <!-- Fixed Version Number -->
+        <div class="fixed bottom-2 right-2 text-[10px] text-stone-300 font-mono select-none pointer-events-none z-0">
+            v1.0
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // 1. Constants & State Variables
+        // ==========================================
+        const APP_VERSION = '1.0';
+        const APP_LOAD_TIME = Date.now();
+        const TOTAL_DAYS = 150;
+        
+        const STORE_KEYS = {
+            START_DATE: 'family_devo_start_date',
+            READING_DAYS: 'family_devo_reading_days',
+            PROGRESS: 'family_devo_progress',
+            TOUR_COMPLETED: 'tour_completed',
+            CONGRATS_SHOWN: 'congrats_shown',
+            INSTALL_PROMPT: 'install_prompt_shown',
+            TTS_VOICE: 'tts_voice_name',
+            TTS_RATE: 'tts_rate'
+        };
+
+        // Data Stores
+        let devotionDict = {};
+        let rcuvIndex = {};
+        let currentDay = 1;
+        let isReviewWeek = false;
+
+        // PWA Install Prompt
+        let deferredPrompt;
+
+        // TTS State
+        window._speechState = {
+            chunks: [],
+            idx: 0,
+            isPaused: false,
+            debounceTimer: null,
+            activeSection: null // 'global', 'qa', 'scripture', 'devotion', 'reflection'
+        };
+
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        // ==========================================
+        // 2. Initialization & Data Fetching
+        // ==========================================
+        document.addEventListener('DOMContentLoaded', initApp);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        document.addEventListener('click', closeDropdownOnOutsideClick);
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            const btn = document.getElementById('installMenuBtn');
+            if(btn) btn.classList.remove('hidden');
+        });
+
+        // PWA Routing Guard
+        if (window.location.search.includes('pwa=1')) {
+            const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+            window.history.replaceState({path: newUrl}, '', newUrl);
+        }
+
+        async function initApp() {
+            try {
+                await fetchDatabases();
+                populateVoiceList();
+                if (speechSynthesis.onvoiceschanged !== undefined) {
+                    speechSynthesis.onvoiceschanged = populateVoiceList;
+                }
+
+                if (!getStorage(STORE_KEYS.START_DATE) || !getStorage(STORE_KEYS.READING_DAYS)) {
+                    showSetupWizard();
+                } else {
+                    loadAndRenderCurrentDay();
+                    checkTourTrigger();
+                }
+            } catch (err) {
+                console.error("Init Error:", err);
+                showGlobalError("無法載入資料，請檢查網路連線或稍後重試。");
+            }
+        }
+
+        function handleVisibilityChange() {
+            if (document.visibilityState === 'visible') {
+                if (Date.now() - APP_LOAD_TIME > 12 * 60 * 60 * 1000) {
+                    window.location.reload();
+                }
+            }
+        }
+
+        async function fetchDatabases() {
+            const [devoRes, rcuvRes] = await Promise.all([
+                fetch(`devotional.json?v=${APP_VERSION}`),
+                fetch(`rcuv.json?v=${APP_VERSION}`)
+            ]);
+
+            if (!devoRes.ok || !rcuvRes.ok) throw new Error("JSON Fetch Failed");
+
+            const rawDevo = await devoRes.json();
+            rcuvIndex = await rcuvRes.json();
+
+            // Flatten logic
+            let globalDay = 1;
+            rawDevo.forEach((part, partIdx) => {
+                const partTitle = part.part;
+                part.part_content.forEach(qa => {
+                    const baseQaData = { unit_title: qa.unit_title, question: qa.question, answer: qa.answer };
+                    qa.devotions.forEach(dev => {
+                        const weekNum = Math.ceil(globalDay / 3);
+                        devotionDict[globalDay] = {
+                            global_day: globalDay,
+                            part_title: partTitle,
+                            week_number: weekNum,
+                            is_review_week: (weekNum % 10 === 0),
+                            qa_data: baseQaData,
+                            day_data: dev
+                        };
+                        globalDay++;
+                    });
+                });
+            });
+            
+            document.getElementById('loadingScreen').classList.add('opacity-0', 'pointer-events-none');
+            setTimeout(() => document.getElementById('loadingScreen').classList.add('hidden'), 300);
+        }
+
+        function showGlobalError(msg) {
+            const el = document.getElementById('statusText');
+            el.innerHTML = `<span class="bg-red-100 text-red-700 px-3 py-1 rounded-md font-bold">${msg}</span>`;
+            document.querySelector('#loadingScreen i').classList.replace('text-amber-600', 'text-red-500');
+            document.querySelector('#loadingScreen h2').innerText = '載入失敗';
+        }
+
+        // ==========================================
+        // 3. Storage Utils
+        // ==========================================
+        function getStorage(key, isJson = false) {
+            const val = localStorage.getItem(key);
+            if (!val) return null;
+            try { return isJson ? JSON.parse(val) : val; } 
+            catch { return val; }
+        }
+
+        function setStorage(key, val, isJson = false) {
+            localStorage.setItem(key, isJson ? JSON.stringify(val) : val);
+        }
+
+        // ==========================================
+        // 4. Pacing Engine & Logic
+        // ==========================================
+        function getLocalTodayString() {
+            const now = new Date();
+            const localDate = new Date(now.getTime() - (now.getTimezoneOffset() * 60000));
+            return localDate.toISOString().split('T')[0];
+        }
+
+        function getActualTodayIndex() {
+            const startDateStr = getStorage(STORE_KEYS.START_DATE);
+            const readingDays = getStorage(STORE_KEYS.READING_DAYS, true);
+            if (!startDateStr || !readingDays) return 1;
+
+            const start = new Date(startDateStr);
+            const today = new Date(getLocalTodayString());
+            start.setHours(0,0,0,0);
+            today.setHours(0,0,0,0);
+
+            if (today < start) return 1;
+
+            let count = 0;
+            let current = new Date(start);
+            while (current <= today && count < TOTAL_DAYS) {
+                if (readingDays.includes(current.getDay())) {
+                    count++;
+                }
+                current.setDate(current.getDate() + 1);
+            }
+            return count > 0 ? count : 1;
+        }
+
+        function getDateForGlobalDay(targetDay) {
+            const startDateStr = getStorage(STORE_KEYS.START_DATE);
+            const readingDays = getStorage(STORE_KEYS.READING_DAYS, true);
+            if (!startDateStr || !readingDays) return new Date();
+
+            let current = new Date(startDateStr);
+            current.setHours(0,0,0,0);
+            let count = 0;
+
+            // Advance to the first valid reading day if start date itself isn't one
+            while (!readingDays.includes(current.getDay())) {
+                current.setDate(current.getDate() + 1);
+            }
+
+            while (count < targetDay) {
+                if (readingDays.includes(current.getDay())) {
+                    count++;
+                    if (count === targetDay) break;
+                }
+                current.setDate(current.getDate() + 1);
+            }
+            return current;
+        }
+
+        function loadAndRenderCurrentDay() {
+            const progress = getStorage(STORE_KEYS.PROGRESS, true) || {};
+            let firstUnreadDay = 1;
+            for (let i = 1; i <= TOTAL_DAYS; i++) {
+                if (!progress[i]) {
+                    firstUnreadDay = i;
+                    break;
+                }
+            }
+            
+            // Undefined Crash Prevention
+            if (Object.values(progress).filter(Boolean).length === TOTAL_DAYS) {
+                firstUnreadDay = TOTAL_DAYS; 
+            }
+
+            const actualTodayIndex = getActualTodayIndex();
+            let targetLoadDay = firstUnreadDay;
+
+            if (firstUnreadDay > actualTodayIndex) {
+                targetLoadDay = Math.max(1, firstUnreadDay - 1);
+            }
+
+            renderDay(targetLoadDay);
+        }
+
+        // ==========================================
+        // 5. Setup Wizard & Config Modals
+        // ==========================================
+        function showSetupWizard() {
+            document.getElementById('setupWizardModal').classList.remove('hidden');
+            document.getElementById('wizardStartDate').value = getLocalTodayString();
+            renderWizardCheckboxes();
+        }
+
+        function renderWizardCheckboxes() {
+            const container = document.getElementById('wizardDaysContainer');
+            container.innerHTML = '';
+            const days = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+            
+            days.forEach((day, index) => {
+                const label = document.createElement('label');
+                label.className = 'flex items-center space-x-3 bg-stone-50 border border-stone-200 p-3 rounded-xl cursor-pointer transition-colors';
+                label.innerHTML = `
+                    <input type="checkbox" value="${index}" class="wizard-cb w-5 h-5 text-amber-600 rounded focus:ring-amber-500" onchange="handleWizardCbChange()">
+                    <span class="font-medium text-stone-700">${day}</span>
+                `;
+                container.appendChild(label);
+            });
+        }
+
+        function handleWizardCbChange() {
+            const cbs = Array.from(document.querySelectorAll('.wizard-cb'));
+            const checkedCount = cbs.filter(cb => cb.checked).length;
+            const btn = document.getElementById('wizardCompleteBtn');
+            const notice = document.getElementById('calibrationNotice');
+            
+            cbs.forEach(cb => {
+                if (!cb.checked && checkedCount >= 3) {
+                    cb.disabled = true;
+                    cb.parentElement.classList.add('opacity-50', 'cursor-not-allowed');
+                } else {
+                    cb.disabled = false;
+                    cb.parentElement.classList.remove('opacity-50', 'cursor-not-allowed');
+                }
+                
+                if(cb.checked) {
+                    cb.parentElement.classList.add('bg-amber-50', 'border-amber-500');
+                } else {
+                    cb.parentElement.classList.remove('bg-amber-50', 'border-amber-500');
+                }
+            });
+
+            btn.disabled = (checkedCount !== 3);
+            
+            if (checkedCount === 3) {
+                const startD = new Date(document.getElementById('wizardStartDate').value);
+                const selectedDays = cbs.filter(c => c.checked).map(c => parseInt(c.value));
+                if (!selectedDays.includes(startD.getDay())) {
+                    notice.classList.remove('hidden');
+                    let nextDate = new Date(startD);
+                    while (!selectedDays.includes(nextDate.getDay())) {
+                        nextDate.setDate(nextDate.getDate() + 1);
+                    }
+                    const opt = { month: 'short', day: 'numeric' };
+                    document.getElementById('calibrationNoticeText').innerText = `已自動將起算日校準為最近的閱讀日：${nextDate.toLocaleDateString('zh-TW', opt)}`;
+                } else {
+                    notice.classList.add('hidden');
+                }
+            } else {
+                notice.classList.add('hidden');
+            }
+        }
+
+        function completeSetup() {
+            const cbs = Array.from(document.querySelectorAll('.wizard-cb'));
+            const selectedDays = cbs.filter(cb => cb.checked).map(cb => parseInt(cb.value));
+            
+            let startDate = new Date(document.getElementById('wizardStartDate').value);
+            startDate.setHours(0,0,0,0);
+
+            // Forced Calibration
+            while (!selectedDays.includes(startDate.getDay())) {
+                startDate.setDate(startDate.getDate() + 1);
+            }
+            
+            const startStr = startDate.toISOString().split('T')[0];
+            
+            setStorage(STORE_KEYS.START_DATE, startStr);
+            setStorage(STORE_KEYS.READING_DAYS, selectedDays, true);
+            if (!getStorage(STORE_KEYS.PROGRESS)) setStorage(STORE_KEYS.PROGRESS, {}, true);
+
+            closeModal('setupWizardModal');
+            loadAndRenderCurrentDay();
+            checkTourTrigger();
+        }
+
+        // ==========================================
+        // 6. UI Rendering Engine
+        // ==========================================
+        function sanitizeText(str) {
+            if (!str) return '';
+            // Remove zero-width spaces and BOM
+            return str.replace(/[\u200B-\u200D\uFEFF]/g, '');
+        }
+
+        function parseMarkdown(text) {
+            if (!text) return '';
+            let html = text.replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>');
+            html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+            html = html.replace(/&gt; (.*?)(?:<br>|$)/g, '<blockquote class="border-l-4 border-amber-500 pl-4 py-1 text-stone-600 italic bg-amber-50 rounded-r-lg my-2">$1</blockquote>');
+            return html;
+        }
+
+        function renderDay(dayIndex) {
+            // Stop TTS and Scroll
+            handleStop();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            
+            if (dayIndex < 1 || dayIndex > TOTAL_DAYS) return;
+            currentDay = dayIndex;
+            const data = devotionDict[dayIndex];
+            if (!data) return;
+
+            isReviewWeek = data.is_review_week;
+            
+            // Nav & Header
+            document.getElementById('weekInput').value = data.week_number;
+            document.getElementById('dayInput').value = ((data.global_day - 1) % 3) + 1;
+            
+            const targetDate = getDateForGlobalDay(dayIndex);
+            const dateOpts = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' };
+            document.getElementById('displayDate').innerText = targetDate.toLocaleDateString('zh-TW', dateOpts);
+            document.getElementById('partTitle').innerText = data.part_title;
+
+            // Disable buttons logic
+            document.getElementById('prevDayBtn').disabled = (dayIndex === 1);
+            document.getElementById('nextDayBtn').disabled = (dayIndex === TOTAL_DAYS);
+
+            // Dashboard
+            document.getElementById('devotionTitle').innerText = data.day_data.devotion_title;
+            updateStatusUI();
+
+            // Conditional Sections (Review Week)
+            const qaCard = document.getElementById('qaCard');
+            const scCard = document.getElementById('scriptureCard');
+
+            if (isReviewWeek) {
+                qaCard.classList.add('hidden');
+                scCard.classList.add('hidden');
+            } else {
+                qaCard.classList.remove('hidden');
+                scCard.classList.remove('hidden');
+                
+                // Render Q&A
+                document.getElementById('qaUnitTitle').innerText = data.qa_data.unit_title || '';
+                document.getElementById('qaQuestion').innerText = data.qa_data.question;
+                document.getElementById('qaAnswer').innerText = data.qa_data.answer;
+
+                // Render Scripture
+                const scContainer = document.getElementById('scriptureContent');
+                scContainer.innerHTML = '';
+                
+                if (!data.day_data.bible_reading || data.day_data.bible_reading.length === 0) {
+                    scCard.classList.add('hidden'); // Dynamic hide if array empty
+                } else {
+                    let currentBookHeader = '';
+                    let hasValidVerse = false;
+
+                    data.day_data.bible_reading.forEach(ref => {
+                        const book = sanitizeText(ref.book);
+                        const chStr = sanitizeText(ref.chapters);
+                        
+                        if(!rcuvIndex[book]) {
+                            console.warn("Book not found:", book);
+                            return;
+                        }
+
+                        // Super simple parser for complex references like "1:1-5" or "1:1"
+                        const match = chStr.match(/(\d+)(?::(\d+)(?:-(\d+))?)?/);
+                        if(match) {
+                            const chapter = match[1];
+                            const vStart = match[2] ? parseInt(match[2]) : 1;
+                            const vEnd = match[3] ? parseInt(match[3]) : (match[2] ? vStart : Object.keys(rcuvIndex[book][chapter]).length);
+                            
+                            const headerKey = `${book} 第 ${chapter} 章`;
+                            if (headerKey !== currentBookHeader) {
+                                const h5 = document.createElement('h5');
+                                h5.className = "text-2xl font-bold text-stone-800 mb-4 border-b pb-2 mt-6 first:mt-0";
+                                h5.innerText = headerKey;
+                                scContainer.appendChild(h5);
+                                currentBookHeader = headerKey;
+                            }
+
+                            if(rcuvIndex[book][chapter]) {
+                                for(let v = vStart; v <= vEnd; v++) {
+                                    if(rcuvIndex[book][chapter][v]) {
+                                        hasValidVerse = true;
+                                        const div = document.createElement('div');
+                                        div.className = "flex mb-2 verse-row transition-colors duration-300 p-1 -mx-1 rounded";
+                                        div.id = `verse-${vStart}-${v}`;
+                                        
+                                        // Footnote processing
+                                        let text = rcuvIndex[book][chapter][v];
+                                        text = text.replace(/\?註：(.*?)\?/g, (m, note) => {
+                                            const cleanNote = note.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                                            return `<span class="inline-block cursor-pointer mx-1 transform hover:scale-110 transition-transform text-amber-500" onclick="showFootnote('${cleanNote}')">📝</span>`;
+                                        });
+
+                                        div.innerHTML = `
+                                            <strong class="text-stone-400 font-bold mr-3 text-base w-6 text-right shrink-0 select-none pt-[3px]">${v}</strong>
+                                            <span class="text-stone-800 text-lg flex-1 verse-text">${text}</span>
+                                        `;
+                                        scContainer.appendChild(div);
+                                    }
+                                }
+                            }
+                        }
+                    });
+
+                    if(!hasValidVerse) {
+                        scContainer.innerHTML = '<p class="text-stone-400 italic">找不到符合的經文，請翻閱實體聖經。</p>';
+                    }
+                }
+            }
+
+            // Render Devotion
+            const devContent = document.getElementById('devotionContent');
+            if (data.day_data.devotion_content) {
+                devContent.innerHTML = parseMarkdown(data.day_data.devotion_content);
+            } else {
+                devContent.innerHTML = '<p class="text-stone-400 italic">此天無靈修短文。</p>';
+            }
+
+            // Render Reflection
+            document.getElementById('reflectionContent').innerText = data.day_data.reflection_content || '';
+            
+            updatePlaybackUI(); // Reset UI state
+            updateSettingsMenuValues();
+        }
+
+        // ==========================================
+        // 7. Progress & Status Handling
+        // ==========================================
+        function updateStatusUI() {
+            const progress = getStorage(STORE_KEYS.PROGRESS, true) || {};
+            const isRead = !!progress[currentDay];
+            const actualTodayIndex = getActualTodayIndex();
+            
+            const card = document.getElementById('titleHeaderBox');
+            const title = document.getElementById('devotionTitle');
+            const btn = document.getElementById('toggleReadBtn');
+            const icon = document.getElementById('toggleReadIcon');
+            const txt = document.getElementById('toggleReadText');
+
+            card.classList.remove('bg-green-50', 'bg-stone-100', 'bg-red-50');
+            title.classList.remove('text-green-800', 'text-stone-500', 'text-red-800');
+            btn.classList.remove('bg-green-100', 'text-green-700', 'border-green-200', 'bg-white', 'text-stone-500', 'border-stone-200', 'bg-red-100', 'text-red-600', 'border-red-200');
+
+            if (isRead) {
+                card.classList.add('bg-green-50');
+                title.classList.add('text-green-800');
+                btn.classList.add('bg-green-100', 'text-green-700', 'border-green-200');
+                icon.setAttribute('data-lucide', 'check-circle');
+                txt.innerText = '✅ 已完成閱讀';
+            } else if (currentDay > actualTodayIndex) {
+                card.classList.add('bg-stone-100');
+                title.classList.add('text-stone-500');
+                btn.classList.add('bg-white', 'text-stone-500', 'border-stone-200');
+                icon.setAttribute('data-lucide', 'circle');
+                txt.innerText = '標記為已讀';
+            } else {
+                card.classList.add('bg-red-50');
+                title.classList.add('text-red-800');
+                btn.classList.add('bg-red-100', 'text-red-600', 'border-red-200');
+                icon.setAttribute('data-lucide', 'circle');
+                txt.innerText = '⭕ 待閱讀...';
+            }
+            lucide.createIcons();
+        }
+
+        function toggleReadStatus() {
+            let progress = getStorage(STORE_KEYS.PROGRESS, true) || {};
+            progress[currentDay] = !progress[currentDay];
+            setStorage(STORE_KEYS.PROGRESS, progress, true);
+            updateStatusUI();
+            
+            // Contextual PWA Prompt
+            if (progress[currentDay] && !getStorage(STORE_KEYS.INSTALL_PROMPT)) {
+                setTimeout(() => {
+                    if (deferredPrompt) {
+                        document.getElementById('installPromptModal').classList.remove('hidden');
+                        setStorage(STORE_KEYS.INSTALL_PROMPT, 'true');
+                    }
+                }, 1000);
+            }
+
+            checkAndShowCongrats();
+        }
+
+        function focusDayInput() {
+            document.getElementById('dayInput').focus();
+            document.getElementById('dayInput').select();
+        }
+
+        function jumpToProgress() {
+            const w = parseInt(document.getElementById('weekInput').value) || 1;
+            const d = parseInt(document.getElementById('dayInput').value) || 1;
+            let targetDay = ((w - 1) * 3) + d;
+            targetDay = Math.max(1, Math.min(TOTAL_DAYS, targetDay));
+            renderDay(targetDay);
+        }
+
+        function changeDay(delta) {
+            let n = currentDay + delta;
+            n = Math.max(1, Math.min(TOTAL_DAYS, n));
+            renderDay(n);
+        }
+
+        // ==========================================
+        // 8. TTS Engine
+        // ==========================================
+        function populateVoiceList() {
+            const selector = document.getElementById('voiceSelector');
+            const voices = speechSynthesis.getVoices();
+            if(voices.length === 0) return;
+            
+            selector.innerHTML = '';
+            let targetVoices = voices.filter(v => v.lang.includes('zh') || v.lang.includes('cmn') || v.name.includes('Chinese'));
+            const twVoices = targetVoices.filter(v => v.lang.includes('TW') || v.name.toLowerCase().includes('taiwan'));
+            if(twVoices.length > 0) targetVoices = twVoices;
+
+            const premiumKeys = ['HsiaoChen', 'HsiaoYu', 'Online', 'Natural', 'Premium'];
+            const premiumVoices = targetVoices.filter(v => premiumKeys.some(k => v.name.includes(k)));
+            if(premiumVoices.length > 0) targetVoices = premiumVoices;
+
+            const savedVoice = getStorage(STORE_KEYS.TTS_VOICE);
+            
+            targetVoices.forEach(voice => {
+                const opt = document.createElement('option');
+                opt.value = voice.name;
+                opt.textContent = voice.name.replace('Microsoft ', '').replace('Google ', '');
+                
+                if(savedVoice) {
+                    if(voice.name === savedVoice) opt.selected = true;
+                } else {
+                    if(voice.name.includes('HsiaoChen') || voice.name.includes('國語')) opt.selected = true;
+                }
+                selector.appendChild(opt);
+            });
+
+            if(!savedVoice && selector.value) saveVoiceSettings();
+            
+            // Apply saved rate
+            const savedRate = getStorage(STORE_KEYS.TTS_RATE);
+            if(savedRate) document.getElementById('rateSelector').value = savedRate;
+        }
+
+        function saveVoiceSettings() {
+            setStorage(STORE_KEYS.TTS_VOICE, document.getElementById('voiceSelector').value);
+            setStorage(STORE_KEYS.TTS_RATE, document.getElementById('rateSelector').value);
+        }
+
+        function getTTSRate() { return parseFloat(getStorage(STORE_KEYS.TTS_RATE) || '1.0'); }
+        function getTTSVoice() { return getStorage(STORE_KEYS.TTS_VOICE) || ''; }
+
+        function ttsSanitize(text) {
+            if(!text) return '';
+            return text.replace(/📝/g, '')
+                       .replace(/\*\*(.*?)\*\*/g, '$1')
+                       .replace(/\*(.*?)\*/g, '$1')
+                       .replace(/&gt; /g, '')
+                       .replace(/\n\n/g, '。')
+                       .replace(/\n/g, '。');
+        }
+
+        function updatePlaybackUI() {
+            const st = window._speechState;
+            const sections = ['global', 'qa', 'scripture', 'devotion', 'reflection'];
+            
+            sections.forEach(sec => {
+                const pBtn = document.getElementById(`btn_${sec}_play`);
+                const pauseBtn = document.getElementById(`btn_${sec}_pause`);
+                const stopBtn = document.getElementById(`btn_${sec}_stop`);
+                
+                if(!pBtn || !pauseBtn || !stopBtn) return;
+
+                if(!st.activeSection) {
+                    // Default State
+                    pBtn.classList.remove('hidden');
+                    pauseBtn.classList.add('hidden');
+                    stopBtn.classList.add('hidden');
+                    if(sec === 'global') document.getElementById('text_global_play').innerText = '一鍵全部朗讀';
+                } else if (st.activeSection === sec || (st.activeSection !== 'global' && sec === 'global')) {
+                    // Active or Global Proxy
+                    if(!st.isPaused) {
+                        pBtn.classList.add('hidden');
+                        pauseBtn.classList.remove('hidden');
+                        stopBtn.classList.remove('hidden');
+                    } else {
+                        pauseBtn.classList.add('hidden');
+                        pBtn.classList.remove('hidden');
+                        stopBtn.classList.remove('hidden');
+                        if(sec === 'global') document.getElementById('text_global_play').innerText = '繼續';
+                    }
+                } else {
+                    // Inactive peer
+                    pBtn.classList.remove('hidden');
+                    pauseBtn.classList.add('hidden');
+                    stopBtn.classList.add('hidden');
+                }
+            });
+            
+            // Remove highlight if stopped
+            if(!st.activeSection) {
+                document.querySelectorAll('.tts-highlight').forEach(el => el.classList.remove('tts-highlight'));
+            }
+        }
+
+        function speakTextChunks(chunks, onComplete, onProgress) {
+            if(!chunks || chunks.length === 0) {
+                if(onComplete) onComplete();
+                return;
+            }
+            
+            const st = window._speechState;
+            const voices = speechSynthesis.getVoices();
+            const voiceName = getTTSVoice();
+            const selectedVoice = voices.find(v => v.name === voiceName) || voices[0];
+            const rate = getTTSRate();
+
+            function playNext() {
+                if(st.idx >= chunks.length || !st.activeSection) {
+                    if(onComplete) onComplete();
+                    return;
+                }
+
+                if(st.isPaused) return; // Wait loop handled externally
+
+                const chunkData = chunks[st.idx];
+                const text = typeof chunkData === 'string' ? chunkData : chunkData.text;
+                
+                if(onProgress) onProgress(st.idx, chunkData);
+
+                const utterance = new SpeechSynthesisUtterance(text);
+                if(selectedVoice) utterance.voice = selectedVoice;
+                utterance.rate = rate;
+
+                // GC Protection iOS Safari
+                window._currentUtterance = utterance;
+
+                utterance.onend = () => {
+                    st.idx++;
+                    playNext();
+                };
+
+                utterance.onerror = (e) => {
+                    if (e.error !== 'interrupted') {
+                        console.error('TTS Error', e);
+                        st.idx++;
+                        playNext();
+                    }
+                };
+                
+                requestWakeLock();
+                speechSynthesis.speak(utterance);
+            }
+            
+            playNext();
+        }
+
+        function createChunks(text, max = 200, contextData = {}) {
+            let clean = ttsSanitize(text);
+            const sentences = clean.split(/(?<=[。！？；.!?;])/g);
+            let chunks = [];
+            let current = "";
+            
+            sentences.forEach(s => {
+                if(s.trim().length === 0) return;
+                if((current + s).length > max) {
+                    if(current) chunks.push({ text: current.trim(), ...contextData });
+                    current = s;
+                } else {
+                    current += s;
+                }
+            });
+            if(current) chunks.push({ text: current.trim(), ...contextData });
+            return chunks;
+        }
+
+        function handleLocalPlay(section) {
+            const st = window._speechState;
+            if(st.debounceTimer) return;
+            st.debounceTimer = setTimeout(() => st.debounceTimer = null, 300);
+
+            if(st.activeSection && st.isPaused && (st.activeSection === section || st.activeSection === 'global')) {
+                // Resume
+                st.isPaused = false;
+                updatePlaybackUI();
+                speechSynthesis.resume();
+                // trigger playNext loop if it was stuck
+                if(speechSynthesis.paused === false && speechSynthesis.speaking === false) {
+                    speakTextChunks(st.chunks, () => handleStop(), null); 
+                }
+                return;
+            }
+
+            handleStop(); // Clear any existing
+            st.activeSection = section;
+            st.idx = 0;
+            st.isPaused = false;
+            st.chunks = [];
+
+            const data = devotionDict[currentDay];
+            let targetCard = null;
+
+            if(section === 'qa') {
+                targetCard = document.getElementById('qaCard');
+                st.chunks.push({ text: data.qa_data.unit_title + "。" });
+                st.chunks.push({ text: "問：" + data.qa_data.question + "。" });
+                st.chunks.push(...createChunks("答：" + data.qa_data.answer));
+            } else if (section === 'scripture') {
+                targetCard = document.getElementById('scriptureCard');
+                const els = document.querySelectorAll('.verse-row');
+                els.forEach(el => {
+                    const vNum = el.querySelector('strong').innerText;
+                    const vText = el.querySelector('.verse-text').innerText;
+                    st.chunks.push(...createChunks(vText, 200, { type: 'verse', id: el.id }));
+                });
+            } else if (section === 'devotion') {
+                targetCard = document.getElementById('devotionCard');
+                st.chunks.push(...createChunks(data.day_data.devotion_content));
+            } else if (section === 'reflection') {
+                targetCard = document.getElementById('reflectionCard');
+                st.chunks.push(...createChunks(data.day_data.reflection_content));
+            }
+
+            updatePlaybackUI();
+            
+            // Macro Scroll
+            if(targetCard) {
+                window.scrollTo({ top: targetCard.getBoundingClientRect().top + window.scrollY - 24, behavior: 'smooth' });
+            }
+
+            speakTextChunks(st.chunks, () => handleStop(), handleProgress);
+        }
+
+        function handlePlayAll() {
+            const st = window._speechState;
+            if(st.debounceTimer) return;
+            st.debounceTimer = setTimeout(() => st.debounceTimer = null, 300);
+
+            if(st.activeSection === 'global' && st.isPaused) {
+                st.isPaused = false;
+                updatePlaybackUI();
+                speechSynthesis.resume();
+                return;
+            }
+
+            handleStop();
+            st.activeSection = 'global';
+            updatePlaybackUI();
+
+            const data = devotionDict[currentDay];
+            
+            // 1. Title
+            const titleText = `第 ${data.week_number} 週，第 ${((data.global_day - 1) % 3) + 1} 天。今日進度：${data.day_data.devotion_title}。`;
+            
+            const queue = [
+                () => {
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    speakTextChunks(createChunks(titleText), runNext, null);
+                }
+            ];
+
+            // 2. QA
+            if(!isReviewWeek && data.qa_data && data.qa_data.question) {
+                queue.push(() => {
+                    window.scrollTo({ top: document.getElementById('qaCard').getBoundingClientRect().top + window.scrollY - 24, behavior: 'smooth' });
+                    let qaText = `本週問答。${data.qa_data.unit_title}。問：${data.qa_data.question}。答：${data.qa_data.answer}`;
+                    speakTextChunks(createChunks(qaText), runNext, null);
+                });
+            }
+
+            // 3. Scripture
+            if(!isReviewWeek && data.day_data.bible_reading && data.day_data.bible_reading.length > 0) {
+                queue.push(() => {
+                    window.scrollTo({ top: document.getElementById('scriptureCard').getBoundingClientRect().top + window.scrollY - 24, behavior: 'smooth' });
+                    let scChunks = [{text: '今日經文。'}];
+                    document.querySelectorAll('.verse-row').forEach(el => {
+                        scChunks.push(...createChunks(el.querySelector('.verse-text').innerText, 200, { type: 'verse', id: el.id }));
+                    });
+                    speakTextChunks(scChunks, runNext, handleProgress);
+                });
+            }
+
+            // 4. Devotion
+            if(data.day_data.devotion_content) {
+                queue.push(() => {
+                    window.scrollTo({ top: document.getElementById('devotionCard').getBoundingClientRect().top + window.scrollY - 24, behavior: 'smooth' });
+                    let devChunks = [{text: '靈修短文。'}, ...createChunks(data.day_data.devotion_content)];
+                    speakTextChunks(devChunks, runNext, null);
+                });
+            }
+
+            // 5. Reflection
+            if(data.day_data.reflection_content) {
+                queue.push(() => {
+                    window.scrollTo({ top: document.getElementById('reflectionCard').getBoundingClientRect().top + window.scrollY - 24, behavior: 'smooth' });
+                    let refChunks = [{text: '討論問題。'}, ...createChunks(data.day_data.reflection_content)];
+                    speakTextChunks(refChunks, runNext, null);
+                });
+            }
+
+            // End -> Mark as read
+            queue.push(() => {
+                handleStop();
+                let prog = getStorage(STORE_KEYS.PROGRESS, true) || {};
+                if(!prog[currentDay]) toggleReadStatus();
+            });
+
+            let qIdx = 0;
+            function runNext() {
+                if(st.activeSection !== 'global') return; // Aborted
+                if(qIdx < queue.length) {
+                    const task = queue[qIdx++];
+                    st.idx = 0; // reset chunk idx for new task
+                    task();
+                }
+            }
+            
+            runNext();
+        }
+
+        function handlePause() {
+            const st = window._speechState;
+            if(st.debounceTimer) return;
+            st.debounceTimer = setTimeout(() => st.debounceTimer = null, 300);
+            
+            speechSynthesis.pause();
+            st.isPaused = true;
+            updatePlaybackUI();
+        }
+
+        function handleStop() {
+            speechSynthesis.cancel();
+            window._speechState.activeSection = null;
+            window._speechState.chunks = [];
+            window._speechState.idx = 0;
+            window._speechState.isPaused = false;
+            updatePlaybackUI();
+            releaseWakeLock();
+        }
+
+        function handleProgress(idx, chunkData) {
+            document.querySelectorAll('.tts-highlight').forEach(el => el.classList.remove('tts-highlight'));
+            if(chunkData.type === 'verse' && chunkData.id) {
+                const el = document.getElementById(chunkData.id);
+                if(el) {
+                    el.classList.add('tts-highlight');
+                    // Micro Scroll
+                    const elTop = el.getBoundingClientRect().top;
+                    if(elTop < 100 || elTop > window.innerHeight - 100) {
+                        window.scrollTo({ top: elTop + window.scrollY - 48, behavior: 'smooth' });
+                    }
+                }
+            }
+        }
+
+        // ==========================================
+        // 9. Modals & Settings
+        // ==========================================
+        function toggleSettingsMenu() {
+            const menu = document.getElementById('settingsMenu');
+            menu.classList.toggle('hidden');
+            if(!menu.classList.contains('hidden')) {
+                // Populate current settings
+                document.getElementById('menuStartDate').value = getStorage(STORE_KEYS.START_DATE);
+            }
+        }
+
+        function closeDropdownOnOutsideClick(e) {
+            const menu = document.getElementById('settingsMenu');
+            const btn = document.getElementById('settingsBtn');
+            if (!menu.classList.contains('hidden') && !menu.contains(e.target) && !btn.contains(e.target)) {
+                menu.classList.add('hidden');
+            }
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.add('hidden');
+        }
+
+        function updateStartDate(newDateStr) {
+            if(!newDateStr) return;
+            const readingDays = getStorage(STORE_KEYS.READING_DAYS, true);
+            let d = new Date(newDateStr);
+            while(!readingDays.includes(d.getDay())) { d.setDate(d.getDate() + 1); }
+            setStorage(STORE_KEYS.START_DATE, d.toISOString().split('T')[0]);
+            loadAndRenderCurrentDay();
+        }
+
+        function setStartDateToToday() {
+            updateStartDate(getLocalTodayString());
+            document.getElementById('menuStartDate').value = getStorage(STORE_KEYS.START_DATE);
+        }
+
+        function showFootnote(text) {
+            document.getElementById('footnoteText').innerHTML = text;
+            document.getElementById('footnoteModal').classList.remove('hidden');
+        }
+
+        // --- Change Reading Days Modal ---
+        function openReadingDaysModal() {
+            document.getElementById('readingDaysModal').classList.remove('hidden');
+            const container = document.getElementById('editDaysContainer');
+            container.innerHTML = '';
+            const days = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+            const savedDays = getStorage(STORE_KEYS.READING_DAYS, true) || [];
+            
+            days.forEach((day, index) => {
+                const label = document.createElement('label');
+                const isChecked = savedDays.includes(index) ? 'checked' : '';
+                label.className = 'flex items-center space-x-3 bg-stone-50 border border-stone-200 p-2 rounded-xl cursor-pointer';
+                label.innerHTML = `
+                    <input type="checkbox" value="${index}" class="edit-cb w-4 h-4 text-amber-600 rounded" ${isChecked} onchange="handleEditCbChange()">
+                    <span class="text-sm font-medium text-stone-700">${day}</span>
+                `;
+                container.appendChild(label);
+            });
+            handleEditCbChange();
+        }
+
+        function handleEditCbChange() {
+            const cbs = Array.from(document.querySelectorAll('.edit-cb'));
+            const checkedCount = cbs.filter(cb => cb.checked).length;
+            const btn = document.getElementById('editDaysSaveBtn');
+            
+            cbs.forEach(cb => {
+                if (!cb.checked && checkedCount >= 3) {
+                    cb.disabled = true;
+                    cb.parentElement.classList.add('opacity-50');
+                } else {
+                    cb.disabled = false;
+                    cb.parentElement.classList.remove('opacity-50');
+                }
+            });
+            btn.disabled = (checkedCount !== 3);
+        }
+
+        function saveNewReadingDays() {
+            const newDays = Array.from(document.querySelectorAll('.edit-cb')).filter(cb => cb.checked).map(cb => parseInt(cb.value));
+            
+            // Dynamic Anchor Reset Logic
+            const oldTargetDay = currentDay;
+            let tempDate = new Date(getLocalTodayString());
+            tempDate.setHours(0,0,0,0);
+
+            // Find nearest valid date for "today"
+            while(!newDays.includes(tempDate.getDay())) {
+                tempDate.setDate(tempDate.getDate() + 1);
+            }
+            
+            // Re-calculate backwards
+            let backCount = oldTargetDay - 1;
+            while(backCount > 0) {
+                tempDate.setDate(tempDate.getDate() - 1);
+                if(newDays.includes(tempDate.getDay())) {
+                    backCount--;
+                }
+            }
+            
+            const newStartStr = tempDate.toISOString().split('T')[0];
+            setStorage(STORE_KEYS.START_DATE, newStartStr);
+            setStorage(STORE_KEYS.READING_DAYS, newDays, true);
+            
+            closeModal('readingDaysModal');
+            alert(`為了不打亂已完成的進度，系統將自動校準開始日期至 ${newStartStr}`);
+            loadAndRenderCurrentDay();
+        }
+
+        // --- Data Tools ---
+        function exportData() {
+            const data = {
+                [STORE_KEYS.START_DATE]: getStorage(STORE_KEYS.START_DATE),
+                [STORE_KEYS.READING_DAYS]: getStorage(STORE_KEYS.READING_DAYS, true),
+                [STORE_KEYS.PROGRESS]: getStorage(STORE_KEYS.PROGRESS, true)
+            };
+            const blob = new Blob([JSON.stringify(data, null, 2)], {type: "application/json"});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            const dStr = getLocalTodayString().replace(/-/g, '');
+            a.href = url;
+            a.download = `Family_Devo_Backup_${dStr}.json`;
+            a.click();
+        }
+
+        function handleImport(event) {
+            const file = event.target.files[0];
+            if(!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if(data[STORE_KEYS.PROGRESS]) {
+                        setStorage(STORE_KEYS.START_DATE, data[STORE_KEYS.START_DATE]);
+                        setStorage(STORE_KEYS.READING_DAYS, data[STORE_KEYS.READING_DAYS], true);
+                        setStorage(STORE_KEYS.PROGRESS, data[STORE_KEYS.PROGRESS], true);
+                        setStorage(STORE_KEYS.TOUR_COMPLETED, 'true'); // Bypass tour for experts
+                        alert('匯入成功！');
+                        window.location.reload();
+                    } else {
+                        alert('無效的備份檔案格式。');
+                    }
+                } catch { alert('解析檔案失敗。'); }
+            };
+            reader.readAsText(file);
+        }
+
+        function reportIssue() {
+            const os = navigator.platform;
+            const ua = navigator.userAgent;
+            const url = `https://docs.google.com/forms/d/e/1FAIpQLSfrA5A2pQpX-b_2jP3vM9pTfM1R4xH_oF3fT7_3C3bZ/viewform?usp=pp_url&entry.123=${encodeURIComponent(os)}&entry.456=${encodeURIComponent(ua)}&entry.789=${currentDay}`;
+            window.open(url, '_blank'); // Mock URL structure
+        }
+
+        // ==========================================
+        // 10. Completion & Reset Dual-Track
+        // ==========================================
+        function checkAndShowCongrats() {
+            const progress = getStorage(STORE_KEYS.PROGRESS, true) || {};
+            const readCount = Object.values(progress).filter(Boolean).length;
+            
+            if (readCount === TOTAL_DAYS && !getStorage(STORE_KEYS.CONGRATS_SHOWN)) {
+                setStorage(STORE_KEYS.CONGRATS_SHOWN, 'true');
+                setTimeout(() => document.getElementById('congratsModal').classList.remove('hidden'), 500);
+            }
+        }
+
+        function handleCongratsSecondary() {
+            closeModal('congratsModal');
+        }
+
+        function handleCongratsPrimary() {
+            closeModal('congratsModal');
+            showResetConfirm(true);
+        }
+
+        function showResetConfirm(isCongratsTrack = false) {
+            const modal = document.getElementById('resetConfirmModal');
+            const title = document.getElementById('resetConfirmTitle');
+            const text = document.getElementById('resetConfirmText');
+            const anchorNotice = document.getElementById('resetAnchorNotice');
+            const btn1 = document.getElementById('resetActionBtn1');
+            const btn2 = document.getElementById('resetActionBtn2');
+            const btnDays = document.getElementById('resetActionBtnChangeDays');
+            
+            modal.classList.remove('hidden');
+
+            if (isCongratsTrack) {
+                title.innerText = "準備好開啟新一輪旅程了嗎？";
+                text.innerText = "我們將清空所有已讀紀錄，為您的下一輪旅程做好準備。";
+                
+                // Calculate next valid reading day
+                const readingDays = getStorage(STORE_KEYS.READING_DAYS, true);
+                let nextD = new Date(getLocalTodayString());
+                nextD.setDate(nextD.getDate() + 1); // Start from tomorrow
+                while(!readingDays.includes(nextD.getDay())) {
+                    nextD.setDate(nextD.getDate() + 1);
+                }
+                const opt = { year:'numeric', month: 'short', day: 'numeric', weekday: 'short' };
+                const dayNames = readingDays.map(d => ['日','一','二','三','四','五','六'][d]).join('、');
+                
+                document.getElementById('resetAnchorText').innerHTML = `<b>預計 ${nextD.toLocaleDateString('zh-TW', opt)} 重新開始</b><br>每週 ${dayNames} 繼續家庭靈修時光。`;
+                anchorNotice.classList.remove('hidden');
+                
+                btn1.innerText = "確定 (保留備份)";
+                btn2.innerText = "確定 (不備份)";
+                btnDays.classList.remove('hidden');
+                
+                // Attach the calculated next date to a global window variable for performReset to pick up
+                window._nextResetDate = nextD.toISOString().split('T')[0];
+            } else {
+                // Manual Track
+                title.innerText = "確定要放棄當前進度，重新開始嗎？";
+                text.innerText = "這將清空所有的已讀紀錄。您的語音與閱讀日設定將會保留。";
+                anchorNotice.classList.add('hidden');
+                btn1.innerText = "匯出備份再重置";
+                btn2.innerText = "立即重置 (不備份)";
+                btnDays.classList.add('hidden');
+                
+                // For manual, just set to today or tomorrow
+                let nextD = new Date(getLocalTodayString());
+                const readingDays = getStorage(STORE_KEYS.READING_DAYS, true);
+                while(!readingDays.includes(nextD.getDay())) { nextD.setDate(nextD.getDate() + 1); }
+                window._nextResetDate = nextD.toISOString().split('T')[0];
+            }
+        }
+
+        function performReset() {
+            setStorage(STORE_KEYS.PROGRESS, {}, true);
+            localStorage.removeItem(STORE_KEYS.CONGRATS_SHOWN);
+            
+            const nextD = window._nextResetDate || getLocalTodayString();
+            setStorage(STORE_KEYS.START_DATE, nextD);
+            
+            closeModal('resetConfirmModal');
+            alert(`🔄 進度已成功重置！開始日期已為您自動設為 ${nextD}，準備迎接新的一輪！`);
+            window.location.reload();
+        }
+
+        // ==========================================
+        // 11. PWA & OS Features
+        // ==========================================
+        function updateSettingsMenuValues() {
+            const btn = document.getElementById('installMenuBtn');
+            if (deferredPrompt && btn) btn.classList.remove('hidden');
+        }
+
+        function triggerInstall() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then(() => { deferredPrompt = null; });
+            } else {
+                document.getElementById('manualInstallModal').classList.remove('hidden');
+            }
+        }
+
+        function handleInstallPromptClose() {
+            closeModal('installPromptModal');
+            setStorage(STORE_KEYS.INSTALL_PROMPT, 'true');
+        }
+
+        function copyAppUrl() {
+            const dummy = document.createElement('input');
+            document.body.appendChild(dummy);
+            dummy.value = window.location.href.split('?')[0];
+            dummy.select();
+            document.execCommand('copy');
+            document.body.removeChild(dummy);
+            alert('網址已複製！請開啟 Safari 或 Chrome 貼上網址。');
+        }
+
+        let wakeLock = null;
+        async function requestWakeLock() {
+            try {
+                if ('wakeLock' in navigator && !wakeLock) {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                }
+            } catch (err) {}
+        }
+        function releaseWakeLock() {
+            if (wakeLock !== null) { wakeLock.release().then(() => wakeLock = null); }
+        }
+
+        // ==========================================
+        // 12. Onboarding Tour (Driver.js)
+        // ==========================================
+        function checkTourTrigger() {
+            if (!getStorage(STORE_KEYS.TOUR_COMPLETED) && !window.location.search.includes('pwa=1')) {
+                // Modal collision protection
+                setTimeout(() => {
+                    const installMod = document.getElementById('installPromptModal');
+                    if (installMod.classList.contains('hidden')) {
+                        startTour();
+                    }
+                }, 1500);
+            }
+        }
+
+        function startTour() {
+            window.scrollTo({top:0});
+            const driverObj = window.driver.js.driver({
+                showProgress: true,
+                animate: true,
+                doneBtnText: '完成',
+                nextBtnText: '下一步',
+                prevBtnText: '上一步',
+                onDestroyStarted: () => {
+                    setStorage(STORE_KEYS.TOUR_COMPLETED, 'true');
+                    driverObj.destroy();
+                },
+                steps: [
+                    { popover: { title: '👋 歡迎', description: '只要 1 分鐘，帶您快速了解家庭靈修的功能！' } },
+                    { element: '#tour-day-selector', popover: { title: '日期切換', description: '點擊箭頭或直接修改數字，可自由跳轉進度。' } },
+                    { element: '#titleHeaderBox', popover: { title: '每日進度', description: '完成後記得點擊「標記為已讀」。資料安全保存在您的手機內！' } },
+                    { element: '#playAllBtn', popover: { title: '自動語音', description: '做家事或睡前，一鍵為全家接力朗讀短文、經文與討論問題。' } }
+                ]
+            });
+            
+            // Dynamic steps based on current card visibility
+            if(!isReviewWeek) {
+                driverObj.getConfig().steps.push(
+                    { element: '#qaCard', popover: { title: '經文問答', description: '透過簡單的問答，帶領孩子抓住真理核心。' } },
+                    { element: '#scriptureCard', popover: { title: '今日經文', description: '閱讀神的話語。部分文字旁會有 📝 圖示，點擊可看註釋。' } }
+                );
+            }
+            
+            driverObj.getConfig().steps.push(
+                { element: '#devotionCard', popover: { title: '靈修短文', description: '將本日經文串聯至聖經大故事的脈絡。' } },
+                { element: '#reflectionCard', popover: { title: '討論問題', description: '引導家庭成員分享心得與反思。' } },
+                { element: '#settingsBtn', popover: { title: '進階設定', description: '修改閱讀日、備份進度或安裝到桌面，都在這裡！' } },
+                { popover: { title: '🎉 完成', description: '願神祝福您與家人的專屬時光！' } }
+            );
+
+            driverObj.drive();
+        }
+    </script>
+</body>
+</html>
