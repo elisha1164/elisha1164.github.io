@@ -1,8 +1,8 @@
 <!-- 
-  版本號：v1.13
+  版本號：v1.14
   修改主旨：
-  1. 修改語音與其他狀態的 LocalStorage 變數名稱，加上 family_devo_ 前綴，徹底避免與舊專案發生衝突。
-  2. 修改「進度重置」行為：手動重置改為「出廠重置」(Factory Reset)，將清除所有設定與紀錄並重新觸發設定精靈。
+  1. 升級經文解析器邏輯：全面支援「跨章節」的經文範圍（如 "2:23-3:12"），確保畫面正確渲染出連續章節的經文。
+  2. 同步升級語音轉換器 (formatReferenceForTTS)：確保跨章經文能正確轉為口語化發音（如「2章23節到3章12節」）。
 -->
 <!DOCTYPE html>
 <html lang="zh-TW">
@@ -422,7 +422,7 @@
 
         <!-- Fixed Version Number -->
         <div class="fixed bottom-2 right-2 text-[10px] text-stone-300 font-mono select-none pointer-events-none z-0">
-            v1.13
+            v1.14
         </div>
     </div>
 
@@ -430,7 +430,7 @@
         // ==========================================
         // 1. Constants & State Variables
         // ==========================================
-        const APP_VERSION = '1.13';
+        const APP_VERSION = '1.14';
         const APP_LOAD_TIME = Date.now();
         const TOTAL_DAYS = 150;
         
@@ -851,16 +851,31 @@
                             return;
                         }
 
-                        // Parse logic upgraded: handle comma separated multiple segments (e.g. "6:5-8,6:12-17")
+                        // Parse logic upgraded: handle comma separated multiple segments and cross-chapter ranges (e.g. "6:5-8,6:12-17", "2:23-3:12")
                         const segments = chStr.split(',');
                         segments.forEach(segment => {
-                            const match = segment.trim().match(/(\d+)(?::(\d+)(?:-(\d+))?)?/);
-                            if(match) {
-                                const chapter = match[1];
-                                const vStart = match[2] ? parseInt(match[2]) : 1;
-                                const vEnd = match[3] ? parseInt(match[3]) : (match[2] ? vStart : Object.keys(rcuvIndex[book][chapter]).length);
+                            const parts = segment.trim().split('-');
+                            const startParts = parts[0].split(':');
+                            const startChapter = parseInt(startParts[0]);
+                            const startVerse = parseInt(startParts[1]);
+                            
+                            let endChapter = startChapter;
+                            let endVerse = startVerse;
+                            
+                            if (parts.length > 1) {
+                                if (parts[1].includes(':')) {
+                                    const endParts = parts[1].split(':');
+                                    endChapter = parseInt(endParts[0]);
+                                    endVerse = parseInt(endParts[1]);
+                                } else {
+                                    endVerse = parseInt(parts[1]);
+                                }
+                            }
+
+                            for (let c = startChapter; c <= endChapter; c++) {
+                                if (!rcuvIndex[book][c]) continue;
                                 
-                                const headerKey = `${book} 第 ${chapter} 章`;
+                                const headerKey = `${book} 第 ${c} 章`;
                                 if (headerKey !== currentBookHeader) {
                                     const h5 = document.createElement('h5');
                                     h5.className = "text-2xl font-bold text-stone-800 mb-4 border-b pb-2 mt-6 first:mt-0";
@@ -869,27 +884,28 @@
                                     currentBookHeader = headerKey;
                                 }
 
-                                if(rcuvIndex[book][chapter]) {
-                                    for(let v = vStart; v <= vEnd; v++) {
-                                        if(rcuvIndex[book][chapter][v]) {
-                                            hasValidVerse = true;
-                                            const div = document.createElement('div');
-                                            div.className = "flex mb-2 verse-row transition-colors duration-300 p-1 -mx-1 rounded";
-                                            div.id = `verse-${vStart}-${v}`;
-                                            
-                                            // Footnote processing
-                                            let text = rcuvIndex[book][chapter][v];
-                                            text = text.replace(/\?註：(.*?)\?/g, (m, note) => {
-                                                const cleanNote = note.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-                                                return `<span class="inline-block cursor-pointer mx-1 transform hover:scale-110 transition-transform text-amber-500" onclick="showFootnote('${cleanNote}')">📝</span>`;
-                                            });
+                                const vMin = (c === startChapter) ? startVerse : 1;
+                                const vMax = (c === endChapter) ? endVerse : Math.max(...Object.keys(rcuvIndex[book][c]).map(Number));
 
-                                            div.innerHTML = `
-                                                <strong class="text-stone-400 font-bold mr-3 text-base w-6 text-right shrink-0 select-none pt-[3px]">${v}</strong>
-                                                <span class="text-stone-800 text-lg flex-1 verse-text">${text}</span>
-                                            `;
-                                            scContainer.appendChild(div);
-                                        }
+                                for (let v = vMin; v <= vMax; v++) {
+                                    if (rcuvIndex[book][c][v]) {
+                                        hasValidVerse = true;
+                                        const div = document.createElement('div');
+                                        div.className = "flex mb-2 verse-row transition-colors duration-300 p-1 -mx-1 rounded";
+                                        div.id = `verse-${c}-${v}`;
+                                        
+                                        // Footnote processing
+                                        let text = rcuvIndex[book][c][v];
+                                        text = text.replace(/\?註：(.*?)\?/g, (m, note) => {
+                                            const cleanNote = note.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                                            return `<span class="inline-block cursor-pointer mx-1 transform hover:scale-110 transition-transform text-amber-500" onclick="showFootnote('${cleanNote}')">📝</span>`;
+                                        });
+
+                                        div.innerHTML = `
+                                            <strong class="text-stone-400 font-bold mr-3 text-base w-6 text-right shrink-0 select-none pt-[3px]">${v}</strong>
+                                            <span class="text-stone-800 text-lg flex-1 verse-text">${text}</span>
+                                        `;
+                                        scContainer.appendChild(div);
                                     }
                                 }
                             }
@@ -1071,9 +1087,10 @@
         // Helper to convert "1:1-5" to verbal "1章1到5節" for TTS
         function formatReferenceForTTS(refStr) {
             if (!refStr) return '';
-            return refStr.replace(/(\d+):(\d+)(?:-(\d+))?/g, (match, ch, vStart, vEnd) => {
-                if (vEnd) return `${ch}章${vStart}到${vEnd}節`;
-                return `${ch}章${vStart}節`;
+            return refStr.replace(/(\d+):(\d+)(?:-(\d+)(?::(\d+))?)?/g, (match, startCh, startV, endPart1, endPart2) => {
+                if (endPart2) return `${startCh}章${startV}節到${endPart1}章${endPart2}節`;
+                if (endPart1) return `${startCh}章${startV}到${endPart1}節`;
+                return `${startCh}章${startV}節`;
             }).replace(/；/g, '。');
         }
 
