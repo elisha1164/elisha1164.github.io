@@ -1,9 +1,9 @@
 <!-- 
-  版本號：v1.9
+  版本號：v1.10
   修改主旨：
-  1. 升級經文解析器：支援以逗號 (,) 分隔的不連續節數格式解析 (例如: "6:5-8,6:12-17")。
-  2. 頂部導航列動態變色：整條 header 背景色隨進度打勾狀態同步改變 (灰/紅/綠)。
-  3. 打勾按鈕文字回歸：重新加入「已完成」、「未完成」文字提示，增強視覺回饋。
+  1. 修復 TTS 引擎的「英文語音亂入」Bug：強化語音快取驗證，剔除幽靈快取。
+  2. 將發聲來源優先綁定至實際的 UI 下拉選單，並在失敗時強制降級至「第一個中文語音」而非系統預設音。
+  3. 強制注入 `utterance.lang` 語言屬性，防止瀏覽器引擎誤判語言。
 -->
 <!DOCTYPE html>
 <html lang="zh-TW">
@@ -423,7 +423,7 @@
 
         <!-- Fixed Version Number -->
         <div class="fixed bottom-2 right-2 text-[10px] text-stone-300 font-mono select-none pointer-events-none z-0">
-            v1.9
+            v1.10
         </div>
     </div>
 
@@ -431,7 +431,7 @@
         // ==========================================
         // 1. Constants & State Variables
         // ==========================================
-        const APP_VERSION = '1.9';
+        const APP_VERSION = '1.10';
         const APP_LOAD_TIME = Date.now();
         const TOTAL_DAYS = 150;
         
@@ -1016,21 +1016,30 @@
             if(premiumVoices.length > 0) targetVoices = premiumVoices;
 
             const savedVoice = getStorage(STORE_KEYS.TTS_VOICE);
+            let hasMatchedSaved = false;
             
             targetVoices.forEach(voice => {
                 const opt = document.createElement('option');
                 opt.value = voice.name;
                 opt.textContent = voice.name.replace('Microsoft ', '').replace('Google ', '');
                 
-                if(savedVoice) {
-                    if(voice.name === savedVoice) opt.selected = true;
-                } else {
-                    if(voice.name.includes('HsiaoChen') || voice.name.includes('國語')) opt.selected = true;
+                if(savedVoice && voice.name === savedVoice) {
+                    opt.selected = true;
+                    hasMatchedSaved = true;
+                } else if (!savedVoice && (voice.name.includes('HsiaoChen') || voice.name.includes('國語'))) {
+                    opt.selected = true;
                 }
                 selector.appendChild(opt);
             });
 
-            if(!savedVoice && selector.value) saveVoiceSettings();
+            // If the saved voice is stale (e.g., from Chrome but now in Edge), override it with a valid Chinese voice
+            if((!savedVoice && selector.value) || (savedVoice && !hasMatchedSaved)) {
+                if (savedVoice && !hasMatchedSaved) {
+                    const defaultOpt = Array.from(selector.options).find(o => o.value.includes('HsiaoChen') || o.value.includes('國語'));
+                    if(defaultOpt) defaultOpt.selected = true;
+                }
+                saveVoiceSettings();
+            }
             
             // Apply saved rate
             const savedRate = getStorage(STORE_KEYS.TTS_RATE);
@@ -1123,8 +1132,17 @@
             
             const st = window._speechState;
             const voices = speechSynthesis.getVoices();
-            const voiceName = getTTSVoice();
-            const selectedVoice = voices.find(v => v.name === voiceName) || voices[0];
+            
+            // Priority: Real-time UI value > Storage > First Chinese Voice > First System Voice
+            const voiceSelect = document.getElementById('voiceSelector');
+            const voiceName = (voiceSelect && voiceSelect.value) ? voiceSelect.value : getTTSVoice();
+            let selectedVoice = voices.find(v => v.name === voiceName);
+            
+            if (!selectedVoice) {
+                const zhVoices = voices.filter(v => v.lang.includes('zh') || v.lang.includes('cmn') || v.name.includes('Chinese'));
+                selectedVoice = zhVoices[0] || voices[0];
+            }
+
             const rate = getTTSRate();
 
             function playNext() {
@@ -1141,7 +1159,13 @@
                 if(onProgress) onProgress(st.idx, chunkData);
 
                 const utterance = new SpeechSynthesisUtterance(text);
-                if(selectedVoice) utterance.voice = selectedVoice;
+                if(selectedVoice) {
+                    utterance.voice = selectedVoice;
+                    // CRITICAL FIX: Force the utterance language to match the voice to prevent English fallback reading numbers
+                    utterance.lang = selectedVoice.lang;
+                } else {
+                    utterance.lang = 'zh-TW';
+                }
                 utterance.rate = rate;
 
                 // GC Protection iOS Safari
