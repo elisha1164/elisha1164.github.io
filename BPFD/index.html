@@ -1,7 +1,8 @@
 <!-- 
-  版本號：v1.12
+  版本號：v1.13
   修改主旨：
-  1. 修復「討論問題」卡片未套用 Markdown 解析器，導致星號 (*text*) 無法正確轉換為粗體的問題。
+  1. 修改語音與其他狀態的 LocalStorage 變數名稱，加上 family_devo_ 前綴，徹底避免與舊專案發生衝突。
+  2. 修改「進度重置」行為：手動重置改為「出廠重置」(Factory Reset)，將清除所有設定與紀錄並重新觸發設定精靈。
 -->
 <!DOCTYPE html>
 <html lang="zh-TW">
@@ -171,8 +172,8 @@
             </div>
 
             <div class="flex flex-col gap-2">
-                <button id="resetActionBtn1" onclick="exportData(); performReset();" class="w-full bg-stone-800 text-white py-2.5 rounded-xl font-medium">匯出備份再重置</button>
-                <button id="resetActionBtn2" onclick="performReset()" class="w-full bg-red-600 text-white py-2.5 rounded-xl font-medium">立即重置 (不備份)</button>
+                <button id="resetActionBtn1" class="w-full bg-stone-800 text-white py-2.5 rounded-xl font-medium">匯出備份再重置</button>
+                <button id="resetActionBtn2" class="w-full bg-red-600 text-white py-2.5 rounded-xl font-medium">立即重置 (不備份)</button>
                 <button id="resetActionBtnChangeDays" onclick="closeModal('resetConfirmModal'); openReadingDaysModal();" class="w-full bg-stone-100 text-stone-700 py-2.5 rounded-xl font-medium hidden">重新設定閱讀日</button>
                 <button onclick="closeModal('resetConfirmModal')" class="w-full bg-white border border-stone-200 text-stone-600 py-2.5 rounded-xl font-medium mt-2">取消</button>
             </div>
@@ -421,7 +422,7 @@
 
         <!-- Fixed Version Number -->
         <div class="fixed bottom-2 right-2 text-[10px] text-stone-300 font-mono select-none pointer-events-none z-0">
-            v1.12
+            v1.13
         </div>
     </div>
 
@@ -429,7 +430,7 @@
         // ==========================================
         // 1. Constants & State Variables
         // ==========================================
-        const APP_VERSION = '1.12';
+        const APP_VERSION = '1.13';
         const APP_LOAD_TIME = Date.now();
         const TOTAL_DAYS = 150;
         
@@ -437,11 +438,11 @@
             START_DATE: 'family_devo_start_date',
             READING_DAYS: 'family_devo_reading_days',
             PROGRESS: 'family_devo_progress',
-            TOUR_COMPLETED: 'tour_completed',
-            CONGRATS_SHOWN: 'congrats_shown',
-            INSTALL_PROMPT: 'install_prompt_shown',
-            TTS_VOICE: 'tts_voice_name',
-            TTS_RATE: 'tts_rate'
+            TOUR_COMPLETED: 'family_devo_tour_completed',
+            CONGRATS_SHOWN: 'family_devo_congrats_shown',
+            INSTALL_PROMPT: 'family_devo_install_prompt_shown',
+            TTS_VOICE: 'family_devo_tts_voice',
+            TTS_RATE: 'family_devo_tts_rate'
         };
 
         // Data Stores
@@ -1621,22 +1622,22 @@
                 btn2.innerText = "確定 (不備份)";
                 btnDays.classList.remove('hidden');
                 
+                btn1.onclick = function() { exportData(); performReset(); };
+                btn2.onclick = function() { performReset(); };
+                
                 // Attach the calculated next date to a global window variable for performReset to pick up
                 window._nextResetDate = nextD.toISOString().split('T')[0];
             } else {
-                // Manual Track
-                title.innerText = "確定要放棄當前進度，重新開始嗎？";
-                text.innerText = "這將清空所有的已讀紀錄。您的語音與閱讀日設定將會保留。";
+                // Manual Track - Factory Reset
+                title.innerText = "確定要徹底重置系統嗎？";
+                text.innerText = "這將清空所有的進度、閱讀日與語音設定，將系統恢復至剛開啟的初始狀態。";
                 anchorNotice.classList.add('hidden');
                 btn1.innerText = "匯出備份再重置";
                 btn2.innerText = "立即重置 (不備份)";
                 btnDays.classList.add('hidden');
                 
-                // For manual, just set to today or tomorrow
-                let nextD = new Date(getLocalTodayString());
-                const readingDays = getStorage(STORE_KEYS.READING_DAYS, true);
-                while(!readingDays.includes(nextD.getDay())) { nextD.setDate(nextD.getDate() + 1); }
-                window._nextResetDate = nextD.toISOString().split('T')[0];
+                btn1.onclick = function() { exportData(); performFactoryReset(); };
+                btn2.onclick = function() { performFactoryReset(); };
             }
         }
 
@@ -1649,6 +1650,14 @@
             
             closeModal('resetConfirmModal');
             alert(`🔄 進度已成功重置！開始日期已為您自動設為 ${nextD}，準備迎接新的一輪！`);
+            window.location.reload();
+        }
+
+        function performFactoryReset() {
+            // Remove all keys related to this app to trigger the initial setup wizard
+            Object.values(STORE_KEYS).forEach(key => localStorage.removeItem(key));
+            closeModal('resetConfirmModal');
+            alert(`🔄 系統已徹底重置！即將重新載入設定精靈。`);
             window.location.reload();
         }
 
