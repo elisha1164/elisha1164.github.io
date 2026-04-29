@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v1.42 於問題回報表單連結新增專案名稱 (project) 參數 -->
 <!-- v1.41 實作智慧載入定位邏輯：若未讀天數大於今日進度，則退回載入最後一個已完成天數，避免未來焦慮 -->
 <!-- v1.40 修正網頁標題與文案描述：精確化「358 天」與優化部分字句 -->
 <!-- v1.39 優化標題區排版，移除副標題殘留的底部邊距 (Margin Shifting) -->
@@ -1340,8 +1341,9 @@
                 const os = encodeURIComponent(sysInfo.os);
                 const browser = encodeURIComponent(sysInfo.browser);
                 const dayNum = encodeURIComponent(`Day ${currentDay}`);
+                const project = encodeURIComponent('指向耶穌的大故事：358 天讀完整本聖經');
                 
-                const formUrl = `https://docs.google.com/forms/d/e/1FAIpQLSemWYS0uB9iC2XqYCrGM41YUc0HfZJNdH83RbHQxaEd2-YV2A/viewform?usp=pp_url&entry.1108750864=${os}&entry.1445031465=${browser}&entry.845459391=${dayNum}`;
+                const formUrl = `https://docs.google.com/forms/d/e/1FAIpQLSemWYS0uB9iC2XqYCrGM41YUc0HfZJNdH83RbHQxaEd2-YV2A/viewform?usp=pp_url&entry.1108750864=${os}&entry.1445031465=${browser}&entry.845459391=${dayNum}&entry.1806762203=${project}`;
                 
                 window.open(formUrl, '_blank');
             });
@@ -2132,6 +2134,6 @@
 
         window.addEventListener('DOMContentLoaded', init);
     </script>
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.41</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.42</div>
 </body>
 </html>
