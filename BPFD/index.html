@@ -1,7 +1,7 @@
 <!-- 
-  版本號：v1.16
+  版本號：v1.17
   修改主旨：
-  1. 縮窄日期切換器中「週次」與「天數」輸入框的寬度（因 spinner 已隱藏），節省版面空間。
+  1. 更新「問題回報與建議」的 Google 表單連結與帶入參數格式（包含專案名稱與「週次-日數」格式）。
 -->
 <!DOCTYPE html>
 <html lang="zh-TW">
@@ -421,7 +421,7 @@
 
         <!-- Fixed Version Number -->
         <div class="fixed bottom-2 right-2 text-[10px] text-stone-300 font-mono select-none pointer-events-none z-0">
-            v1.16
+            v1.17
         </div>
     </div>
 
@@ -429,7 +429,7 @@
         // ==========================================
         // 1. Constants & State Variables
         // ==========================================
-        const APP_VERSION = '1.16';
+        const APP_VERSION = '1.17';
         const APP_LOAD_TIME = Date.now();
         const TOTAL_DAYS = 150;
         
@@ -1596,9 +1596,13 @@
 
         function reportIssue() {
             const os = navigator.platform;
-            const ua = navigator.userAgent;
-            const url = `https://docs.google.com/forms/d/e/1FAIpQLSfrA5A2pQpX-b_2jP3vM9pTfM1R4xH_oF3fT7_3C3bZ/viewform?usp=pp_url&entry.123=${encodeURIComponent(os)}&entry.456=${encodeURIComponent(ua)}&entry.789=${currentDay}`;
-            window.open(url, '_blank'); // Mock URL structure
+            const browser = navigator.userAgent;
+            const project = '聖經大故事家庭靈修';
+            const weekNum = Math.ceil(currentDay / 3);
+            const dayNumInWeek = ((currentDay - 1) % 3) + 1;
+            const dayNumStr = `${weekNum}-${dayNumInWeek}`;
+            const url = `https://docs.google.com/forms/d/e/1FAIpQLSemWYS0uB9iC2XqYCrGM41YUc0HfZJNdH83RbHQxaEd2-YV2A/viewform?usp=pp_url&entry.1108750864=${encodeURIComponent(os)}&entry.1445031465=${encodeURIComponent(browser)}&entry.845459391=${encodeURIComponent(dayNumStr)}&entry.1806762203=${encodeURIComponent(project)}`;
+            window.open(url, '_blank');
         }
 
         // ==========================================
