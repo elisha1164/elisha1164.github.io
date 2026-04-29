@@ -1,8 +1,9 @@
 <!-- 
-  版本號：v1.8
+  版本號：v1.9
   修改主旨：
-  1. 重構「本週問答」卡片：將單元標題置中且放大字體；經文出處移至答案右下方並恢復正常字體大小。
-  2. 將問答前綴的 Q 與 A 改為「問：」與「答：」，並縮減問與答之間的排版間距。
+  1. 升級經文解析器：支援以逗號 (,) 分隔的不連續節數格式解析 (例如: "6:5-8,6:12-17")。
+  2. 頂部導航列動態變色：整條 header 背景色隨進度打勾狀態同步改變 (灰/紅/綠)。
+  3. 打勾按鈕文字回歸：重新加入「已完成」、「未完成」文字提示，增強視覺回饋。
 -->
 <!DOCTYPE html>
 <html lang="zh-TW">
@@ -231,53 +232,54 @@
     <!-- Main Layout -->
     <div class="max-w-xl mx-auto min-h-screen flex flex-col relative bg-stone-50 pb-20">
         
-        <!-- Top Navigation Bar -->
-        <header class="sticky top-0 z-30 bg-stone-50/90 backdrop-blur-md border-b border-stone-200 px-4 py-2 flex justify-between items-center shadow-sm">
+        <!-- Top Navigation Bar (Dynamic Background Color) -->
+        <header id="topNavBar" class="sticky top-0 z-30 bg-stone-50/90 border-stone-200 backdrop-blur-md border-b px-4 py-2 flex justify-between items-center shadow-sm transition-colors duration-300">
             
             <!-- Left: Date Switcher & Absolute Date -->
             <div class="flex flex-col items-start" id="tour-day-selector">
                 <div class="flex items-center space-x-1">
-                    <button id="prevDayBtn" onclick="changeDay(-1)" class="p-1.5 bg-stone-200 rounded-full hover:bg-stone-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                    <button id="prevDayBtn" onclick="changeDay(-1)" class="p-1.5 bg-white/50 rounded-full hover:bg-white/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-stone-200/50">
                         <i data-lucide="chevron-left" class="w-5 h-5 text-stone-600"></i>
                     </button>
-                    <div class="flex items-center text-base sm:text-lg font-bold text-stone-800 bg-white px-2 py-1 rounded-lg shadow-sm border border-stone-100 cursor-pointer">
+                    <div class="flex items-center text-base sm:text-lg font-bold text-stone-800 bg-white/80 backdrop-blur px-2 py-1 rounded-lg shadow-sm border border-stone-200/80 cursor-pointer">
                         <span>第</span>
                         <input type="number" id="weekInput" min="1" max="50" class="w-10 text-center bg-transparent focus:outline-none focus:ring-2 focus:ring-amber-500 rounded px-1" onchange="jumpToProgress()">
                         <span>週 - </span>
                         <input type="number" id="dayInput" min="1" max="3" class="w-8 text-center bg-transparent focus:outline-none focus:ring-2 focus:ring-amber-500 rounded px-1" onchange="jumpToProgress()">
                     </div>
-                    <button id="nextDayBtn" onclick="changeDay(1)" class="p-1.5 bg-stone-200 rounded-full hover:bg-stone-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                    <button id="nextDayBtn" onclick="changeDay(1)" class="p-1.5 bg-white/50 rounded-full hover:bg-white/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-stone-200/50">
                         <i data-lucide="chevron-right" class="w-5 h-5 text-stone-600"></i>
                     </button>
                 </div>
                 <!-- Absolute Date directly below switcher -->
-                <span id="displayDate" class="text-[11px] sm:text-xs font-medium text-stone-500 mt-1 ml-9">--</span>
+                <span id="displayDate" class="text-[11px] sm:text-xs font-bold text-stone-500/80 mt-1 ml-9">--</span>
             </div>
             
             <!-- Right: Actions & Settings -->
-            <div class="flex items-center space-x-1">
+            <div class="flex items-center space-x-1.5">
                 
-                <!-- Toggle Read Button -->
-                <button id="toggleReadBtn" onclick="toggleReadStatus()" class="p-2 rounded-full transition-colors flex items-center justify-center" title="標記為已讀">
-                    <i data-lucide="circle" id="toggleReadIcon" class="w-6 h-6 text-stone-400"></i>
+                <!-- Toggle Read Button (Pill shape with text) -->
+                <button id="toggleReadBtn" onclick="toggleReadStatus()" class="px-3 py-1.5 rounded-full transition-colors flex items-center justify-center border bg-white border-stone-200 shadow-sm" title="標記為已讀">
+                    <i data-lucide="circle" id="toggleReadIcon" class="w-4 h-4 shrink-0 text-stone-400"></i>
+                    <span id="toggleReadText" class="ml-1.5 text-xs font-bold whitespace-nowrap text-stone-500">未完成</span>
                 </button>
                 
                 <!-- Global TTS Controls -->
                 <div class="flex gap-1" id="playAllBtn">
-                    <button id="btn_global_play" onclick="handlePlayAll()" class="p-2 bg-stone-800 hover:bg-stone-900 text-white rounded-full transition-colors shadow-sm" title="一鍵全部朗讀">
-                        <i data-lucide="play" class="w-5 h-5 text-white"></i>
+                    <button id="btn_global_play" onclick="handlePlayAll()" class="p-1.5 bg-stone-800 hover:bg-stone-900 text-white rounded-full transition-colors shadow-sm" title="一鍵全部朗讀">
+                        <i data-lucide="play" class="w-4 h-4 text-white"></i>
                     </button>
-                    <button id="btn_global_pause" onclick="handlePause()" class="p-2 bg-amber-500 hover:bg-amber-600 text-white rounded-full transition-colors shadow-sm hidden" title="暫停朗讀">
-                        <i data-lucide="pause" class="w-5 h-5 text-white"></i>
+                    <button id="btn_global_pause" onclick="handlePause()" class="p-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-full transition-colors shadow-sm hidden" title="暫停朗讀">
+                        <i data-lucide="pause" class="w-4 h-4 text-white"></i>
                     </button>
-                    <button id="btn_global_stop" onclick="handleStop()" class="p-2 bg-stone-200 hover:bg-stone-300 text-stone-700 rounded-full transition-colors shadow-sm hidden" title="停止朗讀">
-                        <i data-lucide="square" class="w-5 h-5 text-stone-700"></i>
+                    <button id="btn_global_stop" onclick="handleStop()" class="p-1.5 bg-stone-200 hover:bg-stone-300 text-stone-700 rounded-full transition-colors shadow-sm hidden" title="停止朗讀">
+                        <i data-lucide="square" class="w-4 h-4 text-stone-700"></i>
                     </button>
                 </div>
 
                 <!-- Settings Dropdown -->
-                <div class="relative pl-1">
-                    <button id="settingsBtn" onclick="toggleSettingsMenu()" class="p-2 bg-stone-200 rounded-full hover:bg-stone-300 transition-colors">
+                <div class="relative pl-0.5">
+                    <button id="settingsBtn" onclick="toggleSettingsMenu()" class="p-1.5 bg-white/50 rounded-full hover:bg-white/80 transition-colors border border-stone-200/50 shadow-sm">
                         <i data-lucide="settings" class="w-5 h-5 text-stone-600"></i>
                     </button>
                     
@@ -421,7 +423,7 @@
 
         <!-- Fixed Version Number -->
         <div class="fixed bottom-2 right-2 text-[10px] text-stone-300 font-mono select-none pointer-events-none z-0">
-            v1.8
+            v1.9
         </div>
     </div>
 
@@ -429,7 +431,7 @@
         // ==========================================
         // 1. Constants & State Variables
         // ==========================================
-        const APP_VERSION = '1.8';
+        const APP_VERSION = '1.9';
         const APP_LOAD_TIME = Date.now();
         const TOTAL_DAYS = 150;
         
@@ -850,46 +852,49 @@
                             return;
                         }
 
-                        // Super simple parser for complex references like "1:1-5" or "1:1"
-                        const match = chStr.match(/(\d+)(?::(\d+)(?:-(\d+))?)?/);
-                        if(match) {
-                            const chapter = match[1];
-                            const vStart = match[2] ? parseInt(match[2]) : 1;
-                            const vEnd = match[3] ? parseInt(match[3]) : (match[2] ? vStart : Object.keys(rcuvIndex[book][chapter]).length);
-                            
-                            const headerKey = `${book} 第 ${chapter} 章`;
-                            if (headerKey !== currentBookHeader) {
-                                const h5 = document.createElement('h5');
-                                h5.className = "text-2xl font-bold text-stone-800 mb-4 border-b pb-2 mt-6 first:mt-0";
-                                h5.innerText = headerKey;
-                                scContainer.appendChild(h5);
-                                currentBookHeader = headerKey;
-                            }
+                        // Parse logic upgraded: handle comma separated multiple segments (e.g. "6:5-8,6:12-17")
+                        const segments = chStr.split(',');
+                        segments.forEach(segment => {
+                            const match = segment.trim().match(/(\d+)(?::(\d+)(?:-(\d+))?)?/);
+                            if(match) {
+                                const chapter = match[1];
+                                const vStart = match[2] ? parseInt(match[2]) : 1;
+                                const vEnd = match[3] ? parseInt(match[3]) : (match[2] ? vStart : Object.keys(rcuvIndex[book][chapter]).length);
+                                
+                                const headerKey = `${book} 第 ${chapter} 章`;
+                                if (headerKey !== currentBookHeader) {
+                                    const h5 = document.createElement('h5');
+                                    h5.className = "text-2xl font-bold text-stone-800 mb-4 border-b pb-2 mt-6 first:mt-0";
+                                    h5.innerText = headerKey;
+                                    scContainer.appendChild(h5);
+                                    currentBookHeader = headerKey;
+                                }
 
-                            if(rcuvIndex[book][chapter]) {
-                                for(let v = vStart; v <= vEnd; v++) {
-                                    if(rcuvIndex[book][chapter][v]) {
-                                        hasValidVerse = true;
-                                        const div = document.createElement('div');
-                                        div.className = "flex mb-2 verse-row transition-colors duration-300 p-1 -mx-1 rounded";
-                                        div.id = `verse-${vStart}-${v}`;
-                                        
-                                        // Footnote processing
-                                        let text = rcuvIndex[book][chapter][v];
-                                        text = text.replace(/\?註：(.*?)\?/g, (m, note) => {
-                                            const cleanNote = note.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-                                            return `<span class="inline-block cursor-pointer mx-1 transform hover:scale-110 transition-transform text-amber-500" onclick="showFootnote('${cleanNote}')">📝</span>`;
-                                        });
+                                if(rcuvIndex[book][chapter]) {
+                                    for(let v = vStart; v <= vEnd; v++) {
+                                        if(rcuvIndex[book][chapter][v]) {
+                                            hasValidVerse = true;
+                                            const div = document.createElement('div');
+                                            div.className = "flex mb-2 verse-row transition-colors duration-300 p-1 -mx-1 rounded";
+                                            div.id = `verse-${vStart}-${v}`;
+                                            
+                                            // Footnote processing
+                                            let text = rcuvIndex[book][chapter][v];
+                                            text = text.replace(/\?註：(.*?)\?/g, (m, note) => {
+                                                const cleanNote = note.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                                                return `<span class="inline-block cursor-pointer mx-1 transform hover:scale-110 transition-transform text-amber-500" onclick="showFootnote('${cleanNote}')">📝</span>`;
+                                            });
 
-                                        div.innerHTML = `
-                                            <strong class="text-stone-400 font-bold mr-3 text-base w-6 text-right shrink-0 select-none pt-[3px]">${v}</strong>
-                                            <span class="text-stone-800 text-lg flex-1 verse-text">${text}</span>
-                                        `;
-                                        scContainer.appendChild(div);
+                                            div.innerHTML = `
+                                                <strong class="text-stone-400 font-bold mr-3 text-base w-6 text-right shrink-0 select-none pt-[3px]">${v}</strong>
+                                                <span class="text-stone-800 text-lg flex-1 verse-text">${text}</span>
+                                            `;
+                                            scContainer.appendChild(div);
+                                        }
                                     }
                                 }
                             }
-                        }
+                        });
                     });
 
                     if(!hasValidVerse) {
@@ -923,21 +928,39 @@
             
             const icon = document.getElementById('toggleReadIcon');
             const btn = document.getElementById('toggleReadBtn');
+            const txt = document.getElementById('toggleReadText');
+            const navBar = document.getElementById('topNavBar');
 
-            icon.classList.remove('text-green-600', 'text-stone-400', 'text-red-500');
+            // Reset dynamic classes
+            icon.classList.remove('text-green-600', 'text-stone-400', 'text-red-500', 'text-stone-500');
+            btn.classList.remove('bg-green-100', 'border-green-200', 'bg-white', 'border-stone-200', 'bg-red-100', 'border-red-200');
+            txt.classList.remove('text-green-700', 'text-stone-500', 'text-red-600');
+            navBar.classList.remove('bg-green-50/90', 'border-green-200', 'bg-stone-50/90', 'border-stone-200', 'bg-red-50/90', 'border-red-200');
 
             if (isRead) {
                 icon.setAttribute('data-lucide', 'check-circle');
                 icon.classList.add('text-green-600');
+                btn.classList.add('bg-green-100', 'border-green-200');
+                txt.classList.add('text-green-700');
+                txt.innerText = '已完成';
                 btn.setAttribute('title', '✅ 已完成閱讀 (點擊可取消)');
+                navBar.classList.add('bg-green-50/90', 'border-green-200');
             } else if (currentDay > actualTodayIndex) {
                 icon.setAttribute('data-lucide', 'circle');
                 icon.classList.add('text-stone-400');
+                btn.classList.add('bg-white', 'border-stone-200');
+                txt.classList.add('text-stone-500');
+                txt.innerText = '未完成';
                 btn.setAttribute('title', '標記為已讀');
+                navBar.classList.add('bg-stone-50/90', 'border-stone-200');
             } else {
                 icon.setAttribute('data-lucide', 'circle');
                 icon.classList.add('text-red-500');
+                btn.classList.add('bg-red-100', 'border-red-200');
+                txt.classList.add('text-red-600');
+                txt.innerText = '未完成';
                 btn.setAttribute('title', '⭕ 待閱讀 (點擊標記)');
+                navBar.classList.add('bg-red-50/90', 'border-red-200');
             }
             lucide.createIcons();
         }
