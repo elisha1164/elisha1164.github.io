@@ -1,8 +1,8 @@
 <!-- 
-  版本號：v1.14
+  版本號：v1.15
   修改主旨：
-  1. 升級經文解析器邏輯：全面支援「跨章節」的經文範圍（如 "2:23-3:12"），確保畫面正確渲染出連續章節的經文。
-  2. 同步升級語音轉換器 (formatReferenceForTTS)：確保跨章經文能正確轉為口語化發音（如「2章23節到3章12節」）。
+  1. 修復 TTS 語音朗讀與畫面渲染邏輯，當經文卷名為「詩篇」時，將單位「章」自動替換為「篇」（例如：「詩篇 第 104 篇」）。
+  2. 優化 formatReferenceForTTS 函式，直接傳入原始參照物件進行解析，確保跨章節與逗號分隔的語句組裝更精準。
 -->
 <!DOCTYPE html>
 <html lang="zh-TW">
@@ -422,7 +422,7 @@
 
         <!-- Fixed Version Number -->
         <div class="fixed bottom-2 right-2 text-[10px] text-stone-300 font-mono select-none pointer-events-none z-0">
-            v1.14
+            v1.15
         </div>
     </div>
 
@@ -430,7 +430,7 @@
         // ==========================================
         // 1. Constants & State Variables
         // ==========================================
-        const APP_VERSION = '1.14';
+        const APP_VERSION = '1.15';
         const APP_LOAD_TIME = Date.now();
         const TOTAL_DAYS = 150;
         
@@ -875,7 +875,8 @@
                             for (let c = startChapter; c <= endChapter; c++) {
                                 if (!rcuvIndex[book][c]) continue;
                                 
-                                const headerKey = `${book} 第 ${c} 章`;
+                                const chapterUnit = book === '詩篇' ? '篇' : '章';
+                                const headerKey = `${book} 第 ${c} ${chapterUnit}`;
                                 if (headerKey !== currentBookHeader) {
                                     const h5 = document.createElement('h5');
                                     h5.className = "text-2xl font-bold text-stone-800 mb-4 border-b pb-2 mt-6 first:mt-0";
@@ -1084,14 +1085,30 @@
                        .replace(/\n/g, '。');
         }
 
-        // Helper to convert "1:1-5" to verbal "1章1到5節" for TTS
-        function formatReferenceForTTS(refStr) {
-            if (!refStr) return '';
-            return refStr.replace(/(\d+):(\d+)(?:-(\d+)(?::(\d+))?)?/g, (match, startCh, startV, endPart1, endPart2) => {
-                if (endPart2) return `${startCh}章${startV}節到${endPart1}章${endPart2}節`;
-                if (endPart1) return `${startCh}章${startV}到${endPart1}節`;
-                return `${startCh}章${startV}節`;
-            }).replace(/；/g, '。');
+        // Helper to convert reference format to verbal translation for TTS
+        function formatReferenceForTTS(ref) {
+            if (!ref) return '';
+            
+            const formatSingleRef = (r) => {
+                const book = r.book || '';
+                const chStr = r.chapters || '';
+                const unit = book === '詩篇' ? '篇' : '章';
+                
+                const formattedCh = chStr.replace(/(\d+):(\d+)(?:-(\d+)(?::(\d+))?)?/g, (match, startCh, startV, endPart1, endPart2) => {
+                    if (endPart2) return `${startCh}${unit}${startV}節到${endPart1}${unit}${endPart2}節`;
+                    if (endPart1) return `${startCh}${unit}${startV}到${endPart1}節`;
+                    return `${startCh}${unit}${startV}節`;
+                }).replace(/,/g, '，');
+                return `${book} ${formattedCh}`.trim();
+            };
+
+            if (Array.isArray(ref)) {
+                return ref.map(formatSingleRef).join('。');
+            }
+            if (typeof ref === 'object') {
+                return formatSingleRef(ref);
+            }
+            return String(ref);
         }
 
         function updatePlaybackUI() {
@@ -1271,7 +1288,7 @@
                 st.chunks.push({ text: data.qa_data.unit_title + "。" });
                 st.chunks.push({ text: "問：" + data.qa_data.question + "。" });
                 st.chunks.push(...createChunks("答：" + data.qa_data.answer));
-                let qaRef = formatReferenceForTTS(formatReference(data.qa_data.parsed_reference));
+                let qaRef = formatReferenceForTTS(data.qa_data.parsed_reference);
                 if(qaRef) st.chunks.push({ text: qaRef + "。" });
             } else if (section === 'scripture') {
                 targetCard = document.getElementById('scriptureCard');
@@ -1333,7 +1350,7 @@
             if(!isReviewWeek && data.qa_data && data.qa_data.question) {
                 queue.push(() => {
                     window.scrollTo({ top: document.getElementById('qaCard').getBoundingClientRect().top + window.scrollY - 80, behavior: 'smooth' });
-                    let qaRef = formatReferenceForTTS(formatReference(data.qa_data.parsed_reference));
+                    let qaRef = formatReferenceForTTS(data.qa_data.parsed_reference);
                     let qaText = `本週問答。${data.qa_data.unit_title}。問：${data.qa_data.question}。答：${data.qa_data.answer}。${qaRef}。`;
                     speakTextChunks(createChunks(qaText), runNext, null);
                 });
