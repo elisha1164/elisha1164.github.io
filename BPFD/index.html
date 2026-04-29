@@ -1,9 +1,8 @@
 <!-- 
-  版本號：v1.10
+  版本號：v1.11
   修改主旨：
-  1. 修復 TTS 引擎的「英文語音亂入」Bug：強化語音快取驗證，剔除幽靈快取。
-  2. 將發聲來源優先綁定至實際的 UI 下拉選單，並在失敗時強制降級至「第一個中文語音」而非系統預設音。
-  3. 強制注入 `utterance.lang` 語言屬性，防止瀏覽器引擎誤判語言。
+  1. 重新梳理 TTS 朗讀佇列，將新版 UI 的 part_label、part_title、經文出處 (轉為口語化)、經文標題與 devotion_title 精準編入朗讀順序。
+  2. 修正自動捲動 (Scroll) 偏移量，從 -24 改為 -80 (微觀改為 -120)，避免卡片頂端被上方固定的導航列遮擋。
 -->
 <!DOCTYPE html>
 <html lang="zh-TW">
@@ -423,7 +422,7 @@
 
         <!-- Fixed Version Number -->
         <div class="fixed bottom-2 right-2 text-[10px] text-stone-300 font-mono select-none pointer-events-none z-0">
-            v1.10
+            v1.11
         </div>
     </div>
 
@@ -431,7 +430,7 @@
         // ==========================================
         // 1. Constants & State Variables
         // ==========================================
-        const APP_VERSION = '1.10';
+        const APP_VERSION = '1.11';
         const APP_LOAD_TIME = Date.now();
         const TOTAL_DAYS = 150;
         
@@ -1064,6 +1063,15 @@
                        .replace(/\n/g, '。');
         }
 
+        // Helper to convert "1:1-5" to verbal "1章1到5節" for TTS
+        function formatReferenceForTTS(refStr) {
+            if (!refStr) return '';
+            return refStr.replace(/(\d+):(\d+)(?:-(\d+))?/g, (match, ch, vStart, vEnd) => {
+                if (vEnd) return `${ch}章${vStart}到${vEnd}節`;
+                return `${ch}章${vStart}節`;
+            }).replace(/；/g, '。');
+        }
+
         function updatePlaybackUI() {
             const st = window._speechState;
             
@@ -1241,16 +1249,20 @@
                 st.chunks.push({ text: data.qa_data.unit_title + "。" });
                 st.chunks.push({ text: "問：" + data.qa_data.question + "。" });
                 st.chunks.push(...createChunks("答：" + data.qa_data.answer));
+                let qaRef = formatReferenceForTTS(formatReference(data.qa_data.parsed_reference));
+                if(qaRef) st.chunks.push({ text: qaRef + "。" });
             } else if (section === 'scripture') {
                 targetCard = document.getElementById('scriptureCard');
-                const els = document.querySelectorAll('.verse-row');
-                els.forEach(el => {
-                    const vNum = el.querySelector('strong').innerText;
-                    const vText = el.querySelector('.verse-text').innerText;
-                    st.chunks.push(...createChunks(vText, 200, { type: 'verse', id: el.id }));
+                Array.from(document.getElementById('scriptureContent').children).forEach(el => {
+                    if(el.tagName === 'H5') {
+                        st.chunks.push({text: el.innerText + '。'});
+                    } else if(el.classList.contains('verse-row')) {
+                        st.chunks.push(...createChunks(el.querySelector('.verse-text').innerText, 200, { type: 'verse', id: el.id }));
+                    }
                 });
             } else if (section === 'devotion') {
                 targetCard = document.getElementById('devotionCard');
+                st.chunks.push({ text: data.day_data.devotion_title + "。" });
                 st.chunks.push(...createChunks(data.day_data.devotion_content));
             } else if (section === 'reflection') {
                 targetCard = document.getElementById('reflectionCard');
@@ -1259,9 +1271,9 @@
 
             updatePlaybackUI();
             
-            // Macro Scroll
+            // Macro Scroll (Increased offset to 80px to clear sticky header)
             if(targetCard) {
-                window.scrollTo({ top: targetCard.getBoundingClientRect().top + window.scrollY - 24, behavior: 'smooth' });
+                window.scrollTo({ top: targetCard.getBoundingClientRect().top + window.scrollY - 80, behavior: 'smooth' });
             }
 
             speakTextChunks(st.chunks, () => handleStop(), handleProgress);
@@ -1286,7 +1298,7 @@
             const data = devotionDict[currentDay];
             
             // 1. Title
-            const titleText = `第 ${data.week_number} 週，第 ${((data.global_day - 1) % 3) + 1} 天。今日進度：${data.day_data.devotion_title}。`;
+            const titleText = `第 ${data.week_number} 週，第 ${((data.global_day - 1) % 3) + 1} 天。${data.part_label || ''}。${data.part_title || ''}。`;
             
             const queue = [
                 () => {
@@ -1298,8 +1310,9 @@
             // 2. QA
             if(!isReviewWeek && data.qa_data && data.qa_data.question) {
                 queue.push(() => {
-                    window.scrollTo({ top: document.getElementById('qaCard').getBoundingClientRect().top + window.scrollY - 24, behavior: 'smooth' });
-                    let qaText = `本週問答。${data.qa_data.unit_title}。問：${data.qa_data.question}。答：${data.qa_data.answer}`;
+                    window.scrollTo({ top: document.getElementById('qaCard').getBoundingClientRect().top + window.scrollY - 80, behavior: 'smooth' });
+                    let qaRef = formatReferenceForTTS(formatReference(data.qa_data.parsed_reference));
+                    let qaText = `本週問答。${data.qa_data.unit_title}。問：${data.qa_data.question}。答：${data.qa_data.answer}。${qaRef}。`;
                     speakTextChunks(createChunks(qaText), runNext, null);
                 });
             }
@@ -1307,10 +1320,14 @@
             // 3. Scripture
             if(!isReviewWeek && data.day_data.bible_reading && data.day_data.bible_reading.length > 0) {
                 queue.push(() => {
-                    window.scrollTo({ top: document.getElementById('scriptureCard').getBoundingClientRect().top + window.scrollY - 24, behavior: 'smooth' });
+                    window.scrollTo({ top: document.getElementById('scriptureCard').getBoundingClientRect().top + window.scrollY - 80, behavior: 'smooth' });
                     let scChunks = [{text: '今日經文。'}];
-                    document.querySelectorAll('.verse-row').forEach(el => {
-                        scChunks.push(...createChunks(el.querySelector('.verse-text').innerText, 200, { type: 'verse', id: el.id }));
+                    Array.from(document.getElementById('scriptureContent').children).forEach(el => {
+                        if(el.tagName === 'H5') {
+                            scChunks.push({text: el.innerText + '。'});
+                        } else if(el.classList.contains('verse-row')) {
+                            scChunks.push(...createChunks(el.querySelector('.verse-text').innerText, 200, { type: 'verse', id: el.id }));
+                        }
                     });
                     speakTextChunks(scChunks, runNext, handleProgress);
                 });
@@ -1319,8 +1336,8 @@
             // 4. Devotion
             if(data.day_data.devotion_content) {
                 queue.push(() => {
-                    window.scrollTo({ top: document.getElementById('devotionCard').getBoundingClientRect().top + window.scrollY - 24, behavior: 'smooth' });
-                    let devChunks = [{text: '靈修短文。'}, ...createChunks(data.day_data.devotion_content)];
+                    window.scrollTo({ top: document.getElementById('devotionCard').getBoundingClientRect().top + window.scrollY - 80, behavior: 'smooth' });
+                    let devChunks = [{text: '靈修短文。'}, {text: data.day_data.devotion_title + '。'}, ...createChunks(data.day_data.devotion_content)];
                     speakTextChunks(devChunks, runNext, null);
                 });
             }
@@ -1328,7 +1345,7 @@
             // 5. Reflection
             if(data.day_data.reflection_content) {
                 queue.push(() => {
-                    window.scrollTo({ top: document.getElementById('reflectionCard').getBoundingClientRect().top + window.scrollY - 24, behavior: 'smooth' });
+                    window.scrollTo({ top: document.getElementById('reflectionCard').getBoundingClientRect().top + window.scrollY - 80, behavior: 'smooth' });
                     let refChunks = [{text: '討論問題。'}, ...createChunks(data.day_data.reflection_content)];
                     speakTextChunks(refChunks, runNext, null);
                 });
@@ -1380,10 +1397,10 @@
                 const el = document.getElementById(chunkData.id);
                 if(el) {
                     el.classList.add('tts-highlight');
-                    // Micro Scroll
+                    // Micro Scroll (Increased offset to 120px for better visibility under sticky nav)
                     const elTop = el.getBoundingClientRect().top;
-                    if(elTop < 100 || elTop > window.innerHeight - 100) {
-                        window.scrollTo({ top: elTop + window.scrollY - 48, behavior: 'smooth' });
+                    if(elTop < 120 || elTop > window.innerHeight - 100) {
+                        window.scrollTo({ top: elTop + window.scrollY - 120, behavior: 'smooth' });
                     }
                 }
             }
