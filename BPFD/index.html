@@ -1,8 +1,7 @@
 <!-- 
-  版本號：v1.11
+  版本號：v1.12
   修改主旨：
-  1. 重新梳理 TTS 朗讀佇列，將新版 UI 的 part_label、part_title、經文出處 (轉為口語化)、經文標題與 devotion_title 精準編入朗讀順序。
-  2. 修正自動捲動 (Scroll) 偏移量，從 -24 改為 -80 (微觀改為 -120)，避免卡片頂端被上方固定的導航列遮擋。
+  1. 修復「討論問題」卡片未套用 Markdown 解析器，導致星號 (*text*) 無法正確轉換為粗體的問題。
 -->
 <!DOCTYPE html>
 <html lang="zh-TW">
@@ -422,7 +421,7 @@
 
         <!-- Fixed Version Number -->
         <div class="fixed bottom-2 right-2 text-[10px] text-stone-300 font-mono select-none pointer-events-none z-0">
-            v1.11
+            v1.12
         </div>
     </div>
 
@@ -430,7 +429,7 @@
         // ==========================================
         // 1. Constants & State Variables
         // ==========================================
-        const APP_VERSION = '1.11';
+        const APP_VERSION = '1.12';
         const APP_LOAD_TIME = Date.now();
         const TOTAL_DAYS = 150;
         
@@ -910,8 +909,13 @@
                 devContent.innerHTML = '<p class="text-stone-400 italic">此天無靈修短文。</p>';
             }
 
-            // Render Reflection
-            document.getElementById('reflectionContent').innerText = data.day_data.reflection_content || '';
+            // Render Reflection - BUG FIX: Ensure markdown is parsed
+            const refContent = document.getElementById('reflectionContent');
+            if (data.day_data.reflection_content) {
+                refContent.innerHTML = parseMarkdown(data.day_data.reflection_content);
+            } else {
+                refContent.innerHTML = '';
+            }
             
             updatePlaybackUI(); // Reset UI state
             updateSettingsMenuValues();
