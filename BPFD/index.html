@@ -1,8 +1,7 @@
 <!-- 
-  版本號：v1.15
+  版本號：v1.16
   修改主旨：
-  1. 修復 TTS 語音朗讀與畫面渲染邏輯，當經文卷名為「詩篇」時，將單位「章」自動替換為「篇」（例如：「詩篇 第 104 篇」）。
-  2. 優化 formatReferenceForTTS 函式，直接傳入原始參照物件進行解析，確保跨章節與逗號分隔的語句組裝更精準。
+  1. 縮窄日期切換器中「週次」與「天數」輸入框的寬度（因 spinner 已隱藏），節省版面空間。
 -->
 <!DOCTYPE html>
 <html lang="zh-TW">
@@ -242,9 +241,9 @@
                     </button>
                     <div class="flex items-center text-base sm:text-lg font-bold text-stone-800 bg-white/80 backdrop-blur px-2 py-1 rounded-lg shadow-sm border border-stone-200/80 cursor-pointer">
                         <span>第</span>
-                        <input type="number" id="weekInput" min="1" max="50" class="w-10 text-center bg-transparent focus:outline-none focus:ring-2 focus:ring-amber-500 rounded px-1" onchange="jumpToProgress()">
+                        <input type="number" id="weekInput" min="1" max="50" class="w-8 text-center bg-transparent focus:outline-none focus:ring-2 focus:ring-amber-500 rounded px-1" onchange="jumpToProgress()">
                         <span>週 - </span>
-                        <input type="number" id="dayInput" min="1" max="3" class="w-8 text-center bg-transparent focus:outline-none focus:ring-2 focus:ring-amber-500 rounded px-1" onchange="jumpToProgress()">
+                        <input type="number" id="dayInput" min="1" max="3" class="w-6 text-center bg-transparent focus:outline-none focus:ring-2 focus:ring-amber-500 rounded px-1" onchange="jumpToProgress()">
                     </div>
                     <button id="nextDayBtn" onclick="changeDay(1)" class="p-1.5 bg-white/50 rounded-full hover:bg-white/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-stone-200/50">
                         <i data-lucide="chevron-right" class="w-5 h-5 text-stone-600"></i>
@@ -422,7 +421,7 @@
 
         <!-- Fixed Version Number -->
         <div class="fixed bottom-2 right-2 text-[10px] text-stone-300 font-mono select-none pointer-events-none z-0">
-            v1.15
+            v1.16
         </div>
     </div>
 
@@ -430,7 +429,7 @@
         // ==========================================
         // 1. Constants & State Variables
         // ==========================================
-        const APP_VERSION = '1.15';
+        const APP_VERSION = '1.16';
         const APP_LOAD_TIME = Date.now();
         const TOTAL_DAYS = 150;
         
