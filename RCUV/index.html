@@ -1,9 +1,8 @@
 <!DOCTYPE html>
 <!-- 
-  版本號：v1.25
+  版本號：v1.26
   修改主旨：
-  1. 實作響應式 Header，手機版時將功能按鈕收納至第二列，並透過 Kebab Menu (⋮) 切換顯示。
-  2. 優化朗讀捲動邏輯，動態計算 Header 實際高度進行補償，避免展開第二列時遮擋正在朗讀的經文。
+  1. 針對《詩篇》實作專屬單位顯示，將經文顯示區、網址列標題與 Modal 內的「章」動態替換為「篇」。
 -->
 <html lang="zh-TW">
 <head>
@@ -261,7 +260,7 @@
             <div class="flex-1 flex overflow-hidden">
                 <!-- 左側：章 (Chapter) -->
                 <div class="w-1/2 overflow-y-auto p-4 border-r border-stone-200 relative bg-white">
-                    <h5 class="text-sm font-bold text-stone-400 mb-3 text-center sticky top-0 bg-white/95 backdrop-blur py-2 z-10 uppercase tracking-widest">第 幾 章</h5>
+                    <h5 id="cv-modal-chapter-subtitle" class="text-sm font-bold text-stone-400 mb-3 text-center sticky top-0 bg-white/95 backdrop-blur py-2 z-10 uppercase tracking-widest">第 幾 章</h5>
                     <div id="cv-modal-chapters" class="grid grid-cols-5 gap-2">
                         <!-- JS 動態生成章 -->
                     </div>
@@ -278,7 +277,7 @@
     </div>
 
     <!-- 右下角版本號標示 (用於確認佈署狀態) -->
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.25</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.26</div>
 
     <script>
         // ==========================================
@@ -575,6 +574,7 @@
             const tv = parseInt(els.tVerse.value);
             
             const abbrev = revBookMap[b];
+            const unitName = (b === '詩篇') ? '篇' : '章';
             let refStr = "";
             let titleStr = "";
 
@@ -588,7 +588,7 @@
             } else if (tc === fc) {
                 if (isWholeChapter) {
                     refStr = `${abbrev}${fc}`;
-                    titleStr = `${b} 第 ${fc} 章`;
+                    titleStr = `${b} 第 ${fc} ${unitName}`;
                 } else {
                     refStr = `${abbrev}${fc}:${fv}-${tv}`;
                     titleStr = `${b} ${fc}:${fv}-${tv}`;
@@ -596,7 +596,7 @@
             } else {
                 if (isMultiWholeChapters) {
                     refStr = `${abbrev}${fc}-${tc}`;
-                    titleStr = `${b} 第 ${fc} - ${tc} 章`;
+                    titleStr = `${b} 第 ${fc} - ${tc} ${unitName}`;
                 } else {
                     refStr = `${abbrev}${fc}:${fv}-${tc}:${tv}`;
                     titleStr = `${b} ${fc}:${fv}-${tc}:${tv}`;
@@ -768,8 +768,10 @@
             const book = els.bookSelect.value;
             if (!bibleData[book]) return;
             
+            const unitName = (book === '詩篇') ? '篇' : '章';
             cvState.type = type;
-            document.getElementById('cv-modal-title').textContent = type === 'from' ? '選擇起始章節' : '選擇結束章節';
+            document.getElementById('cv-modal-title').textContent = type === 'from' ? `選擇起始${unitName}節` : `選擇結束${unitName}節`;
+            document.getElementById('cv-modal-chapter-subtitle').textContent = `第 幾 ${unitName}`;
             
             // 讀取當前隱藏 select 的設定為暫存狀態
             cvState.chap = type === 'from' ? parseInt(els.fChap.value) : parseInt(els.tChap.value);
@@ -904,6 +906,8 @@
             const fv = parseInt(els.fVerse.value);
             const tc = parseInt(els.tChap.value);
             const tv = parseInt(els.tVerse.value);
+            
+            const unitName = (book === '詩篇') ? '篇' : '章';
 
             if (!bibleData[book]) return;
 
@@ -912,7 +916,7 @@
             
             chapters.forEach(c => {
                 if (c >= fc && c <= tc) {
-                    htmlChunks.push(`<h5 class="text-2xl font-bold text-stone-800 ${c === fc ? 'mb-4' : 'mt-10 mb-4'} border-b border-stone-200 pb-2">${book} 第 ${c} 章</h5>`);
+                    htmlChunks.push(`<h5 class="text-2xl font-bold text-stone-800 ${c === fc ? 'mb-4' : 'mt-10 mb-4'} border-b border-stone-200 pb-2">${book} 第 ${c} ${unitName}</h5>`);
                     
                     const verses = Object.keys(bibleData[book][c]).map(Number).sort((a,b)=>a-b);
                     verses.forEach(v => {
