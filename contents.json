@@ -13,13 +13,13 @@
   },
   {
     "id": "app2",
-    "category": "讀經",
+    "category": "靈修",
     "icon": "book-open",
     "title": "指向耶穌的大故事",
-    "subtitle": "一年讀經計畫",
+    "subtitle": "358 天讀經計畫",
     "tagline": "「見樹也見林，看見每一頁都在指向祂」",
     "description": "讀經總是卡在利未記？迷失在細碎的經文中？這個一頁式計畫結合了 BibleProject 的優質短文與輔助影片，每天自動為你整理好當天的經文、反思問題與語音朗讀。透過專屬的進度打勾功能，陪你踏實走過每一天，宏觀地看見整本聖經都在講述同一個指向基督的宏大敘事。",
-    "link": "OSTLTJ.html",
+    "link": "OSTLTJ/",
     "buttonIcon": "calendar-check",
     "buttonText": "點此展開今日讀經，看見大故事"
   },
@@ -46,5 +46,29 @@
     "link": "BPBV.html",
     "buttonIcon": "book-key",
     "buttonText": "點此翻開問答卡，建立真理根基"
+  },
+  {
+    "id": "app5",
+    "category": "靈修",
+    "icon": "users",
+    "title": "聖經大故事家庭靈修",
+    "subtitle": "50 週共讀計畫",
+    "tagline": "「全家一起走進聖經大故事」",
+    "description": "專為家庭設計的 50 週（共 150 天）靈修計畫。每天自動為您準備好「本週問答、今日經文、靈修短文與討論問題」。內建智慧閱讀日排程與「一鍵接力朗讀」語音功能，無論是清晨餐桌或睡前床邊，都能輕鬆帶領全家將生命建造在神的話語之上。",
+    "link": "BPFD/",
+    "buttonIcon": "play-circle",
+    "buttonText": "點此展開家庭靈修時光"
+  },
+  {
+    "id": "app6",
+    "category": "讀經",
+    "icon": "book",
+    "title": "和合本 2010",
+    "subtitle": "輕量數位聖經",
+    "tagline": "「支援語音朗讀與一鍵匯出 PPT 的閱讀器」",
+    "description": "一款純粹、輕量且無廣告的數位聖經。除了流暢的跨章節閱讀體驗，更內建「語音朗讀」與「一鍵匯出 PPT」功能，無論是個人靈修、小組帶領或主日講道，都能為您省下寶貴的備課時間。",
+    "link": "RCUV/",
+    "buttonIcon": "book-open",
+    "buttonText": "點此開啟和合本 2010"
   }
 ]
