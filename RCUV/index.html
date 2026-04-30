@@ -1,10 +1,9 @@
 <!DOCTYPE html>
 <!-- 
-  版本號：v1.24
+  版本號：v1.25
   修改主旨：
-  1. 將「從」與「到」的章節選擇器由下拉選單升級為左右雙欄的 5 網格 Modal。
-  2. 導入「隱藏且精準佔位」邏輯，不合法的起訖數字保持欄位對齊但不佔用無效的空白列。
-  3. 實作章節聯動與自動關閉機制，點擊「章」自動高亮該章首節，點擊「節」則完成選擇並觸發更新。
+  1. 實作響應式 Header，手機版時將功能按鈕收納至第二列，並透過 Kebab Menu (⋮) 切換顯示。
+  2. 優化朗讀捲動邏輯，動態計算 Header 實際高度進行補償，避免展開第二列時遮擋正在朗讀的經文。
 -->
 <html lang="zh-TW">
 <head>
@@ -69,100 +68,111 @@
     </div>
 
     <!-- 頂部導航與分享區塊 -->
-    <header class="bg-white border-b border-stone-200 sticky top-0 z-30 shadow-sm">
-        <div class="max-w-4xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-3">
-            <!-- 整合後的控制選單區塊 -->
-            <div class="flex flex-wrap items-center gap-2 flex-1">
-                
-                <!-- 書卷 Modal 觸發按鈕 -->
-                <button id="btn-book-modal" disabled onclick="toggleBookModal()" class="py-1.5 px-3 md:px-4 border border-stone-300 rounded-full focus:ring-2 focus:ring-amber-500 outline-none bg-white text-stone-800 disabled:opacity-60 font-bold text-sm sm:text-base flex items-center gap-1.5 shadow-sm transition hover:bg-stone-50 shrink-0">
-                    <span id="current-book-name">載入中...</span>
-                    <svg class="w-4 h-4 text-stone-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                </button>
-                
-                <!-- 章節 Modal 觸發按鈕群 -->
-                <div class="flex items-center gap-1.5 shrink-0">
-                    <button id="btn-from-modal" disabled onclick="openCvModal('from')" class="py-1.5 px-3 border border-stone-300 rounded-lg bg-stone-50 text-stone-800 disabled:opacity-60 hover:bg-stone-100 transition flex items-center gap-1 shadow-sm focus:ring-2 focus:ring-amber-500 outline-none">
-                        <span class="text-xs font-bold text-stone-500">從</span>
-                        <span id="label-from" class="text-sm font-bold tracking-wide">載入中...</span>
-                    </button>
-                    <span class="text-stone-300 font-bold">-</span>
-                    <button id="btn-to-modal" disabled onclick="openCvModal('to')" class="py-1.5 px-3 border border-stone-300 rounded-lg bg-stone-50 text-stone-800 disabled:opacity-60 hover:bg-stone-100 transition flex items-center gap-1 shadow-sm focus:ring-2 focus:ring-amber-500 outline-none">
-                        <span class="text-xs font-bold text-stone-500">到</span>
-                        <span id="label-to" class="text-sm font-bold tracking-wide">載入中...</span>
-                    </button>
-                </div>
-            </div>
-
-            <!-- 右側：語音控制與分享設定按鈕區塊 -->
-            <div class="flex items-center gap-1 shrink-0">
-                <!-- 播放控制按鈕 -->
-                <button id="btn-play" class="p-2 rounded-full bg-amber-600 hover:bg-amber-700 text-white shadow-sm transition transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed" title="朗讀">
-                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
-                </button>
-                <button id="btn-pause" class="hidden p-2 rounded-full bg-stone-800 hover:bg-stone-900 text-white shadow-sm transition transform active:scale-95" title="暫停">
-                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
-                </button>
-                <button id="btn-resume" class="hidden p-2 rounded-full bg-amber-600 hover:bg-amber-700 text-white shadow-sm transition transform active:scale-95" title="繼續">
-                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
-                </button>
-                <button id="btn-stop" class="hidden p-2 rounded-full bg-red-100 hover:bg-red-200 text-red-700 shadow-sm transition transform active:scale-95" title="停止">
-                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clip-rule="evenodd"></path></svg>
-                </button>
-
-                <!-- 分隔線 -->
-                <div class="w-px h-5 bg-stone-300 mx-1"></div>
-
-                <!-- 匯出簡報按鈕 -->
-                <button id="btn-export-ppt" class="p-2 rounded-full text-stone-500 hover:bg-stone-100 hover:text-stone-800 transition flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed" title="匯出簡報 (PPTX)">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="1" ry="1"></rect><path stroke-linecap="round" stroke-linejoin="round" d="M8 20h8m-4-4v4"></path></svg>
-                </button>
-
-                <!-- 分享/複製按鈕 (動態切換) -->
-                <button id="btn-share" class="p-2 rounded-full text-stone-500 hover:bg-stone-100 hover:text-stone-800 transition" title="分享">
-                    <!-- Share Icon (預設隱藏，若支援 Web Share API 則顯示) -->
-                    <svg id="icon-share" class="w-5 h-5 hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg>
-                    <!-- Copy Icon (預設顯示，作為 Fallback) -->
-                    <svg id="icon-copy" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-                </button>
-                
-                <!-- 設定按鈕與下拉選單容器 -->
-                <div class="relative" id="settings-container">
-                    <button id="btn-settings" class="p-2 rounded-full text-stone-500 hover:bg-stone-100 hover:text-stone-800 transition" title="設定">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+    <header id="main-header" class="bg-white border-b border-stone-200 sticky top-0 z-30 shadow-sm transition-all duration-300">
+        <div class="max-w-4xl mx-auto px-4 py-3 flex flex-col md:flex-row md:items-center justify-between gap-3">
+            
+            <!-- 上層/左側：控制選單區塊與 Kebab Menu -->
+            <div class="flex justify-between items-center w-full md:w-auto flex-1 gap-2">
+                <div class="flex flex-wrap items-center gap-2 flex-1">
+                    <!-- 書卷 Modal 觸發按鈕 -->
+                    <button id="btn-book-modal" disabled onclick="toggleBookModal()" class="py-1.5 px-3 md:px-4 border border-stone-300 rounded-full focus:ring-2 focus:ring-amber-500 outline-none bg-white text-stone-800 disabled:opacity-60 font-bold text-sm sm:text-base flex items-center gap-1.5 shadow-sm transition hover:bg-stone-50 shrink-0">
+                        <span id="current-book-name">載入中...</span>
+                        <svg class="w-4 h-4 text-stone-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                     </button>
                     
-                    <!-- 設定下拉選單 -->
-                    <div id="settings-dropdown" class="hidden absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-lg border border-stone-200 p-4 z-50">
-                        <div class="mb-4">
-                            <label class="block text-sm font-bold text-stone-600 mb-2">🗣️ 系統語音</label>
-                            <select id="voice-select" class="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none transition bg-stone-50 text-stone-800 font-medium text-sm">
-                                <option value="">(系統無可用中文語音)</option>
-                            </select>
-                        </div>
+                    <!-- 章節 Modal 觸發按鈕群 -->
+                    <div class="flex items-center gap-1.5 shrink-0">
+                        <button id="btn-from-modal" disabled onclick="openCvModal('from')" class="py-1.5 px-3 border border-stone-300 rounded-lg bg-stone-50 text-stone-800 disabled:opacity-60 hover:bg-stone-100 transition flex items-center gap-1 shadow-sm focus:ring-2 focus:ring-amber-500 outline-none">
+                            <span class="text-xs font-bold text-stone-500">從</span>
+                            <span id="label-from" class="text-sm font-bold tracking-wide">載入中...</span>
+                        </button>
+                        <span class="text-stone-300 font-bold">-</span>
+                        <button id="btn-to-modal" disabled onclick="openCvModal('to')" class="py-1.5 px-3 border border-stone-300 rounded-lg bg-stone-50 text-stone-800 disabled:opacity-60 hover:bg-stone-100 transition flex items-center gap-1 shadow-sm focus:ring-2 focus:ring-amber-500 outline-none">
+                            <span class="text-xs font-bold text-stone-500">到</span>
+                            <span id="label-to" class="text-sm font-bold tracking-wide">載入中...</span>
+                        </button>
+                    </div>
+                </div>
 
-                        <div class="mb-2">
-                            <label class="block text-sm font-bold text-stone-600 mb-2">⏱️ 朗讀語速</label>
-                            <select id="rate-select" class="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none transition bg-stone-50 text-stone-800 font-medium text-sm">
-                                <option value="0.8">慢速 (0.8x)</option>
-                                <option value="1.0" selected>正常 (1.0x)</option>
-                                <option value="1.2">稍快 (1.2x)</option>
-                                <option value="1.5">快速 (1.5x)</option>
-                            </select>
-                        </div>
+                <!-- Kebab Menu (僅手機版顯示) -->
+                <button id="btn-kebab" class="md:hidden p-1.5 -mr-1.5 rounded-full text-stone-500 hover:bg-stone-100 transition" title="更多功能">
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                        <path fill-rule="evenodd" d="M12 5a2 2 0 110-4 2 2 0 010 4zm0 9a2 2 0 110-4 2 2 0 010 4zm0 9a2 2 0 110-4 2 2 0 010 4z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+            </div>
 
-                        <!-- 簡寫表按鈕區塊 -->
-                        <div class="border-t border-stone-200 my-3"></div>
-                        <button id="btn-show-abbrev" class="w-full text-left px-3 py-2 text-stone-700 hover:bg-stone-100 rounded-lg transition text-sm font-bold flex items-center gap-2">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
-                            書卷簡寫表
+            <!-- 下層/右側：語音控制與分享設定按鈕區塊 (手機版預設隱藏，由 Kebab Menu 切換) -->
+            <div id="action-bar-wrapper" class="hidden md:block w-full md:w-auto border-t border-stone-100 md:border-none pt-2 md:pt-0">
+                <div class="flex items-center gap-1 justify-end shrink-0">
+                    <!-- 播放控制按鈕 -->
+                    <button id="btn-play" class="p-2 rounded-full bg-amber-600 hover:bg-amber-700 text-white shadow-sm transition transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed" title="朗讀">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
+                    </button>
+                    <button id="btn-pause" class="hidden p-2 rounded-full bg-stone-800 hover:bg-stone-900 text-white shadow-sm transition transform active:scale-95" title="暫停">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
+                    </button>
+                    <button id="btn-resume" class="hidden p-2 rounded-full bg-amber-600 hover:bg-amber-700 text-white shadow-sm transition transform active:scale-95" title="繼續">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
+                    </button>
+                    <button id="btn-stop" class="hidden p-2 rounded-full bg-red-100 hover:bg-red-200 text-red-700 shadow-sm transition transform active:scale-95" title="停止">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clip-rule="evenodd"></path></svg>
+                    </button>
+
+                    <!-- 分隔線 -->
+                    <div class="w-px h-5 bg-stone-300 mx-1"></div>
+
+                    <!-- 匯出簡報按鈕 -->
+                    <button id="btn-export-ppt" class="p-2 rounded-full text-stone-500 hover:bg-stone-100 hover:text-stone-800 transition flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed" title="匯出簡報 (PPTX)">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="1" ry="1"></rect><path stroke-linecap="round" stroke-linejoin="round" d="M8 20h8m-4-4v4"></path></svg>
+                    </button>
+
+                    <!-- 分享/複製按鈕 (動態切換) -->
+                    <button id="btn-share" class="p-2 rounded-full text-stone-500 hover:bg-stone-100 hover:text-stone-800 transition" title="分享">
+                        <!-- Share Icon (預設隱藏，若支援 Web Share API 則顯示) -->
+                        <svg id="icon-share" class="w-5 h-5 hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg>
+                        <!-- Copy Icon (預設顯示，作為 Fallback) -->
+                        <svg id="icon-copy" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </button>
+                    
+                    <!-- 設定按鈕與下拉選單容器 -->
+                    <div class="relative" id="settings-container">
+                        <button id="btn-settings" class="p-2 rounded-full text-stone-500 hover:bg-stone-100 hover:text-stone-800 transition" title="設定">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                         </button>
                         
-                        <!-- PWA 安裝按鈕 (預設隱藏，由 JS 控制顯示) -->
-                        <button id="btn-install-pwa" class="hidden w-full bg-amber-100 text-amber-800 py-2 mt-4 rounded-lg hover:bg-amber-200 transition font-bold text-sm flex items-center justify-center gap-1">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                            安裝到桌面
-                        </button>
+                        <!-- 設定下拉選單 -->
+                        <div id="settings-dropdown" class="hidden absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-lg border border-stone-200 p-4 z-50">
+                            <div class="mb-4">
+                                <label class="block text-sm font-bold text-stone-600 mb-2">🗣️ 系統語音</label>
+                                <select id="voice-select" class="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none transition bg-stone-50 text-stone-800 font-medium text-sm">
+                                    <option value="">(系統無可用中文語音)</option>
+                                </select>
+                            </div>
+
+                            <div class="mb-2">
+                                <label class="block text-sm font-bold text-stone-600 mb-2">⏱️ 朗讀語速</label>
+                                <select id="rate-select" class="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none transition bg-stone-50 text-stone-800 font-medium text-sm">
+                                    <option value="0.8">慢速 (0.8x)</option>
+                                    <option value="1.0" selected>正常 (1.0x)</option>
+                                    <option value="1.2">稍快 (1.2x)</option>
+                                    <option value="1.5">快速 (1.5x)</option>
+                                </select>
+                            </div>
+
+                            <!-- 簡寫表按鈕區塊 -->
+                            <div class="border-t border-stone-200 my-3"></div>
+                            <button id="btn-show-abbrev" class="w-full text-left px-3 py-2 text-stone-700 hover:bg-stone-100 rounded-lg transition text-sm font-bold flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                                書卷簡寫表
+                            </button>
+                            
+                            <!-- PWA 安裝按鈕 (預設隱藏，由 JS 控制顯示) -->
+                            <button id="btn-install-pwa" class="hidden w-full bg-amber-100 text-amber-800 py-2 mt-4 rounded-lg hover:bg-amber-200 transition font-bold text-sm flex items-center justify-center gap-1">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                                安裝到桌面
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -268,7 +278,7 @@
     </div>
 
     <!-- 右下角版本號標示 (用於確認佈署狀態) -->
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.24</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.25</div>
 
     <script>
         // ==========================================
@@ -369,6 +379,9 @@
 
         // DOM 元素快取
         const els = {
+            mainHeader: document.getElementById('main-header'),
+            btnKebab: document.getElementById('btn-kebab'),
+            actionBarWrapper: document.getElementById('action-bar-wrapper'),
             statusBar: document.getElementById('status-bar'),
             bookSelect: document.getElementById('book-select'),
             btnBookModal: document.getElementById('btn-book-modal'),
@@ -1102,12 +1115,12 @@
             utterance.rate = parseFloat(els.rateSelect.value);
 
             utterance.onstart = () => {
-                // 沉浸式追蹤捲動
+                // 沉浸式追蹤捲動 (加上 Header 高度動態補償)
                 const targetMap = mappings.find(m => chunkObj.startIndex >= m.startIndex && chunkObj.startIndex < m.endIndex);
                 if (targetMap && targetMap.element) {
                     const elRect = targetMap.element.getBoundingClientRect();
-                    // 設定 offset = 48 作為視覺緩衝
-                    const targetScrollTop = window.scrollY + elRect.top - 48;
+                    const headerOffset = els.mainHeader ? els.mainHeader.offsetHeight : 60;
+                    const targetScrollTop = window.scrollY + elRect.top - (headerOffset + 16);
                     window.scrollTo({ top: Math.max(0, targetScrollTop), behavior: 'smooth' });
                 }
             };
@@ -1283,6 +1296,13 @@
         // ==========================================
         // 8. Modals, Dropdowns 與分享工具
         // ==========================================
+        
+        // Kebab 選單切換邏輯 (手機版)
+        els.btnKebab.addEventListener('click', (e) => {
+            e.stopPropagation();
+            els.actionBarWrapper.classList.toggle('hidden');
+        });
+
         // 下拉選單切換邏輯
         els.btnSettings.addEventListener('click', (e) => {
             e.stopPropagation();
