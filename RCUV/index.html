@@ -1,8 +1,10 @@
 <!DOCTYPE html>
 <!-- 
-  版本號：v1.23
+  版本號：v1.24
   修改主旨：
-  1. 於舊約分類提示框 (Tooltip) 的內文結尾，補充對《七十士譯本》與教會歷代熟悉順序的肯定。
+  1. 將「從」與「到」的章節選擇器由下拉選單升級為左右雙欄的 5 網格 Modal。
+  2. 導入「隱藏且精準佔位」邏輯，不合法的起訖數字保持欄位對齊但不佔用無效的空白列。
+  3. 實作章節聯動與自動關閉機制，點擊「章」自動高亮該章首節，點擊「節」則完成選擇並觸發更新。
 -->
 <html lang="zh-TW">
 <head>
@@ -57,33 +59,38 @@
 </head>
 <body class="bg-stone-50 text-stone-800 font-sans min-h-screen pb-20">
 
+    <!-- 隱藏原生 select 作為狀態儲存中樞 (Single Source of Truth) -->
+    <div class="hidden">
+        <select id="book-select"></select>
+        <select id="from-chapter"></select>
+        <select id="from-verse"></select>
+        <select id="to-chapter"></select>
+        <select id="to-verse"></select>
+    </div>
+
     <!-- 頂部導航與分享區塊 -->
     <header class="bg-white border-b border-stone-200 sticky top-0 z-30 shadow-sm">
         <div class="max-w-4xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-3">
             <!-- 整合後的控制選單區塊 -->
             <div class="flex flex-wrap items-center gap-2 flex-1">
                 
-                <!-- 隱藏原生 select 作為狀態儲存中樞 (Single Source of Truth) -->
-                <select id="book-select" class="hidden"></select>
-                
                 <!-- 書卷 Modal 觸發按鈕 -->
-                <button id="btn-book-modal" disabled onclick="toggleBookModal()" class="py-1.5 px-4 border border-stone-300 rounded-full focus:ring-2 focus:ring-amber-500 outline-none bg-white text-stone-800 disabled:opacity-60 font-bold text-sm sm:text-base flex items-center gap-1.5 shadow-sm transition hover:bg-stone-50">
+                <button id="btn-book-modal" disabled onclick="toggleBookModal()" class="py-1.5 px-3 md:px-4 border border-stone-300 rounded-full focus:ring-2 focus:ring-amber-500 outline-none bg-white text-stone-800 disabled:opacity-60 font-bold text-sm sm:text-base flex items-center gap-1.5 shadow-sm transition hover:bg-stone-50 shrink-0">
                     <span id="current-book-name">載入中...</span>
                     <svg class="w-4 h-4 text-stone-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                 </button>
                 
-                <div class="flex items-center bg-stone-50 border border-stone-300 rounded-md px-1 focus-within:ring-2 focus-within:ring-amber-500">
-                    <span class="text-xs font-bold text-stone-500 pl-1 shrink-0">從</span>
-                    <select id="from-chapter" disabled class="py-1 px-1 bg-transparent text-stone-800 font-medium outline-none text-sm border-none focus:ring-0"><option>載入中...</option></select>
-                    <span class="text-stone-400 text-xs font-bold">:</span>
-                    <select id="from-verse" disabled class="py-1 px-1 bg-transparent text-stone-800 font-medium outline-none text-sm border-none focus:ring-0"><option>載入中...</option></select>
-                </div>
-
-                <div class="flex items-center bg-stone-50 border border-stone-300 rounded-md px-1 focus-within:ring-2 focus-within:ring-amber-500">
-                    <span class="text-xs font-bold text-stone-500 pl-1 shrink-0">到</span>
-                    <select id="to-chapter" disabled class="py-1 px-1 bg-transparent text-stone-800 font-medium outline-none text-sm border-none focus:ring-0"><option>載入中...</option></select>
-                    <span class="text-stone-400 text-xs font-bold">:</span>
-                    <select id="to-verse" disabled class="py-1 px-1 bg-transparent text-stone-800 font-medium outline-none text-sm border-none focus:ring-0"><option>載入中...</option></select>
+                <!-- 章節 Modal 觸發按鈕群 -->
+                <div class="flex items-center gap-1.5 shrink-0">
+                    <button id="btn-from-modal" disabled onclick="openCvModal('from')" class="py-1.5 px-3 border border-stone-300 rounded-lg bg-stone-50 text-stone-800 disabled:opacity-60 hover:bg-stone-100 transition flex items-center gap-1 shadow-sm focus:ring-2 focus:ring-amber-500 outline-none">
+                        <span class="text-xs font-bold text-stone-500">從</span>
+                        <span id="label-from" class="text-sm font-bold tracking-wide">載入中...</span>
+                    </button>
+                    <span class="text-stone-300 font-bold">-</span>
+                    <button id="btn-to-modal" disabled onclick="openCvModal('to')" class="py-1.5 px-3 border border-stone-300 rounded-lg bg-stone-50 text-stone-800 disabled:opacity-60 hover:bg-stone-100 transition flex items-center gap-1 shadow-sm focus:ring-2 focus:ring-amber-500 outline-none">
+                        <span class="text-xs font-bold text-stone-500">到</span>
+                        <span id="label-to" class="text-sm font-bold tracking-wide">載入中...</span>
+                    </button>
                 </div>
             </div>
 
@@ -230,8 +237,38 @@
         </div>
     </div>
 
+    <!-- 章節選擇 Modal (Chapter & Verse Modal) -->
+    <div id="cv-modal" class="fixed inset-0 bg-stone-900/60 hidden flex items-center justify-center z-50 transition-opacity backdrop-blur-sm" onclick="if(event.target === this) closeCvModal()">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-[500px] mx-4 flex flex-col h-[70vh] relative transform transition-transform scale-100 overflow-hidden">
+            <div class="p-4 border-b border-stone-200 flex justify-between items-center shrink-0 bg-stone-50">
+                <h4 id="cv-modal-title" class="font-bold text-stone-800 text-lg flex items-center gap-2">
+                    選擇起始章節
+                </h4>
+                <button onclick="closeCvModal()" class="text-stone-500 hover:text-stone-800 transition bg-stone-200 hover:bg-stone-300 rounded-full p-1.5">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="flex-1 flex overflow-hidden">
+                <!-- 左側：章 (Chapter) -->
+                <div class="w-1/2 overflow-y-auto p-4 border-r border-stone-200 relative bg-white">
+                    <h5 class="text-sm font-bold text-stone-400 mb-3 text-center sticky top-0 bg-white/95 backdrop-blur py-2 z-10 uppercase tracking-widest">第 幾 章</h5>
+                    <div id="cv-modal-chapters" class="grid grid-cols-5 gap-2">
+                        <!-- JS 動態生成章 -->
+                    </div>
+                </div>
+                <!-- 右側：節 (Verse) -->
+                <div class="w-1/2 overflow-y-auto p-4 bg-stone-50/50 relative">
+                    <h5 class="text-sm font-bold text-stone-400 mb-3 text-center sticky top-0 bg-stone-50/95 backdrop-blur py-2 z-10 uppercase tracking-widest">第 幾 節</h5>
+                    <div id="cv-modal-verses" class="grid grid-cols-5 gap-2">
+                        <!-- JS 動態生成節 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 右下角版本號標示 (用於確認佈署狀態) -->
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.23</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.24</div>
 
     <script>
         // ==========================================
@@ -340,6 +377,10 @@
             fVerse: document.getElementById('from-verse'),
             tChap: document.getElementById('to-chapter'),
             tVerse: document.getElementById('to-verse'),
+            btnFromModal: document.getElementById('btn-from-modal'),
+            btnToModal: document.getElementById('btn-to-modal'),
+            labelFrom: document.getElementById('label-from'),
+            labelTo: document.getElementById('label-to'),
             container: document.getElementById('scripture-container'),
             btnPlay: document.getElementById('btn-play'),
             btnPause: document.getElementById('btn-pause'),
@@ -354,6 +395,9 @@
             voiceSelect: document.getElementById('voice-select'),
             rateSelect: document.getElementById('rate-select')
         };
+
+        // 章節選擇 Modal 的暫存狀態
+        let cvState = { type: 'from', chap: 1, verse: 1 };
 
         // ==========================================
         // 2. 初始化與資料快取 (IndexedDB / localforage)
@@ -393,10 +437,11 @@
                 // 解析 URL 並渲染
                 parseUrlAndRender();
 
-                // 隱藏狀態列，解鎖選單
+                // 隱藏狀態列，解鎖選單與按鈕
                 els.statusBar.classList.add('hidden');
-                document.querySelectorAll('select').forEach(el => el.disabled = false);
                 els.btnBookModal.disabled = false;
+                els.btnFromModal.disabled = false;
+                els.btnToModal.disabled = false;
                 els.btnPlay.disabled = false;
                 els.btnExportPpt.disabled = false;
 
@@ -553,6 +598,12 @@
             }
             document.title = `${titleStr} | 和合本 2010`;
         }
+        
+        // 同步隱藏選單的值到 UI 按鈕上
+        function syncLabels() {
+            if(els.labelFrom) els.labelFrom.textContent = `${els.fChap.value} : ${els.fVerse.value}`;
+            if(els.labelTo) els.labelTo.textContent = `${els.tChap.value} : ${els.tVerse.value}`;
+        }
 
         // ==========================================
         // 4. UI 聯動選單與防呆 (Validation)
@@ -682,6 +733,7 @@
             // 由於 UI 選單建立時已實作事前防呆（動態過濾不合法的選項），
             // 系統保證迄點必定 >= 起點，因此移除舊版事後校正邏輯，直接執行更新。
             
+            syncLabels();
             updateUrlAndTitle();
             extractAndRenderScripture();
         }
@@ -696,11 +748,137 @@
             enforceValidationAndExtract();
         };
 
-        // 綁定事件 (書卷的 change 事件已整合入 selectBook)
-        els.fChap.addEventListener('change', () => { updateVerseSelects('from'); updateToChapterSelect(); enforceValidationAndExtract(); });
-        els.fVerse.addEventListener('change', () => { updateToVerseSelect(); enforceValidationAndExtract(); });
-        els.tChap.addEventListener('change', () => { updateToVerseSelect(); enforceValidationAndExtract(); });
-        els.tVerse.addEventListener('change', enforceValidationAndExtract);
+        // ==========================================
+        // 4.5 章節選擇 Modal (CV Modal) 控制邏輯
+        // ==========================================
+        window.openCvModal = function(type) {
+            const book = els.bookSelect.value;
+            if (!bibleData[book]) return;
+            
+            cvState.type = type;
+            document.getElementById('cv-modal-title').textContent = type === 'from' ? '選擇起始章節' : '選擇結束章節';
+            
+            // 讀取當前隱藏 select 的設定為暫存狀態
+            cvState.chap = type === 'from' ? parseInt(els.fChap.value) : parseInt(els.tChap.value);
+            cvState.verse = type === 'from' ? parseInt(els.fVerse.value) : parseInt(els.tVerse.value);
+            
+            renderCvChapters();
+            renderCvVerses(cvState.chap);
+            
+            document.getElementById('cv-modal').classList.remove('hidden');
+        };
+
+        window.closeCvModal = function() {
+            document.getElementById('cv-modal').classList.add('hidden');
+        };
+
+        function renderCvChapters() {
+            const book = els.bookSelect.value;
+            const chapters = Object.keys(bibleData[book]).map(Number).sort((a,b)=>a-b);
+            const container = document.getElementById('cv-modal-chapters');
+            
+            let minChap = 1;
+            let maxChap = chapters[chapters.length - 1];
+            
+            // 若為「到」，隱藏不合法的章，但保留欄位對齊
+            if (cvState.type === 'to') {
+                minChap = parseInt(els.fChap.value);
+            }
+            
+            let html = '';
+            // 隱藏且佔位邏輯：第一列從 (minChap-1)%5 個空格開始
+            const paddingCount = (minChap - 1) % 5;
+            for(let i = 0; i < paddingCount; i++) {
+                html += `<div class="invisible py-2"></div>`;
+            }
+            
+            for(let c = minChap; c <= maxChap; c++) {
+                const isActive = c === cvState.chap;
+                const btnClass = isActive 
+                    ? 'bg-amber-500 text-white shadow-md transform scale-105' 
+                    : 'bg-white text-stone-700 hover:bg-amber-100 border border-stone-200';
+                html += `<button onclick="handleCvChapClick(${c})" class="py-2 text-center rounded-lg font-bold text-[15px] transition ${btnClass}">${c}</button>`;
+            }
+            
+            container.innerHTML = html;
+        }
+
+        function renderCvVerses(chap) {
+            const book = els.bookSelect.value;
+            if (!bibleData[book] || !bibleData[book][chap]) return;
+            
+            const verses = Object.keys(bibleData[book][chap]).map(Number).sort((a,b)=>a-b);
+            const container = document.getElementById('cv-modal-verses');
+            
+            let minVerse = verses[0] || 1;
+            let maxVerse = verses[verses.length - 1];
+            
+            // 若為「到」且與起始同章，隱藏不合法的節，但保留欄位對齊
+            if (cvState.type === 'to' && chap === parseInt(els.fChap.value)) {
+                minVerse = parseInt(els.fVerse.value);
+            }
+            
+            let html = '';
+            // 隱藏且佔位邏輯
+            const paddingCount = (minVerse - 1) % 5;
+            for(let i = 0; i < paddingCount; i++) {
+                html += `<div class="invisible py-2"></div>`;
+            }
+            
+            for(let v = minVerse; v <= maxVerse; v++) {
+                if (!verses.includes(v)) {
+                    html += `<div class="invisible py-2"></div>`;
+                    continue;
+                }
+                const isActive = v === cvState.verse;
+                const btnClass = isActive 
+                    ? 'bg-amber-500 text-white shadow-md transform scale-105' 
+                    : 'bg-white text-stone-700 hover:bg-amber-100 border border-stone-200';
+                html += `<button onclick="handleCvVerseClick(${v})" class="py-2 text-center rounded-lg font-bold text-[15px] transition ${btnClass}">${v}</button>`;
+            }
+            
+            container.innerHTML = html;
+        }
+
+        window.handleCvChapClick = function(c) {
+            cvState.chap = c;
+            
+            // 決定該章合法的最小節數，並自動高亮
+            let newMinVerse = 1;
+            if (cvState.type === 'to' && c === parseInt(els.fChap.value)) {
+                newMinVerse = parseInt(els.fVerse.value);
+            }
+            
+            const book = els.bookSelect.value;
+            const verses = Object.keys(bibleData[book][c]).map(Number).sort((a,b)=>a-b);
+            const firstValidVerse = verses.find(v => v >= newMinVerse) || verses[0];
+            cvState.verse = firstValidVerse;
+            
+            // 重繪左右畫面
+            renderCvChapters();
+            renderCvVerses(c);
+        };
+
+        window.handleCvVerseClick = function(v) {
+            cvState.verse = v;
+            
+            // 將選擇結果寫回隱藏的 selects
+            if (cvState.type === 'from') {
+                els.fChap.value = cvState.chap;
+                updateVerseSelects('from', false);
+                els.fVerse.value = cvState.verse;
+                
+                // 此函式內部已包含「如果 from 超過 to，強制把 to 對齊 from」的防呆機制
+                updateToChapterSelect(false);
+            } else {
+                els.tChap.value = cvState.chap;
+                updateToVerseSelect(false);
+                els.tVerse.value = cvState.verse;
+            }
+            
+            closeCvModal();
+            enforceValidationAndExtract();
+        };
 
         // ==========================================
         // 5. 經文抽取與畫面渲染 Engine
