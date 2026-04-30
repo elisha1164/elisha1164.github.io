@@ -1,10 +1,8 @@
 <!DOCTYPE html>
 <!-- 
-  版本號：v1.21
+  版本號：v1.22
   修改主旨：
-  1. 將書卷選擇器由下拉選單升級為 Modal 介面。
-  2. 舊約書卷依照希伯來聖經 (TaNaKh) 順序重新歸類為「律法、先知、詩歌」，並新增神學排序說明提示。
-  3. 新約書卷依照「福音、歷史、書信、預言」歸類，全數套用響應式膠囊按鈕與獨立色彩計畫。
+  1. 修正舊約分類提示框 (Tooltip) 的內文，標示引用經文之關鍵字 (律法、先知、詩篇、亞伯、撒迦利亞)，並統一標點符號與樣式。
 -->
 <html lang="zh-TW">
 <head>
@@ -233,7 +231,7 @@
     </div>
 
     <!-- 右下角版本號標示 (用於確認佈署狀態) -->
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.21</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.22</div>
 
     <script>
         // ==========================================
@@ -1182,9 +1180,9 @@
                             <!-- Tooltip Panel -->
                             <div class="absolute left-0 top-full mt-2 w-72 sm:w-80 bg-stone-800 text-stone-50 text-sm p-4 rounded-xl shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 pointer-events-none text-left">
                                 <p class="font-bold text-amber-400 mb-2">「舊約順序好陌生？」</p>
-                                <p class="leading-relaxed text-stone-200 mb-2">本系統採用舊約聖經的原始架構，也是主耶穌親口證實的順序：「摩西的律法、先知的書，和《詩篇》上所記一切指著我的話都必須應驗。」（路24:44）。</p>
-                                <p class="leading-relaxed text-stone-200 mb-2">此外，主耶穌提到殉道者的血是「從亞伯...直到…撒迦利亞」（路11:51），透露出主耶穌心中的舊約排序是從亞伯所在《創世記》到撒迦利亞所在的《歷代志》。</p>
-                                <p class="leading-relaxed text-amber-300 font-bold">老張是主耶穌的門徒，老張支持主耶穌所定的聖經排序。</p>
+                                <p class="leading-relaxed text-stone-200 mb-2">本系統採用舊約聖經的原始架構，也是主耶穌親口證實的順序：「摩西的<strong>律法</strong>、<strong>先知</strong>的書，和《<strong>詩篇</strong>》上所記一切指著我的話都必須應驗。」（路24:44）。</p>
+                                <p class="leading-relaxed text-stone-200 mb-2">此外，主耶穌提到殉道者的血是「從<strong>亞伯</strong>…直到…<strong>撒迦利亞</strong>」（路11:51），透露出主耶穌心中的舊約排序是從亞伯所在的《創世記》到撒迦利亞所在的《歷代志》。</p>
+                                <p class="leading-relaxed text-stone-200">老張是主耶穌的門徒，老張跟隨主耶穌所定的聖經排序。</p>
                                 <div class="absolute -top-2 left-3 w-4 h-4 bg-stone-800 transform rotate-45"></div>
                             </div>
                         </div>
