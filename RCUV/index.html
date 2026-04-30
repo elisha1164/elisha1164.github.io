@@ -1,8 +1,10 @@
 <!DOCTYPE html>
 <!-- 
-  版本號：v1.20
+  版本號：v1.21
   修改主旨：
-  1. 將 og:description 更改為「輕量的聖經app，能夠朗讀經文、一鍵製作 PPT。」
+  1. 將書卷選擇器由下拉選單升級為 Modal 介面。
+  2. 舊約書卷依照希伯來聖經 (TaNaKh) 順序重新歸類為「律法、先知、詩歌」，並新增神學排序說明提示。
+  3. 新約書卷依照「福音、歷史、書信、預言」歸類，全數套用響應式膠囊按鈕與獨立色彩計畫。
 -->
 <html lang="zh-TW">
 <head>
@@ -62,9 +64,15 @@
         <div class="max-w-4xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-3">
             <!-- 整合後的控制選單區塊 -->
             <div class="flex flex-wrap items-center gap-2 flex-1">
-                <select id="book-select" disabled class="py-1 px-2 border border-stone-300 rounded-md focus:ring-2 focus:ring-amber-500 outline-none bg-stone-50 text-stone-800 disabled:opacity-60 font-bold text-sm sm:text-base">
-                    <option>載入中...</option>
-                </select>
+                
+                <!-- 隱藏原生 select 作為狀態儲存中樞 (Single Source of Truth) -->
+                <select id="book-select" class="hidden"></select>
+                
+                <!-- 書卷 Modal 觸發按鈕 -->
+                <button id="btn-book-modal" disabled onclick="toggleBookModal()" class="py-1.5 px-4 border border-stone-300 rounded-full focus:ring-2 focus:ring-amber-500 outline-none bg-white text-stone-800 disabled:opacity-60 font-bold text-sm sm:text-base flex items-center gap-1.5 shadow-sm transition hover:bg-stone-50">
+                    <span id="current-book-name">載入中...</span>
+                    <svg class="w-4 h-4 text-stone-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </button>
                 
                 <div class="flex items-center bg-stone-50 border border-stone-300 rounded-md px-1 focus-within:ring-2 focus-within:ring-amber-500">
                     <span class="text-xs font-bold text-stone-500 pl-1 shrink-0">從</span>
@@ -110,7 +118,7 @@
                     <!-- Share Icon (預設隱藏，若支援 Web Share API 則顯示) -->
                     <svg id="icon-share" class="w-5 h-5 hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg>
                     <!-- Copy Icon (預設顯示，作為 Fallback) -->
-                    <svg id="icon-copy" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    <svg id="icon-copy" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
                 </button>
                 
                 <!-- 設定按鈕與下拉選單容器 -->
@@ -206,8 +214,26 @@
         </div>
     </div>
 
+    <!-- 書卷選擇 Modal (Book Selection Modal) -->
+    <div id="book-modal" class="fixed inset-0 bg-stone-900/60 hidden flex items-center justify-center z-50 transition-opacity backdrop-blur-sm" onclick="if(event.target === this) toggleBookModal()">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-4 flex flex-col max-h-[85vh] relative transform transition-transform scale-100">
+            <div class="p-5 border-b border-stone-200 flex justify-between items-center shrink-0 bg-stone-50 rounded-t-2xl">
+                <h4 class="font-bold text-stone-800 text-xl flex items-center gap-2">
+                    <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                    選擇書卷
+                </h4>
+                <button onclick="toggleBookModal()" class="text-stone-500 hover:text-stone-800 transition bg-stone-200 hover:bg-stone-300 rounded-full p-1.5">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div id="book-modal-body" class="p-5 md:p-6 overflow-y-auto bg-white rounded-b-2xl">
+                <!-- JS 動態產生膠囊按鈕內容 -->
+            </div>
+        </div>
+    </div>
+
     <!-- 右下角版本號標示 (用於確認佈署狀態) -->
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.20</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.21</div>
 
     <script>
         // ==========================================
@@ -246,6 +272,29 @@
         // 反向對照表 (用於生成 URL)
         const revBookMap = Object.keys(bookMap).reduce((acc, key) => { acc[bookMap[key]] = key; return acc; }, {});
         const bookOrderArray = Object.values(bookMap);
+
+        // 書卷選擇 Modal 專用分類字典 (TaNaKh 架構 + 新約分類)
+        const modalBookCategories = [
+            {
+                title: "舊約",
+                hasTooltip: true,
+                sections: [
+                    { name: "律法", color: "bg-amber-100 text-amber-800 hover:bg-amber-200 border-amber-200", books: ["創世記", "出埃及記", "利未記", "民數記", "申命記"] },
+                    { name: "先知", color: "bg-indigo-100 text-indigo-800 hover:bg-indigo-200 border-indigo-200", books: ["約書亞記", "士師記", "撒母耳記上", "撒母耳記下", "列王紀上", "列王紀下", "以賽亞書", "耶利米書", "以西結書", "何西阿書", "約珥書", "阿摩司書", "俄巴底亞書", "約拿書", "彌迦書", "那鴻書", "哈巴谷書", "西番雅書", "哈該書", "撒迦利亞書", "瑪拉基書"] },
+                    { name: "詩歌", color: "bg-rose-100 text-rose-800 hover:bg-rose-200 border-rose-200", books: ["詩篇", "箴言", "約伯記", "雅歌", "路得記", "耶利米哀歌", "傳道書", "以斯帖記", "但以理書", "以斯拉記", "尼希米記", "歷代志上", "歷代志下"] }
+                ]
+            },
+            {
+                title: "新約",
+                hasTooltip: false,
+                sections: [
+                    { name: "福音", color: "bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border-emerald-200", books: ["馬太福音", "馬可福音", "路加福音", "約翰福音"] },
+                    { name: "歷史", color: "bg-sky-100 text-sky-800 hover:bg-sky-200 border-sky-200", books: ["使徒行傳"] },
+                    { name: "書信", color: "bg-purple-100 text-purple-800 hover:bg-purple-200 border-purple-200", books: ["羅馬書", "哥林多前書", "哥林多後書", "加拉太書", "以弗所書", "腓立比書", "歌羅西書", "帖撒羅尼迦前書", "帖撒羅尼迦後書", "提摩太前書", "提摩太後書", "提多書", "腓利門書", "希伯來書", "雅各書", "彼得前書", "彼得後書", "約翰一書", "約翰二書", "約翰三書", "猶大書"] },
+                    { name: "預言", color: "bg-orange-100 text-orange-800 hover:bg-orange-200 border-orange-200", books: ["啟示錄"] }
+                ]
+            }
+        ];
 
         // 書卷中文標準簡寫標記對應表 (用於動態產生簡寫表)
         const bookAbbrevFormatCh = {
@@ -287,6 +336,8 @@
         const els = {
             statusBar: document.getElementById('status-bar'),
             bookSelect: document.getElementById('book-select'),
+            btnBookModal: document.getElementById('btn-book-modal'),
+            currentBookName: document.getElementById('current-book-name'),
             fChap: document.getElementById('from-chapter'),
             fVerse: document.getElementById('from-verse'),
             tChap: document.getElementById('to-chapter'),
@@ -317,8 +368,9 @@
                     document.getElementById('icon-copy').classList.add('hidden');
                 }
 
-                // 產生簡寫表內容
+                // 產生簡寫表與書卷 Modal 內容
                 initAbbrevTable();
+                initBookModalContent();
 
                 // 嘗試從本地快取讀取
                 let data = await localforage.getItem('rcuv_data');
@@ -346,6 +398,7 @@
                 // 隱藏狀態列，解鎖選單
                 els.statusBar.classList.add('hidden');
                 document.querySelectorAll('select').forEach(el => el.disabled = false);
+                els.btnBookModal.disabled = false;
                 els.btnPlay.disabled = false;
                 els.btnExportPpt.disabled = false;
 
@@ -422,8 +475,9 @@
                 }
             }
 
-            // 更新選單 UI (觸發連動，但不強制重設，以配合 URL 參數)
+            // 更新隱藏的下拉選單與按鈕顯示文字 (觸發連動，但不強制重設，以配合 URL 參數)
             els.bookSelect.value = state.b;
+            if (els.currentBookName) els.currentBookName.textContent = state.b;
             updateChapterSelects(false);
             
             // 安全填寫數值並觸發依賴更新
@@ -634,10 +688,17 @@
             extractAndRenderScripture();
         }
 
-        // 綁定事件
-        // 當書卷切換時，傳入 reset = true，強制重設所有章節為 1
-        els.bookSelect.addEventListener('change', () => { updateChapterSelects(true); enforceValidationAndExtract(); });
-        
+        // 當使用者在 Modal 點擊膠囊按鈕時觸發
+        window.selectBook = function(bookName) {
+            if (!bibleData[bookName]) return;
+            els.bookSelect.value = bookName;
+            els.currentBookName.textContent = bookName;
+            toggleBookModal();
+            updateChapterSelects(true);
+            enforceValidationAndExtract();
+        };
+
+        // 綁定事件 (書卷的 change 事件已整合入 selectBook)
         els.fChap.addEventListener('change', () => { updateVerseSelects('from'); updateToChapterSelect(); enforceValidationAndExtract(); });
         els.fVerse.addEventListener('change', () => { updateToVerseSelect(); enforceValidationAndExtract(); });
         els.tChap.addEventListener('change', () => { updateToVerseSelect(); enforceValidationAndExtract(); });
@@ -1080,6 +1141,12 @@
             toggleAbbrevModal();
         });
 
+        // 書卷選擇 Modal 切換邏輯
+        function toggleBookModal() {
+            document.getElementById('book-modal').classList.toggle('hidden');
+        }
+        window.toggleBookModal = toggleBookModal;
+
         // 動態生成書卷簡寫表內容
         function initAbbrevTable() {
             const tbody = document.getElementById('abbrev-table-body');
@@ -1094,6 +1161,51 @@
                 `;
             }
             tbody.innerHTML = html;
+        }
+
+        // 動態生成書卷選擇 Modal 內容
+        function initBookModalContent() {
+            const modalBody = document.getElementById('book-modal-body');
+            let html = '';
+            modalBookCategories.forEach(cat => {
+                html += `<div class="mb-8 last:mb-0">`;
+                html += `
+                    <div class="flex items-center gap-2 mb-4">
+                        <h3 class="text-xl font-bold text-stone-800">${cat.title}</h3>
+                `;
+                
+                // 神學排序問號提示框 (Tooltip)
+                if (cat.hasTooltip) {
+                    html += `
+                        <div class="relative group cursor-pointer inline-flex items-center" tabindex="0">
+                            <svg class="w-5 h-5 text-stone-400 hover:text-stone-600 transition outline-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            <!-- Tooltip Panel -->
+                            <div class="absolute left-0 top-full mt-2 w-72 sm:w-80 bg-stone-800 text-stone-50 text-sm p-4 rounded-xl shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 pointer-events-none text-left">
+                                <p class="font-bold text-amber-400 mb-2">「舊約順序好陌生？」</p>
+                                <p class="leading-relaxed text-stone-200 mb-2">本系統採用舊約聖經的原始架構，也是主耶穌親口證實的順序：「摩西的律法、先知的書，和《詩篇》上所記一切指著我的話都必須應驗。」（路24:44）。</p>
+                                <p class="leading-relaxed text-stone-200 mb-2">此外，主耶穌提到殉道者的血是「從亞伯...直到…撒迦利亞」（路11:51），透露出主耶穌心中的舊約排序是從亞伯所在《創世記》到撒迦利亞所在的《歷代志》。</p>
+                                <p class="leading-relaxed text-amber-300 font-bold">老張是主耶穌的門徒，老張支持主耶穌所定的聖經排序。</p>
+                                <div class="absolute -top-2 left-3 w-4 h-4 bg-stone-800 transform rotate-45"></div>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                html += `</div>`;
+
+                cat.sections.forEach(sec => {
+                    html += `<div class="mb-5 last:mb-0">`;
+                    html += `<h4 class="text-sm font-bold text-stone-500 mb-2.5 border-b border-stone-200 pb-1">${sec.name}</h4>`;
+                    html += `<div class="flex flex-wrap gap-2">`;
+                    sec.books.forEach(book => {
+                        // 使用 onclick 直接呼叫 global selectBook 函式
+                        html += `<button onclick="selectBook('${book}')" class="px-3 py-1.5 border rounded-full text-[15px] font-bold transition shadow-sm ${sec.color}">${book}</button>`;
+                    });
+                    html += `</div></div>`;
+                });
+                html += `</div>`;
+            });
+            modalBody.innerHTML = html;
         }
 
         function copyUrl() {
