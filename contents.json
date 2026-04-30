@@ -1,0 +1,50 @@
+[
+  {
+    "id": "app1",
+    "category": "Podcast",
+    "icon": "headphones",
+    "title": "老張讀書筆記",
+    "subtitle": "The Remnant Reads",
+    "tagline": "「用耳朵吸收歷代聖徒的屬靈智慧」",
+    "description": "沒時間讀書？眼睛累了不想看字？讓老張為你導讀歷代忠信聖徒的經典著作。只要至各大 Podcast 平台訂閱老張讀書筆記，就能利用通勤或做家事的時間，聆聽符合純正教義的真理，讓聖經的智慧成為每天的維他命。",
+    "link": "https://solink.soundon.fm/theremnantreads",
+    "buttonIcon": "play-circle",
+    "buttonText": "點此收聽，用耳朵裝備真理"
+  },
+  {
+    "id": "app2",
+    "category": "讀經",
+    "icon": "book-open",
+    "title": "指向耶穌的大故事",
+    "subtitle": "一年讀經計畫",
+    "tagline": "「見樹也見林，看見每一頁都在指向祂」",
+    "description": "讀經總是卡在利未記？迷失在細碎的經文中？這個一頁式計畫結合了 BibleProject 的優質短文與輔助影片，每天自動為你整理好當天的經文、反思問題與語音朗讀。透過專屬的進度打勾功能，陪你踏實走過每一天，宏觀地看見整本聖經都在講述同一個指向基督的宏大敘事。",
+    "link": "OSTLTJ.html",
+    "buttonIcon": "calendar-check",
+    "buttonText": "點此展開今日讀經，看見大故事"
+  },
+  {
+    "id": "app3",
+    "category": "背經",
+    "icon": "layers",
+    "title": "主題背經系統",
+    "subtitle": "TMS 經典閃卡",
+    "tagline": "「把神的話藏在心裡，成為隨身的兵器」",
+    "description": "想要背誦神的話，卻總是背了又忘？我們將導航會最經典的 60 句核心金句，化為數位「翻轉閃卡」。正面提示、背面解答，並貼心支援語音朗讀功能。只要滑開手機，隨時隨地都能複習，將真理深深印刻在心板上。",
+    "link": "TMS.html",
+    "buttonIcon": "repeat",
+    "buttonText": "點此翻開閃卡，將真理刻在心裡"
+  },
+  {
+    "id": "app4",
+    "category": "背經",
+    "icon": "message-circle-question",
+    "title": "聖經大故事問答",
+    "subtitle": "主線故事一把抓",
+    "tagline": "「透過 45 個關鍵問答，建構宏大故事線」",
+    "description": "萃取自 David Helm 的《The Big Picture Bible Verses》，並轉化為簡單明瞭的數位問答閃卡。正面顯示引導式的核心提問，翻到背面就是精準解答的經文。總共 45 個精心設計的問答，搭配朗讀功能，幫助你在反覆翻卡操練中，清楚追溯並建構出整本聖經「指向耶穌」的宏大故事線。",
+    "link": "BPBV.html",
+    "buttonIcon": "book-key",
+    "buttonText": "點此翻開問答卡，建立真理根基"
+  }
+]

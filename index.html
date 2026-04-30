@@ -1,3 +1,4 @@
+<!-- 版本號: 1.1, 修改主旨: 將靜態內容抽離至 contents.json，並加入動態載入腳本 -->
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -87,76 +88,8 @@
 
     <!-- Tools Grid -->
     <main class="container mx-auto px-6 max-w-5xl flex-grow mb-20">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-            
-            <!-- App 1 -->
-            <article class="bg-white rounded-2xl p-8 shadow-sm border border-stone-100 card-hover flex flex-col h-full">
-                <div class="flex items-center mb-4">
-                    <div class="w-12 h-12 rounded-xl bg-brand-light text-brand-dark flex items-center justify-center mr-4">
-                        <i data-lucide="headphones" class="w-6 h-6"></i>
-                    </div>
-                    <h3 class="text-xl font-bold text-stone-850 leading-tight">老張讀書筆記<br><span class="text-sm text-stone-400 font-normal">The Remnant Reads</span></h3>
-                </div>
-                <h4 class="text-brand-dark font-medium mb-3">「用耳朵吸收歷代聖徒的屬靈智慧」</h4>
-                <p class="text-stone-600 mb-6 flex-grow leading-relaxed text-sm md:text-base">
-                    沒時間讀書？眼睛累了不想看字？讓老張為你導讀歷代忠信聖徒的經典著作。只要至各大 Podcast 平台訂閱老張讀書筆記，就能利用通勤或做家事的時間，聆聽符合純正教義的真理，讓聖經的智慧成為每天的維他命。
-                </p>
-                <a href="https://solink.soundon.fm/theremnantreads" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center w-full bg-stone-100 hover:bg-stone-200 text-stone-800 font-bold py-3 px-4 rounded-xl transition-colors">
-                    <i data-lucide="play-circle" class="w-5 h-5 mr-2"></i> 點此收聽，用耳朵裝備真理
-                </a>
-            </article>
-
-            <!-- App 2 -->
-            <article class="bg-white rounded-2xl p-8 shadow-sm border border-stone-100 card-hover flex flex-col h-full">
-                <div class="flex items-center mb-4">
-                    <div class="w-12 h-12 rounded-xl bg-brand-light text-brand-dark flex items-center justify-center mr-4">
-                        <i data-lucide="book-open" class="w-6 h-6"></i>
-                    </div>
-                    <h3 class="text-xl font-bold text-stone-850 leading-tight">指向耶穌的大故事<br><span class="text-sm text-stone-400 font-normal">一年讀經計畫</span></h3>
-                </div>
-                <h4 class="text-brand-dark font-medium mb-3">「見樹也見林，看見每一頁都在指向祂」</h4>
-                <p class="text-stone-600 mb-6 flex-grow leading-relaxed text-sm md:text-base">
-                    讀經總是卡在利未記？迷失在細碎的經文中？這個一頁式計畫結合了 BibleProject 的優質短文與輔助影片，每天自動為你整理好當天的經文、反思問題與語音朗讀。透過專屬的進度打勾功能，陪你踏實走過每一天，宏觀地看見整本聖經都在講述同一個指向基督的宏大敘事。
-                </p>
-                <a href="OSTLTJ.html" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center w-full bg-stone-100 hover:bg-stone-200 text-stone-800 font-bold py-3 px-4 rounded-xl transition-colors">
-                    <i data-lucide="calendar-check" class="w-5 h-5 mr-2"></i> 點此展開今日讀經，看見大故事
-                </a>
-            </article>
-
-            <!-- App 3 -->
-            <article class="bg-white rounded-2xl p-8 shadow-sm border border-stone-100 card-hover flex flex-col h-full">
-                <div class="flex items-center mb-4">
-                    <div class="w-12 h-12 rounded-xl bg-brand-light text-brand-dark flex items-center justify-center mr-4">
-                        <i data-lucide="layers" class="w-6 h-6"></i>
-                    </div>
-                    <h3 class="text-xl font-bold text-stone-850 leading-tight">主題背經系統<br><span class="text-sm text-stone-400 font-normal">TMS 經典閃卡</span></h3>
-                </div>
-                <h4 class="text-brand-dark font-medium mb-3">「把神的話藏在心裡，成為隨身的兵器」</h4>
-                <p class="text-stone-600 mb-6 flex-grow leading-relaxed text-sm md:text-base">
-                    想要背誦神的話，卻總是背了又忘？我們將導航會最經典的 60 句核心金句，化為數位「翻轉閃卡」。正面提示、背面解答，並貼心支援語音朗讀功能。只要滑開手機，隨時隨地都能複習，將真理深深印刻在心板上。
-                </p>
-                <a href="TMS.html" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center w-full bg-stone-100 hover:bg-stone-200 text-stone-800 font-bold py-3 px-4 rounded-xl transition-colors">
-                    <i data-lucide="repeat" class="w-5 h-5 mr-2"></i> 點此翻開閃卡，將真理刻在心裡
-                </a>
-            </article>
-
-            <!-- App 4 -->
-            <article class="bg-white rounded-2xl p-8 shadow-sm border border-stone-100 card-hover flex flex-col h-full">
-                <div class="flex items-center mb-4">
-                    <div class="w-12 h-12 rounded-xl bg-brand-light text-brand-dark flex items-center justify-center mr-4">
-                        <i data-lucide="message-circle-question" class="w-6 h-6"></i>
-                    </div>
-                    <h3 class="text-xl font-bold text-stone-850 leading-tight">聖經大故事問答<br><span class="text-sm text-stone-400 font-normal">主線故事一把抓</span></h3>
-                </div>
-                <h4 class="text-brand-dark font-medium mb-3">「透過 45 個關鍵問答，建構宏大故事線」</h4>
-                <p class="text-stone-600 mb-6 flex-grow leading-relaxed text-sm md:text-base">
-                    萃取自 David Helm 的《The Big Picture Bible Verses》，並轉化為簡單明瞭的數位問答閃卡。正面顯示引導式的核心提問，翻到背面就是精準解答的經文。總共 45 個精心設計的問答，搭配朗讀功能，幫助你在反覆翻卡操練中，清楚追溯並建構出整本聖經「指向耶穌」的宏大故事線。
-                </p>
-                <a href="BPBV.html" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center w-full bg-stone-100 hover:bg-stone-200 text-stone-800 font-bold py-3 px-4 rounded-xl transition-colors">
-                    <i data-lucide="book-key" class="w-5 h-5 mr-2"></i> 點此翻開問答卡，建立真理根基
-                </a>
-            </article>
-
+        <div id="tools-container" class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <!-- 應用程式卡片將由 JavaScript 動態載入於此處 -->
         </div>
     </main>
 
@@ -168,9 +101,48 @@
         </div>
     </footer>
 
-    <!-- Initialize Lucide Icons -->
+    <!-- Initialize App Logic -->
     <script>
-        lucide.createIcons();
+        document.addEventListener('DOMContentLoaded', () => {
+            fetch('contents.json')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    const container = document.getElementById('tools-container');
+                    let html = '';
+                    
+                    data.forEach(tool => {
+                        html += `
+                        <article class="bg-white rounded-2xl p-8 shadow-sm border border-stone-100 card-hover flex flex-col h-full">
+                            <div class="flex items-center mb-4">
+                                <div class="w-12 h-12 rounded-xl bg-brand-light text-brand-dark flex items-center justify-center mr-4">
+                                    <i data-lucide="${tool.icon}" class="w-6 h-6"></i>
+                                </div>
+                                <h3 class="text-xl font-bold text-stone-850 leading-tight">${tool.title}<br><span class="text-sm text-stone-400 font-normal">${tool.subtitle}</span></h3>
+                            </div>
+                            <h4 class="text-brand-dark font-medium mb-3">${tool.tagline}</h4>
+                            <p class="text-stone-600 mb-6 flex-grow leading-relaxed text-sm md:text-base">
+                                ${tool.description}
+                            </p>
+                            <a href="${tool.link}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center w-full bg-stone-100 hover:bg-stone-200 text-stone-800 font-bold py-3 px-4 rounded-xl transition-colors">
+                                <i data-lucide="${tool.buttonIcon}" class="w-5 h-5 mr-2"></i> ${tool.buttonText}
+                            </a>
+                        </article>
+                        `;
+                    });
+                    
+                    container.innerHTML = html;
+                    lucide.createIcons();
+                })
+                .catch(error => {
+                    console.error('載入內容失敗:', error);
+                    document.getElementById('tools-container').innerHTML = '<p class="text-center text-red-500 col-span-full">無法載入工具列表，請確認伺服器環境或檔案路徑是否正確。</p>';
+                });
+        });
     </script>
 </body>
 </html>
