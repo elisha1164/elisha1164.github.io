@@ -1,5 +1,5 @@
-<!-- Version: 1.1 -->
-<!-- 主旨：新增 JavaScript 動態修改 <title> 標籤功能，以配合中英文版本切換 -->
+<!-- Version: 1.2 -->
+<!-- 主旨：將靜態財務數字轉換為 JavaScript 動態計算，並優化進度條動態渲染邏輯 -->
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -39,22 +39,14 @@
         body[data-lang="zh"] .lang-en { display: none !important; }
         body[data-lang="en"] .lang-zh { display: none !important; }
 
-        /* 進度條動畫 - 雙重堆疊 */
-        @keyframes fillPersonal {
-            from { width: 0; }
-            to { width: 23%; } /* 39000 / 169500 = 23% */
+        /* 進度條動畫 - 動態寬度過場 */
+        #bar-personal {
+            width: 0%;
+            transition: width 1.2s ease-out;
         }
-        @keyframes fillPledged {
-            from { width: 0; }
-            to { width: 15%; } /* 26000 / 169500 = 15% */
-        }
-        .progress-personal {
-            animation: fillPersonal 1.2s ease-out forwards;
-        }
-        .progress-pledged {
-            width: 0;
-            animation: fillPledged 1.2s ease-out forwards;
-            animation-delay: 1.2s; /* 在自籌款動畫結束後開始 */
+        #bar-pledged {
+            width: 0%;
+            transition: width 1.2s ease-out 1.2s; /* 等待自籌款動畫結束後開始 */
         }
     </style>
 </head>
@@ -121,24 +113,24 @@
                         <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
                             <span class="lang-zh">目前已備妥 (含自籌)</span><span class="lang-en">Secured (incl. Personal)</span>
                         </p>
-                        <p class="text-2xl md:text-3xl font-bold text-blue-700">USD $65,000</p>
+                        <p class="text-2xl md:text-3xl font-bold text-blue-700">USD $<span class="val-secured">65,000</span></p>
                     </div>
                     <div class="text-right">
                         <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
                             <span class="lang-zh">資金總需</span><span class="lang-en">Total Funding Need</span>
                         </p>
-                        <p class="text-lg md:text-xl font-bold text-slate-700">USD $169,500</p>
+                        <p class="text-lg md:text-xl font-bold text-slate-700">USD $<span class="val-target-total">169,500</span></p>
                     </div>
                 </div>
                 
                 <!-- Stacked Progress Bar -->
                 <div class="w-full bg-slate-200 rounded-full h-5 mb-3 flex overflow-hidden relative shadow-inner">
                     <!-- Personal Contribution -->
-                    <div class="bg-blue-500 h-full relative progress-personal" title="Personal / 自籌 $39,000">
+                    <div id="bar-personal" class="bg-blue-500 h-full relative" title="Personal / 自籌 $39,000">
                         <div class="absolute top-0 left-0 right-0 bottom-0 bg-white opacity-10" style="background-image: linear-gradient(45deg,rgba(255,255,255,.15) 25%,transparent 25%,transparent 50%,rgba(255,255,255,.15) 50%,rgba(255,255,255,.15) 75%,transparent 75%,transparent); background-size: 1rem 1rem;"></div>
                     </div>
                     <!-- Pledged Support -->
-                    <div class="bg-emerald-500 h-full relative progress-pledged border-l border-white/30" title="Pledged / 已募得 $26,000">
+                    <div id="bar-pledged" class="bg-emerald-500 h-full relative border-l border-white/30" title="Pledged / 已募得 $26,000">
                         <div class="absolute top-0 left-0 right-0 bottom-0 bg-white opacity-20" style="background-image: linear-gradient(45deg,rgba(255,255,255,.15) 25%,transparent 25%,transparent 50%,rgba(255,255,255,.15) 50%,rgba(255,255,255,.15) 75%,transparent 75%,transparent); background-size: 1rem 1rem;"></div>
                     </div>
                 </div>
@@ -148,18 +140,18 @@
                     <div class="flex flex-wrap gap-4">
                         <p class="font-bold text-blue-700 flex items-center">
                             <span class="w-3 h-3 rounded-full bg-blue-500 mr-1.5 shadow-sm"></span>
-                            <span class="lang-zh">個人自籌 $39,000</span>
-                            <span class="lang-en">Personal $39,000</span>
+                            <span class="lang-zh">個人自籌 $<span class="val-personal">39,000</span></span>
+                            <span class="lang-en">Personal $<span class="val-personal">39,000</span></span>
                         </p>
                         <p class="font-bold text-emerald-700 flex items-center">
                             <span class="w-3 h-3 rounded-full bg-emerald-500 mr-1.5 shadow-sm"></span>
-                            <span class="lang-zh">已募得 $26,000 / $130,500 (20%)</span>
-                            <span class="lang-en">Pledged $26,000 / $130,500 (20%)</span>
+                            <span class="lang-zh">已募得 $<span class="val-pledged">26,000</span> / $<span class="val-target-tithe">130,500</span> (<span class="val-pledged-percent">20</span>%)</span>
+                            <span class="lang-en">Pledged $<span class="val-pledged">26,000</span> / $<span class="val-target-tithe">130,500</span> (<span class="val-pledged-percent">20</span>%)</span>
                         </p>
                     </div>
                     <p class="text-slate-500 font-bold hidden sm:block">
-                        <span class="lang-zh">總進度：38%</span>
-                        <span class="lang-en">Total: 38%</span>
+                        <span class="lang-zh">總進度：<span class="val-total-percent">38</span>%</span>
+                        <span class="lang-en">Total: <span class="val-total-percent">38</span>%</span>
                     </p>
                 </div>
             </div>
@@ -603,7 +595,7 @@
                                 <span class="lang-zh">- 個人自籌款 <span class="text-xs block sm:inline opacity-80">($13,000/年 × 3年)</span></span>
                                 <span class="lang-en">- Personal Contrib. <span class="text-xs block sm:inline opacity-80">($13k/yr × 3 yrs)</span></span>
                             </span> 
-                            <span class="whitespace-nowrap mt-auto">-$39,000</span>
+                            <span class="whitespace-nowrap mt-auto">-$<span class="val-personal">39,000</span></span>
                         </li>
                         <li class="flex justify-between font-bold text-white pt-2 border-b border-blue-700/50 pb-1 text-base">
                             <span><span class="lang-zh">募款目標</span><span class="lang-en">Fundraising Target</span></span> 
@@ -614,7 +606,7 @@
                                 <span class="lang-zh">加上十一奉獻 <span class="text-sm font-normal block sm:inline opacity-80">(募款目標 ÷ 0.9)</span></span>
                                 <span class="lang-en">Target incl. Tithe <span class="text-sm font-normal block sm:inline opacity-80">(Target ÷ 0.9)</span></span>
                             </span> 
-                            <span class="whitespace-nowrap mt-auto">$130,500</span>
+                            <span class="whitespace-nowrap mt-auto">$<span class="val-target-tithe">130,500</span></span>
                         </li>
                     </ul>
                 </div>
@@ -627,7 +619,7 @@
                         <span class="lang-zh">(個人自籌款+募款目標加上十一奉獻)</span><span class="lang-en">(Personal Contrib. + Target incl. Tithe)</span>
                     </p>
                     <div class="text-5xl font-extrabold tracking-tight text-blue-600 mb-2">
-                        <span class="text-3xl relative top-[-10px]">USD $</span>169,500
+                        <span class="text-3xl relative top-[-10px]">USD $</span><span class="val-target-total">169,500</span>
                     </div>
                 </div>
             </div>
@@ -662,6 +654,52 @@
         const titleZh = "SBTS 赴美神學裝備財務企劃";
         const titleEn = "SBTS Financial Proposal";
 
+        // ==========================================
+        // --- 專案財務設定區 (單一真值來源) ---
+        // ==========================================
+        const PLEDGED_FUND = 26000;         // 已募得 (未來有新奉獻進來時，只需修改這個數字)
+        const PERSONAL_FUND = 39000;        // 個人自籌款
+        const TARGET_INCL_TITHE = 130500;   // 募款目標含十一奉獻
+
+        // --- 自動計算核心數值 ---
+        const TARGET_TOTAL = PERSONAL_FUND + TARGET_INCL_TITHE; 
+        const SECURED_FUND = PLEDGED_FUND + PERSONAL_FUND;
+
+        // 依據商業邏輯計算百分比
+        // 已獲承諾比例：相對於「募款目標含十一奉獻」
+        const pledgedPercent = Math.round((PLEDGED_FUND / TARGET_INCL_TITHE) * 100);
+        // 總進度：相對於「資金總需」
+        const totalPercent = Math.round((SECURED_FUND / TARGET_TOTAL) * 100);
+        
+        // 進度條長度比例：相對於「資金總需」以決定視覺長度
+        const barPersonalPercent = Math.round((PERSONAL_FUND / TARGET_TOTAL) * 100);
+        const barPledgedPercent = Math.round((PLEDGED_FUND / TARGET_TOTAL) * 100);
+
+        function updateFinancialData() {
+            const formatMoney = (num) => num.toLocaleString('en-US');
+
+            // 更新 HTML 裡的金額文字
+            document.querySelectorAll('.val-secured').forEach(el => el.textContent = formatMoney(SECURED_FUND));
+            document.querySelectorAll('.val-target-total').forEach(el => el.textContent = formatMoney(TARGET_TOTAL));
+            document.querySelectorAll('.val-personal').forEach(el => el.textContent = formatMoney(PERSONAL_FUND));
+            document.querySelectorAll('.val-pledged').forEach(el => el.textContent = formatMoney(PLEDGED_FUND));
+            document.querySelectorAll('.val-target-tithe').forEach(el => el.textContent = formatMoney(TARGET_INCL_TITHE));
+
+            // 更新 HTML 裡的百分比文字
+            document.querySelectorAll('.val-pledged-percent').forEach(el => el.textContent = pledgedPercent);
+            document.querySelectorAll('.val-total-percent').forEach(el => el.textContent = totalPercent);
+
+            // 更新進度條 Tooltip (滑鼠懸停文字)
+            document.getElementById('bar-personal').title = `Personal / 自籌 $${formatMoney(PERSONAL_FUND)}`;
+            document.getElementById('bar-pledged').title = `Pledged / 已募得 $${formatMoney(PLEDGED_FUND)}`;
+
+            // 觸發進度條過場動畫 (加上微小延遲確保畫面準備完成)
+            setTimeout(() => {
+                document.getElementById('bar-personal').style.width = barPersonalPercent + '%';
+                document.getElementById('bar-pledged').style.width = barPledgedPercent + '%';
+            }, 100);
+        }
+
         function toggleLang() {
             const body = document.body;
             const url = new URL(window.location);
@@ -689,6 +727,9 @@
             } else {
                 document.title = titleZh;
             }
+            
+            // 執行財務數據動態綁定與渲染
+            updateFinancialData();
         });
     </script>
 </body>
