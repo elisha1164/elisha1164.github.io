@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <!-- 
-  版本號：v1.28
+  版本號：v1.29
   修改主旨：
   1. 移除獨立的「書卷簡寫表」彈出視窗與設定中的觸發按鈕。
   2. 於「選擇書卷」Modal 標題列新增「顯示中英縮寫」Switch 開關，透過 CSS 瞬間切換書卷膠囊的視圖 (單行中文全名 / 雙行中英縮寫)。
+  3. 優化閱讀體驗：當使用者在「從」選單選擇某章「第 1 節」時，系統自動將「到」設為同章最後一節，方便全章閱讀。
 -->
 <html lang="zh-TW">
 <head>
@@ -279,7 +280,7 @@
     </div>
 
     <!-- 右下角版本號標示 (用於確認佈署狀態) -->
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.28</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.29</div>
 
     <script>
         // ==========================================
@@ -885,6 +886,18 @@
                 
                 // 此函式內部已包含「如果 from 超過 to，強制把 to 對齊 from」的防呆機制
                 updateToChapterSelect(false);
+
+                // 若「從」選擇了某章第 1 節，自動將「到」設為同章最後一節
+                if (v === 1) {
+                    const book = els.bookSelect.value;
+                    const chap = cvState.chap;
+                    if (bibleData[book] && bibleData[book][chap]) {
+                        const verses = Object.keys(bibleData[book][chap]).map(Number).sort((a,b)=>a-b);
+                        els.tChap.value = chap;
+                        updateToVerseSelect(false);
+                        els.tVerse.value = verses[verses.length - 1];
+                    }
+                }
             } else {
                 els.tChap.value = cvState.chap;
                 updateToVerseSelect(false);
