@@ -1,7 +1,7 @@
 <!-- 
-  版本號：v1.17
+  版本號：v1.19
   修改主旨：
-  1. 更新「問題回報與建議」的 Google 表單連結與帶入參數格式（包含專案名稱與「週次-日數」格式）。
+  1. 將進階設定選單中的「進度起算日」文字修改為較直觀易懂的「開始日期」。
 -->
 <!DOCTYPE html>
 <html lang="zh-TW">
@@ -293,10 +293,9 @@
                             </select>
                         </div>
                         <div class="p-4 bg-stone-50 border-b border-stone-100">
-                            <label class="block text-xs font-bold text-stone-500 mb-1 uppercase tracking-wider">進度起算日</label>
+                            <label class="block text-xs font-bold text-stone-500 mb-1 uppercase tracking-wider">開始日期</label>
                             <div class="flex gap-2">
                                 <input type="date" id="menuStartDate" onchange="updateStartDate(this.value)" class="w-full text-sm border-stone-200 rounded-lg p-2 bg-white focus:ring-amber-500">
-                                <button onclick="setStartDateToToday()" class="text-xs bg-stone-200 hover:bg-stone-300 text-stone-700 px-3 rounded-lg font-medium whitespace-nowrap transition-colors">設為今日</button>
                             </div>
                         </div>
                         <div class="py-2">
@@ -421,7 +420,7 @@
 
         <!-- Fixed Version Number -->
         <div class="fixed bottom-2 right-2 text-[10px] text-stone-300 font-mono select-none pointer-events-none z-0">
-            v1.17
+            v1.19
         </div>
     </div>
 
@@ -429,7 +428,7 @@
         // ==========================================
         // 1. Constants & State Variables
         // ==========================================
-        const APP_VERSION = '1.17';
+        const APP_VERSION = '1.19';
         const APP_LOAD_TIME = Date.now();
         const TOTAL_DAYS = 150;
         
@@ -620,7 +619,7 @@
             current.setHours(0,0,0,0);
             let count = 0;
 
-            // Advance to the first valid reading day if start date itself isn't one
+            // Advance to the first valid reading day if start date itself isnt one
             while (!readingDays.includes(current.getDay())) {
                 current.setDate(current.getDate() + 1);
             }
@@ -1475,11 +1474,6 @@
             while(!readingDays.includes(d.getDay())) { d.setDate(d.getDate() + 1); }
             setStorage(STORE_KEYS.START_DATE, d.toISOString().split('T')[0]);
             loadAndRenderCurrentDay();
-        }
-
-        function setStartDateToToday() {
-            updateStartDate(getLocalTodayString());
-            document.getElementById('menuStartDate').value = getStorage(STORE_KEYS.START_DATE);
         }
 
         function showFootnote(text) {
