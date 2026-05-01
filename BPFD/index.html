@@ -1,7 +1,7 @@
 <!-- 
-  版本號：v1.19
+  版本號：v1.20
   修改主旨：
-  1. 將進階設定選單中的「進度起算日」文字修改為較直觀易懂的「開始日期」。
+  1. 將介面與語音朗讀中的兩處「本週問答」修改為「大故事金句」。
 -->
 <!DOCTYPE html>
 <html lang="zh-TW">
@@ -326,7 +326,7 @@
             <section id="qaCard" class="bg-white rounded-2xl p-6 shadow-md border border-stone-100">
                 <div class="flex justify-between items-center mb-4 pb-2 border-b border-stone-100">
                     <h2 class="text-lg font-bold text-stone-800 flex items-center">
-                        <i data-lucide="message-circle-question" class="w-5 h-5 mr-2 text-blue-500"></i> 本週問答
+                        <i data-lucide="message-circle-question" class="w-5 h-5 mr-2 text-blue-500"></i> 大故事金句
                     </h2>
                     <!-- TTS Local Controls -->
                     <div class="flex gap-1">
@@ -420,7 +420,7 @@
 
         <!-- Fixed Version Number -->
         <div class="fixed bottom-2 right-2 text-[10px] text-stone-300 font-mono select-none pointer-events-none z-0">
-            v1.19
+            v1.20
         </div>
     </div>
 
@@ -428,7 +428,7 @@
         // ==========================================
         // 1. Constants & State Variables
         // ==========================================
-        const APP_VERSION = '1.19';
+        const APP_VERSION = '1.20';
         const APP_LOAD_TIME = Date.now();
         const TOTAL_DAYS = 150;
         
@@ -1349,7 +1349,7 @@
                 queue.push(() => {
                     window.scrollTo({ top: document.getElementById('qaCard').getBoundingClientRect().top + window.scrollY - 80, behavior: 'smooth' });
                     let qaRef = formatReferenceForTTS(data.qa_data.parsed_reference);
-                    let qaText = `本週問答。${data.qa_data.unit_title}。問：${data.qa_data.question}。答：${data.qa_data.answer}。${qaRef}。`;
+                    let qaText = `大故事金句。${data.qa_data.unit_title}。問：${data.qa_data.question}。答：${data.qa_data.answer}。${qaRef}。`;
                     speakTextChunks(createChunks(qaText), runNext, null);
                 });
             }
@@ -1774,7 +1774,7 @@
             // Dynamic steps based on current card visibility
             if(!isReviewWeek) {
                 driverObj.getConfig().steps.push(
-                    { element: '#qaCard', popover: { title: '經文問答', description: '透過簡單的問答，帶領孩子抓住真理核心。' } },
+                    { element: '#qaCard', popover: { title: '大故事金句', description: '透過簡單的問答，帶領孩子抓住真理核心。' } },
                     { element: '#scriptureCard', popover: { title: '今日經文', description: '閱讀神的話語。部分文字旁會有 📝 圖示，點擊可看註釋。' } }
                 );
             }
