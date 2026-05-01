@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <!-- 
-  版本號：v1.32
+  版本號：v1.33
   修改主旨：
   1. UI 極簡化：移除書卷按鈕的向下箭頭與「從」、「到」文字。
   2. 排版優化：調整 Kebab Menu 的邊距與內距以消滅不必要的空白，進一步節省頂部導航列空間。
+  3. 分類名稱更新：變更書卷選擇器的分類名稱以符合更嚴謹的神學與歷史用詞。
 -->
 <html lang="zh-TW">
 <head>
@@ -287,7 +288,7 @@
     </div>
 
     <!-- 右下角版本號標示 (用於確認佈署狀態) -->
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.32</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.33</div>
 
     <script>
         // ==========================================
@@ -341,19 +342,19 @@
                 title: "舊約",
                 hasTooltip: true,
                 sections: [
-                    { name: "律法", color: "bg-amber-100 text-amber-800 hover:bg-amber-200 border-amber-200", books: ["創世記", "出埃及記", "利未記", "民數記", "申命記"] },
-                    { name: "先知", color: "bg-indigo-100 text-indigo-800 hover:bg-indigo-200 border-indigo-200", books: ["約書亞記", "士師記", "撒母耳記上", "撒母耳記下", "列王紀上", "列王紀下", "以賽亞書", "耶利米書", "以西結書", "何西阿書", "約珥書", "阿摩司書", "俄巴底亞書", "約拿書", "彌迦書", "那鴻書", "哈巴谷書", "西番雅書", "哈該書", "撒迦利亞書", "瑪拉基書"] },
-                    { name: "詩歌", color: "bg-rose-100 text-rose-800 hover:bg-rose-200 border-rose-200", books: ["詩篇", "箴言", "約伯記", "雅歌", "路得記", "耶利米哀歌", "傳道書", "以斯帖記", "但以理書", "以斯拉記", "尼希米記", "歷代志上", "歷代志下"] }
+                    { name: "摩西的律法", color: "bg-amber-100 text-amber-800 hover:bg-amber-200 border-amber-200", books: ["創世記", "出埃及記", "利未記", "民數記", "申命記"] },
+                    { name: "先知的書", color: "bg-indigo-100 text-indigo-800 hover:bg-indigo-200 border-indigo-200", books: ["約書亞記", "士師記", "撒母耳記上", "撒母耳記下", "列王紀上", "列王紀下", "以賽亞書", "耶利米書", "以西結書", "何西阿書", "約珥書", "阿摩司書", "俄巴底亞書", "約拿書", "彌迦書", "那鴻書", "哈巴谷書", "西番雅書", "哈該書", "撒迦利亞書", "瑪拉基書"] },
+                    { name: "詩篇 / 文集", color: "bg-rose-100 text-rose-800 hover:bg-rose-200 border-rose-200", books: ["詩篇", "箴言", "約伯記", "雅歌", "路得記", "耶利米哀歌", "傳道書", "以斯帖記", "但以理書", "以斯拉記", "尼希米記", "歷代志上", "歷代志下"] }
                 ]
             },
             {
                 title: "新約",
                 hasTooltip: false,
                 sections: [
-                    { name: "福音", color: "bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border-emerald-200", books: ["馬太福音", "馬可福音", "路加福音", "約翰福音"] },
-                    { name: "歷史", color: "bg-sky-100 text-sky-800 hover:bg-sky-200 border-sky-200", books: ["使徒行傳"] },
-                    { name: "書信", color: "bg-purple-100 text-purple-800 hover:bg-purple-200 border-purple-200", books: ["羅馬書", "哥林多前書", "哥林多後書", "加拉太書", "以弗所書", "腓立比書", "歌羅西書", "帖撒羅尼迦前書", "帖撒羅尼迦後書", "提摩太前書", "提摩太後書", "提多書", "腓利門書", "希伯來書", "雅各書", "彼得前書", "彼得後書", "約翰一書", "約翰二書", "約翰三書", "猶大書"] },
-                    { name: "預言", color: "bg-orange-100 text-orange-800 hover:bg-orange-200 border-orange-200", books: ["啟示錄"] }
+                    { name: "四福音書", color: "bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border-emerald-200", books: ["馬太福音", "馬可福音", "路加福音", "約翰福音"] },
+                    { name: "歷史書", color: "bg-sky-100 text-sky-800 hover:bg-sky-200 border-sky-200", books: ["使徒行傳"] },
+                    { name: "使徒書信", color: "bg-purple-100 text-purple-800 hover:bg-purple-200 border-purple-200", books: ["羅馬書", "哥林多前書", "哥林多後書", "加拉太書", "以弗所書", "腓立比書", "歌羅西書", "帖撒羅尼迦前書", "帖撒羅尼迦後書", "提摩太前書", "提摩太後書", "提多書", "腓利門書", "希伯來書", "雅各書", "彼得前書", "彼得後書", "約翰一書", "約翰二書", "約翰三書", "猶大書"] },
+                    { name: "預言書", color: "bg-orange-100 text-orange-800 hover:bg-orange-200 border-orange-200", books: ["啟示錄"] }
                 ]
             }
         ];
