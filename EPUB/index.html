@@ -17,7 +17,6 @@
             padding: 0;
             background-color: #f7f9fc;
             color: #333;
-            overflow: hidden;
             height: 100vh;
             height: 100dvh; 
         }
@@ -61,6 +60,7 @@
             opacity: 0; visibility: hidden; transition: opacity 0.4s ease, visibility 0.4s ease;
             position: absolute; top: 0; left: 0;
         }
+        body.is-reading { overflow: hidden; overscroll-behavior-y: none; }
         body.is-reading #welcome-screen { opacity: 0; visibility: hidden; }
         body.is-reading #reader-ui { opacity: 1; visibility: visible; }
 
@@ -305,9 +305,10 @@
 
     <div id="print-area"></div>
     
-    <div class="version-tag">v3.11</div>
+    <div class="version-tag">v3.12</div>
 
     <script>
+        // v3.12 (開放首頁下拉重新整理，閱讀階段鎖定；關閉書本時強制重新整理以徹底釋放記憶體)
         // v3.11 (導入 IndexedDB 建立自動暫存與恢復機制，解決系統清除記憶體導致的重載問題)
         // v3.10 (修復：在 file input 綁定 click 事件強制清空數值，解決重新選擇同一本機檔案時失效的問題)
         // v3.9 (新增 2.5x、3.0x 語音速度選項)
@@ -491,19 +492,13 @@
         function closeToc() { tocSidebar.classList.remove('open'); tocOverlay.classList.remove('open'); }
         tocTab.addEventListener('click', openToc); closeTocBtn.addEventListener('click', closeToc); tocOverlay.addEventListener('click', closeToc);
 
-        document.getElementById('btn-close').addEventListener('click', () => {
+        document.getElementById('btn-close').addEventListener('click', async () => {
             if (confirm("確定要關閉目前的書本，返回首頁嗎？\n(未列印的內容將會遺失)")) {
                 stopTTS(); 
-                document.body.classList.remove('is-reading');
-                document.title = DEFAULT_TITLE; 
-                progressDisplay.textContent = "章節標題載入中...";
-                glowingProgressBar.style.width = '0%';
-                if (book) { book.destroy(); book = null; }
-                if (rendition) { viewer.innerHTML = ''; rendition = null; }
-                tocContent.innerHTML = ''; fileInput.value = ''; urlInput.value = '';
-                tocMap = {}; locationsGenerated = false;
-                clearDB(); // 主動關閉時清除資料庫
-                const newUrl = new URL(window.location); newUrl.searchParams.delete('src'); window.history.pushState({}, '', newUrl);
+                await clearDB(); // 確保資料庫清除完成
+                const newUrl = new URL(window.location); 
+                newUrl.searchParams.delete('src'); 
+                window.location.replace(newUrl.toString()); // 強制重新整理並返回乾淨的首頁
             }
         });
 
