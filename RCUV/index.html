@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <!-- 
-  版本號：v1.30
+  版本號：v1.31
   修改主旨：
   1. 重構底層 bookMap 順序，將舊約改為 TaNaKh (律法、先知、詩歌) 排序。
   2. 於頂部控制列新增「< (上一章)」、「> (下一章)」導航按鈕，支援跨書卷、跨約平滑切換全章閱讀。
+  3. 當選取新書卷時，自動將「到」預設為首章的最後一節，以直接顯示全章內容。
 -->
 <html lang="zh-TW">
 <head>
@@ -290,7 +291,7 @@
     </div>
 
     <!-- 右下角版本號標示 (用於確認佈署狀態) -->
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.30</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.31</div>
 
     <script>
         // ==========================================
@@ -870,7 +871,17 @@
             els.bookSelect.value = bookName;
             els.currentBookName.textContent = bookName;
             toggleBookModal();
+            
+            // 觸發連動重設，這會把 fChap, fVerse, tChap, tVerse 都重設為該書的首章首選項
             updateChapterSelects(true);
+            
+            // 自動將「到」的節數設為首章的最後一節 (方便全章閱讀)
+            const firstChap = parseInt(els.fChap.value) || 1;
+            if (bibleData[bookName] && bibleData[bookName][firstChap]) {
+                const verses = Object.keys(bibleData[bookName][firstChap]).map(Number).sort((a,b)=>a-b);
+                els.tVerse.value = verses[verses.length - 1];
+            }
+            
             enforceValidationAndExtract();
         };
 
