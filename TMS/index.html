@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>主題背經系統</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: 'Noto Sans TC', 'Microsoft JhengHei', sans-serif;
+            background-color: #f3f4f6; /* Tailwind gray-100 */
+            background-image: url('data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%239C92AC" fill-opacity="0.05"%3E%3Cpath d="M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E');
+        }
+        
+        /* CSS 3D 翻轉效果所需樣式 */
+        .perspective-1000 { perspective: 1000px; }
+        .transform-style-3d { transform-style: preserve-3d; }
+        .backface-hidden { backface-visibility: hidden; }
+        .rotate-y-180 { transform: rotateY(180deg); }
+        
+        #flashcardInner {
+            transition: transform 0.5s cubic-bezier(0.4, 0.2, 0.2, 1);
+        }
+        #flashcardContainer {
+            transition: transform 0.2s ease-in-out;
+            touch-action: manipulation;
+        }
+        #flashcardContainer:hover {
+            transform: translateY(-2px);
+        }
+        
+        /* 避免雙擊放大等預設行為 */
+        .no-select {
+            user-select: none;
+            -webkit-user-select: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4">
+
+    <div class="max-w-2xl w-full flex flex-col items-center space-y-6">
+        
+        <!-- 標題與選單 -->
+        <div class="text-center w-full">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-800 mb-2">📖 主題背經系統</h1>
+            <p class="text-gray-600 mb-4">我將你的話藏在心裏，免得我得罪你。</p>
+            
+            <div id="topicButtons" class="flex flex-wrap justify-center gap-2 w-full max-w-2xl mt-4">
+                <button data-topic="all" class="topic-btn px-4 py-2 rounded-full text-sm font-medium transition bg-blue-500 text-white shadow border-transparent">全部經文</button>
+                <button data-topic="過新生活" class="topic-btn px-4 py-2 rounded-full text-sm font-medium transition bg-white text-gray-600 border border-gray-200 hover:bg-gray-50">過新生活</button>
+                <button data-topic="傳揚基督" class="topic-btn px-4 py-2 rounded-full text-sm font-medium transition bg-white text-gray-600 border border-gray-200 hover:bg-gray-50">傳揚基督</button>
+                <button data-topic="倚靠神的豐富" class="topic-btn px-4 py-2 rounded-full text-sm font-medium transition bg-white text-gray-600 border border-gray-200 hover:bg-gray-50">倚靠神的豐富</button>
+                <button data-topic="作基督的門徒" class="topic-btn px-4 py-2 rounded-full text-sm font-medium transition bg-white text-gray-600 border border-gray-200 hover:bg-gray-50">作基督的門徒</button>
+                <button data-topic="長成基督的樣式" class="topic-btn px-4 py-2 rounded-full text-sm font-medium transition bg-white text-gray-600 border border-gray-200 hover:bg-gray-50">長成基督的樣式</button>
+            </div>
+        </div>
+
+        <!-- 進度指示器與切換按鈕 -->
+        <div class="w-full max-w-[600px] flex justify-between items-end pb-1 px-1">
+            <div class="text-sm font-semibold text-gray-500 tracking-wider">
+                第 <span id="currentIndexDisplay">1</span> / <span id="totalCountDisplay">0</span> 句
+            </div>
+            <button id="langToggleBtn" class="text-xs font-medium px-3 py-1.5 bg-white border border-gray-300 rounded-full text-gray-700 shadow-sm hover:bg-gray-50 transition">
+                中英對照
+            </button>
+        </div>
+
+        <!-- DOM 閃卡容器 -->
+        <div id="flashcardContainer" class="relative w-full aspect-[4/3] md:aspect-[16/10] max-w-[600px] perspective-1000 cursor-pointer no-select">
+            <div id="flashcardInner" class="w-full h-full relative transform-style-3d">
+                
+                <!-- 正面 -->
+                <div class="absolute inset-0 backface-hidden bg-white rounded-2xl shadow-lg border-t-8 border-green-500 flex flex-col items-center justify-center p-6 text-center">
+                    <div id="frontTopic" class="text-gray-500 font-bold text-lg md:text-xl mb-2"></div>
+                    <div id="frontOutline" class="text-gray-400 text-sm md:text-base mb-6"></div>
+                    <div id="frontRef" class="text-gray-800 font-bold text-3xl md:text-4xl"></div>
+                    <div class="absolute bottom-6 text-gray-300 text-sm italic pointer-events-none">點擊卡片翻面</div>
+                </div>
+
+                <!-- 反面 -->
+                <div class="absolute inset-0 backface-hidden rotate-y-180 bg-white rounded-2xl shadow-lg border-t-8 border-blue-500 flex flex-col p-6 overflow-y-auto">
+                    <div id="backRef" class="text-blue-500 font-bold text-sm md:text-base mb-4"></div>
+                    <div id="backZh" class="text-gray-800 font-bold text-xl md:text-2xl leading-relaxed"></div>
+                    <hr id="backDivider" class="my-4 border-gray-200 hidden">
+                    <div id="backEn" class="text-gray-600 text-sm md:text-base leading-relaxed hidden"></div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- 控制按鈕 -->
+        <div class="flex flex-wrap justify-center gap-3 w-full no-select">
+            <button id="prevBtn" class="px-5 py-2 bg-white text-gray-700 font-semibold rounded-full shadow hover:bg-gray-50 transition border border-gray-200">
+                &larr; 上一節
+            </button>
+            <button id="randomBtn" class="px-5 py-2 bg-blue-100 text-blue-700 font-semibold rounded-full shadow hover:bg-blue-200 transition">
+                🔀 隨機
+            </button>
+            <button id="playAllBtn" class="px-6 py-2 bg-purple-100 text-purple-700 font-semibold rounded-full shadow hover:bg-purple-200 transition flex items-center">
+                <span id="playIcon" class="mr-1">▶️</span> <span id="playText">全部朗讀</span>
+            </button>
+            <button id="nextBtn" class="px-5 py-2 bg-blue-600 text-white font-semibold rounded-full shadow hover:bg-blue-700 transition">
+                下一節 &rarr;
+            </button>
+        </div>
+    </div>
+
+    <!-- 頁尾宣告 -->
+    <a href="index.html" class="mt-12 mb-4 flex flex-col items-center text-gray-400 hover:text-blue-500 transition-colors duration-300 no-underline group cursor-pointer outline-none">
+        <i data-lucide="wrench" class="w-10 h-10 mb-1 group-hover:rotate-12 transition-transform duration-300"></i>
+        <span class="font-bold text-sm tracking-wide">老張工具間</span>
+        <span class="text-[10px] font-medium tracking-widest uppercase mt-0.5">The Remnant Tinkers</span>
+    </a>
+
+    <script>
+        // --- 資料區 ---
+        const versesData = [
+            { topic: "過新生活", outline: "基督是中心", ref: "哥林多後書 5:17", zh: "所以，若有人在基督裏，他就是新造的人，舊事已過，都變成新的了。", en: "Therefore, if anyone is in Christ, he is a new creation. The old has passed away; behold, the new has come." },
+            { topic: "過新生活", outline: "基督是中心", ref: "加拉太書 2:20", zh: "現在活著的不再是我，乃是基督在我裏面活著；並且我如今在肉身活著，是因信神的兒子而活；他是愛我，為我捨己。", en: "It is no longer I who live, but Christ who lives in me. And the life I now live in the flesh I live by faith in the Son of God, who loved me and gave himself for me." },
+            { topic: "過新生活", outline: "順服基督", ref: "羅馬書 12:1", zh: "所以，弟兄們，我以神的慈悲勸你們，將身體獻上當作活祭，是聖潔的，是神所喜悅的，你們如此事奉乃是理所當然的。", en: "I appeal to you therefore, brothers, by the mercies of God, to present your bodies as a living sacrifice, holy and acceptable to God, which is your spiritual worship." },
+            { topic: "過新生活", outline: "順服基督", ref: "約翰福音 14:21", zh: "有了我的命令而又遵守的人，就是愛我的；愛我的人，我父要愛他，我也要愛他，並且要親自向他顯現。", en: "Whoever has my commandments and keeps them, he it is who loves me. And he who loves me will be loved by my Father, and I will love him and manifest myself to him." },
+            { topic: "過新生活", outline: "神的話", ref: "提摩太後書 3:16", zh: "聖經都是神所默示的，於教訓、督責、使人歸正、教導人學義都是有益的，", en: "All Scripture is breathed out by God and profitable for teaching, for reproof, for correction, and for training in righteousness," },
+            { topic: "過新生活", outline: "神的話", ref: "約書亞記 1:8", zh: "這律法書不可離開你的口，總要晝夜思想，好使你謹守遵行這書上所寫的一切話。如此，你的道路就可以亨通，凡事順利。", en: "This Book of the Law shall not depart from your mouth, but you shall meditate on it day and night, so that you may be careful to do according to all that is written in it. For then you will make your way prosperous, and then you will have good success." },
+            { topic: "過新生活", outline: "禱告", ref: "約翰福音 15:7", zh: "你們若常在我裏面，我的話也常在你們裏面，凡你們想要的，祈求，就給你們成全。", en: "If you abide in me, and my words abide in you, ask whatever you wish, and it will be done for you." },
+            { topic: "過新生活", outline: "禱告", ref: "腓立比書 4:6-7", zh: "應當一無掛慮，只要凡事藉著禱告、祈求和感謝，將你們所要的告訴神。神所賜那超越人所能了解的平安，必在基督耶穌裏，保守你們的心懷意念。", en: "do not be anxious about anything, but in everything by prayer and supplication with thanksgiving let your requests be made known to God. And the peace of God, which surpasses all understanding, will guard your hearts and your minds in Christ Jesus." },
+            { topic: "過新生活", outline: "交通", ref: "馬太福音 18:20", zh: "因為，哪裏有兩三個人奉我的名聚會，哪裏就有我在他們中間。", en: "For where two or three are gathered in my name, there am I among them." },
+            { topic: "過新生活", outline: "交通", ref: "希伯來書 10:24-25", zh: "我們要彼此相顧，激發愛心，勉勵行善；不可停止聚會，好像那些停止慣了的人，倒要彼此勸勉，既然知道那日子臨近，就更當如此。", en: "And let us consider how to stir up one another to love and good works, not neglecting to meet together, as is the habit of some, but encouraging one another, and all the more as you see the Day drawing near." },
+            { topic: "過新生活", outline: "見證", ref: "馬太福音 4:19", zh: "耶穌對他們說：「來跟從我，我要叫你們得人如得魚一樣。」", en: "And he said to them, \"Follow me, and I will make you fishers of men.\"" },
+            { topic: "過新生活", outline: "見證", ref: "羅馬書 1:16", zh: "我不以福音為恥；這福音本是神的大能，要救一切相信的，先是猶太人，後是希臘人。", en: "For I am not ashamed of the gospel, for it is the power of God for salvation to everyone who believes, to the Jew first and also to the Greek." },
+            { topic: "傳揚基督", outline: "人人有罪", ref: "羅馬書 3:23", zh: "因為世人都犯了罪，虧缺了神的榮耀，", en: "for all have sinned and fall short of the glory of God," },
+            { topic: "傳揚基督", outline: "人人有罪", ref: "以賽亞書 53:6", zh: "我們都如羊走迷，各人偏行己路；耶和華使我們眾人的罪孽都歸在他身上。", en: "All we like sheep have gone astray; we have turned every one to his own way; and the LORD has laid on him the iniquity of us all." },
+            { topic: "傳揚基督", outline: "罪的刑罰", ref: "羅馬書 6:23", zh: "因為罪的工價乃是死；惟有神的恩賜，在我們的主基督耶穌裏，乃是永生。", en: "For the wages of sin is death, but the free gift of God is eternal life in Christ Jesus our Lord." },
+            { topic: "傳揚基督", outline: "罪的刑罰", ref: "希伯來書 9:27", zh: "按著命定，人人都有一死，死後且有審判。", en: "And just as it is appointed for man to die once, and after that comes judgment," },
+            { topic: "傳揚基督", outline: "基督替代受刑", ref: "羅馬書 5:8", zh: "惟有基督在我們還作罪人的時候為我們死，神的愛就在此向我們顯明了。", en: "but God shows his love for us in that while we were still sinners, Christ died for us." },
+            { topic: "傳揚基督", outline: "基督替代受刑", ref: "彼得前書 3:18", zh: "因為基督也曾一次為罪受苦，就是義的代替不義的，為要引領你們到神面前。在肉體裏，他被治死；但在靈裏，他復活了。", en: "For Christ also suffered once for sins, the righteous for the unrighteous, that he might bring us to God, being put to death in the flesh but made alive in the spirit," },
+            { topic: "傳揚基督", outline: "救恩非靠行為", ref: "以弗所書 2:8-9", zh: "你們得救是本乎恩，也因著信；這並不是出於自己，而是神所賜的；也不是出於行為，免得有人自誇。", en: "For by grace you have been saved through faith. And this is not your own doing; it is the gift of God, not a result of works, so that no one may boast." },
+            { topic: "傳揚基督", outline: "救恩非靠行為", ref: "提多書 3:5", zh: "他救了我們，並不是因我們自己所行的義，而是照他的憐憫，藉著重生的洗和聖靈的更新。", en: "he saved us, not because of works done by us in righteousness, but according to his own mercy, by the washing of regeneration and renewal of the Holy Spirit," },
+            { topic: "傳揚基督", outline: "必須接受基督", ref: "約翰福音 1:12", zh: "凡接納他的，就是信他名的人，他就賜他們權柄作神的兒女。", en: "But to all who did receive him, who believed in his name, he gave the right to become children of God." },
+            { topic: "傳揚基督", outline: "必須接受基督", ref: "啟示錄 3:20", zh: "看哪，我站在門外叩門，若有聽見我聲音而開門的，我要進到他那裏去，我與他，他與我一起吃飯。", en: "Behold, I stand at the door and knock. If anyone hears my voice and opens the door, I will come in to him and eat with him, and he with me." },
+            { topic: "傳揚基督", outline: "得救的確據", ref: "約翰壹書 5:13", zh: "我把這些話寫給你們信奉神兒子之名的人，要讓你們知道自己有永生。", en: "I write these things to you who believe in the name of the Son of God that you may know that you have eternal life." },
+            { topic: "傳揚基督", outline: "得救的確據", ref: "約翰福音 5:24", zh: "「我實實在在地告訴你們，那聽我話又信差我來那位的，就有永生，不至於被定罪，而是已經出死入生了。", en: "Truly, truly, I say to you, whoever hears my word and believes him who sent me has eternal life. He does not come into judgment, but has passed from death to life." },
+            { topic: "倚靠神的豐富", outline: "祂的靈", ref: "哥林多前書 3:16", zh: "難道不知你們是神的殿，神的靈住在你們裏面嗎？", en: "Do you not know that you are God's temple and that God's Spirit dwells in you?" },
+            { topic: "倚靠神的豐富", outline: "祂的靈", ref: "哥林多前書 2:12", zh: "我們所領受的並不是世上的靈，而是從神來的靈，為使我們知道神把恩賜賞給我們的事。", en: "Now we have received not the spirit of the world, but the Spirit who is from God, that we might understand the things freely given us by God." },
+            { topic: "倚靠神的豐富", outline: "祂的力量", ref: "以賽亞書 41:10", zh: "你不要害怕，因為我與你同在；不要驚惶，因為我是你的神。我必堅固你，幫助你，用我公義的右手扶持你。", en: "fear not, for I am with you; be not dismayed, for I am your God; I will strengthen you, I will help you, I will uphold you with my righteous right hand." },
+            { topic: "倚靠神的豐富", outline: "祂的力量", ref: "腓立比書 4:13", zh: "我靠著那加給我力量的，凡事都能做。", en: "I can do all things through him who strengthens me." },
+            { topic: "倚靠神的豐富", outline: "祂的信實", ref: "耶利米哀歌 3:22-23", zh: "因耶和華的慈愛，我們不致滅絕，因他的憐憫永不斷絕，每早晨，這都是新的；你的信實極其廣大！", en: "The steadfast love of the LORD never ceases; his mercies never come to an end; they are new every morning; great is your faithfulness." },
+            { topic: "倚靠神的豐富", outline: "祂的信實", ref: "民數記 23:19", zh: "神非人，必不致說謊，也非人子，必不致後悔。他說了豈不照著做呢？他發了言豈不實現呢？", en: "God is not man, that he should lie, or a son of man, that he should change his mind. Has he said, and will he not do it? Or has he spoken, and will he not fulfill it?" },
+            { topic: "倚靠神的豐富", outline: "祂的平安", ref: "以賽亞書 26:3", zh: "堅心倚賴你的，你必保守他十分平安，因為他倚靠你。", en: "You keep him in perfect peace whose mind is stayed on you, because he trusts in you." },
+            { topic: "倚靠神的豐富", outline: "祂的平安", ref: "彼得前書 5:7", zh: "你們要將一切的憂慮卸給神，因為他顧念你們。", en: "casting all your anxieties on him, because he cares for you." },
+            { topic: "倚靠神的豐富", outline: "祂的供應", ref: "羅馬書 8:32", zh: "神既不顧惜自己的兒子，為我們眾人捨了他，豈不也把萬物和他一同白白地賜給我們嗎？", en: "He who did not spare his own Son but gave him up for us all, how will he not also with him graciously give us all things?" },
+            { topic: "倚靠神的豐富", outline: "祂的供應", ref: "腓立比書 4:19", zh: "我的神必照他榮耀的豐富，在基督耶穌裏，使你們一切所需用的都充足。", en: "And my God will supply every need of yours according to his riches in glory in Christ Jesus." },
+            { topic: "倚靠神的豐富", outline: "祂在試探中的幫助", ref: "希伯來書 2:18", zh: "既然他自己被試探而受苦，他能幫助被試探的人。", en: "For because he himself has suffered when tempted, he is able to help those who are being tempted." },
+            { topic: "倚靠神的豐富", outline: "祂在試探中的幫助", ref: "詩篇 119:9-11", zh: "青年要如何保持純潔呢？是要遵行你的話！我曾一心尋求你，求你不要使我偏離你的命令。我將你的話藏在心裏，免得我得罪你。", en: "How can a young man keep his way pure? By guarding it according to your word. With my whole heart I seek you; let me not wander from your commandments! I have stored up your word in my heart, that I might not sin against you." },
+            { topic: "作基督的門徒", outline: "以基督為首", ref: "馬太福音 6:33", zh: "你們要先求神的國和他的義，這些東西都要加給你們了。", en: "But seek first the kingdom of God and his righteousness, and all these things will be added to you." },
+            { topic: "作基督的門徒", outline: "以基督為首", ref: "路加福音 9:23", zh: "耶穌又對眾人說：「若有人要跟從我，就當捨己，天天背起自己的十字架來跟從我。", en: "And he said to all, \"If anyone would come after me, let him deny himself and take up his cross daily and follow me." },
+            { topic: "作基督的門徒", outline: "從世界分別出來", ref: "約翰壹書 2:15", zh: "不要愛世界和世界上的東西，若有人愛世界，愛父的心就不在他裏面了。", en: "Do not love the world or the things in the world. If anyone loves the world, the love of the Father is not in him." },
+            { topic: "作基督的門徒", outline: "從世界分別出來", ref: "羅馬書 12:2", zh: "不要效法這個世界，只要心意更新而變化，叫你們察驗何為神的善良、純全、可喜悅的旨意。", en: "Do not be conformed to this world, but be transformed by the renewal of your mind, that by testing you may discern what is the will of God, what is good and acceptable and perfect." },
+            { topic: "作基督的門徒", outline: "堅定不移", ref: "哥林多前書 15:58", zh: "所以，我親愛的弟兄們，你們務要堅固，不可動搖，常常竭力多做主工，因為你們知道，你們在主裏的勞苦不是徒然的。", en: "Therefore, my beloved brothers, be steadfast, immovable, always abounding in the work of the Lord, knowing that in the Lord your labor is not in vain." },
+            { topic: "作基督的門徒", outline: "堅定不移", ref: "希伯來書 12:3", zh: "你們要仔細想想這位忍受了罪人如此頂撞的耶穌，你們就不致心灰意懶了。", en: "Consider him who endured from sinners such hostility against himself, so that you may not grow weary or fainthearted." },
+            { topic: "作基督的門徒", outline: "要服事他人", ref: "馬可福音 10:45", zh: "因為人子來，並不是要受人的服事，乃是要服事人，並且要捨命作多人的贖價。", en: "For even the Son of Man came not to be served but to serve, and to give his life as a ransom for many.\"" },
+            { topic: "作基督的門徒", outline: "要服事他人", ref: "哥林多後書 4:5", zh: "我們不是傳自己，而是傳耶穌基督為主，並且自己因耶穌作你們的僕人。", en: "For what we proclaim is not ourselves, but Jesus Christ as Lord, with ourselves as your servants for Jesus' sake." },
+            { topic: "作基督的門徒", outline: "慷慨的捐助", ref: "箴言 3:9-10", zh: "你要以財物和一切初熟的土產尊崇耶和華，這樣，你的倉庫必充滿有餘，你的酒池有新酒盈溢。", en: "Honor the LORD with your wealth and with the firstfruits of all your produce; then your barns will be filled with plenty, and your vats will be bursting with wine." },
+            { topic: "作基督的門徒", outline: "慷慨的捐助", ref: "哥林多後書 9:6-7", zh: "還有一點：「少種的少收；多種的多收。」各人要隨心所願，不要為難，不要勉強，因為神愛樂捐的人。", en: "The point is this: whoever sows sparingly will also reap sparingly, and whoever sows bountifully will also reap bountifully. Each one must give as he has made up his mind, not reluctantly or under compulsion, for God loves a cheerful giver." },
+            { topic: "作基督的門徒", outline: "福音要傳遍世界", ref: "使徒行傳 1:8", zh: "但聖靈降臨在你們身上，你們就必得著能力，並要在耶路撒冷、猶太全地和撒瑪利亞，直到地極，作我的見證。", en: "But you will receive power when the Holy Spirit has come upon you, and you will be my witnesses in Jerusalem and in all Judea and Samaria, and to the end of the earth.\"" },
+            { topic: "作基督的門徒", outline: "福音要傳遍世界", ref: "馬太福音 28:19-20", zh: "所以，你們要去，使萬民作我的門徒，奉父、子、聖靈的名給他們施洗，凡我所吩咐你們的，都教導他們遵守。看哪，我天天與你們同在，直到世代的終結。", en: "Go therefore and make disciples of all nations, baptizing them in the name of the Father and of the Son and of the Holy Spirit, teaching them to observe all that I have commanded you. And behold, I am with you always, to the end of the age.\"" },
+            { topic: "長成基督的樣式", outline: "愛心", ref: "約翰福音 13:34-35", zh: "我賜給你們一條新命令，乃是叫你們彼此相愛；我怎樣愛你們，你們也要怎樣彼此相愛。你們若彼此相愛，眾人因此就認出你們是我的門徒了。", en: "A new commandment I give to you, that you love one another: just as I have loved you, you also are to love one another. By this all people will know that you are my disciples, if you have love for one another.\"" },
+            { topic: "長成基督的樣式", outline: "愛心", ref: "約翰壹書 3:18", zh: "孩子們哪，我們相愛，不要只在言語或舌頭上，總要以行為和真誠表現出來。", en: "Little children, let us not love in word or talk but in deed and in truth." },
+            { topic: "長成基督的樣式", outline: "謙卑", ref: "腓立比書 2:3-4", zh: "凡事不可自私自利，不可貪圖虛榮；只要心存謙卑，各人看別人比自己強。各人不要單顧自己的事，也要顧別人的事。", en: "Do nothing from rivalry or conceit, but in humility count others more significant than yourselves. Let each of you look not only to his own interests, but also to the interests of others." },
+            { topic: "長成基督的樣式", outline: "謙卑", ref: "彼得前書 5:5-6", zh: "同樣，你們年輕的，要順服年長的。你們大家都要以謙卑當衣服穿上，彼此順服，因為「神抵擋驕傲的人，但賜恩給謙卑的人。」所以，你們要謙卑服在神大能的手下，這樣，到了適當的時候，他必使你們升高。", en: "Likewise, you who are younger, be subject to the elders. Clothe yourselves, all of you, with humility toward one another, for \"God opposes the proud but gives grace to the humble.\" Humble yourselves, therefore, under the mighty hand of God so that at the proper time he may exalt you," },
+            { topic: "長成基督的樣式", outline: "純潔", ref: "以弗所書 5:3", zh: "至於淫亂和一切污穢，或是貪婪，在你們中間連提都不可，這才合乎聖徒的體統。", en: "But sexual immorality and all impurity or covetousness must not even be named among you, as is proper among saints." },
+            { topic: "長成基督的樣式", outline: "純潔", ref: "彼得前書 2:11", zh: "親愛的，你們是客旅，是寄居的，我勸你們要禁戒肉體的情慾；這情慾是與靈魂爭戰的。", en: "Beloved, I urge you as sojourners and exiles to abstain from the passions of the flesh, which wage war against your soul." },
+            { topic: "長成基督的樣式", outline: "誠實", ref: "利未記 19:11", zh: "「你們不可偷盜，不可欺騙，也不可彼此說謊。", en: "\"You shall not steal; you shall not deal falsely; you shall not lie to one another." },
+            { topic: "長成基督的樣式", outline: "誠實", ref: "使徒行傳 24:16", zh: "因此，我勉勵自己，對神對人，時常存著無虧的良心。", en: "So I always take pains to have a clear conscience toward both God and man." },
+            { topic: "長成基督的樣式", outline: "信心", ref: "希伯來書 11:6", zh: "沒有信，就不能討神的喜悅，因為到神面前來的人必須信有神，並且信他會賞賜尋求他的人。", en: "And without faith it is impossible to please him, for whoever would draw near to God must believe that he exists and that he rewards those who seek him." },
+            { topic: "長成基督的樣式", outline: "信心", ref: "羅馬書 4:20-21", zh: "仍仰望神的應許，總沒有因不信而起疑惑，反倒因信而剛強，將榮耀歸給神，且滿心相信神所應許的必能成就。", en: "No distrust made him waver concerning the promise of God, but he grew strong in his faith as he gave glory to God, fully convinced that God was able to do what he had promised." },
+            { topic: "長成基督的樣式", outline: "善行", ref: "加拉太書 6:9-10", zh: "我們行善不可喪志，因為若不灰心，到了適當的時候就有收成。所以，一有機會就要向眾人行善，向信徒一家的人更要這樣。", en: "And let us not grow weary of doing good, for in due season we will reap, if we do not give up. So then, as we have opportunity, let us do good to everyone, and especially to those who are of the household of faith." },
+            { topic: "長成基督的樣式", outline: "善行", ref: "馬太福音 5:16", zh: "你們的光也要這樣照在人前，叫他們看見你們的好行為，把榮耀歸給你們在天上的父。", en: "In the same way, let your light shine before others, so that they may see your good works and give glory to your Father who is in heaven." }
+        ];
+
+        // --- 狀態管理 ---
+        let currentList = [...versesData];
+        let currentIndex = 0;
+        let isFlipped = false;
+        let isPlayingAll = false;
+        let speechId = 0; // 用於追蹤當前語音任務，避免被之前的延遲任務蓋過
+        let showEnglish = false; // 新增：預設不顯示英文
+
+        // 初始化載入語音 (某些瀏覽器需要)
+        if (window.speechSynthesis) {
+            window.speechSynthesis.getVoices();
+            if (speechSynthesis.onvoiceschanged !== undefined) {
+                speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+            }
+        }
+
+        // --- DOM 元素 ---
+        const flashcardContainer = document.getElementById('flashcardContainer');
+        const flashcardInner = document.getElementById('flashcardInner');
+        
+        // 正面元素
+        const frontTopic = document.getElementById('frontTopic');
+        const frontOutline = document.getElementById('frontOutline');
+        const frontRef = document.getElementById('frontRef');
+        
+        // 反面元素
+        const backRef = document.getElementById('backRef');
+        const backZh = document.getElementById('backZh');
+        const backEn = document.getElementById('backEn');
+        const backDivider = document.getElementById('backDivider');
+
+        const topicBtns = document.querySelectorAll('.topic-btn');
+        const langToggleBtn = document.getElementById('langToggleBtn');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const randomBtn = document.getElementById('randomBtn');
+        const playAllBtn = document.getElementById('playAllBtn');
+        const playIcon = document.getElementById('playIcon');
+        const playText = document.getElementById('playText');
+        const currentIndexDisplay = document.getElementById('currentIndexDisplay');
+        const totalCountDisplay = document.getElementById('totalCountDisplay');
+
+        // --- 語音功能核心 ---
+        function cancelSpeech() {
+            if (window.speechSynthesis) {
+                window.speechSynthesis.cancel();
+            }
+        }
+
+        function speakText(text, lang, onEndCallback) {
+            if (!text || !window.speechSynthesis) {
+                if (onEndCallback) onEndCallback();
+                return;
+            }
+            
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = lang;
+            
+            // --- 升級版：智慧尋找各裝置上最自然語音 ---
+            const voices = window.speechSynthesis.getVoices();
+            const isZh = lang.startsWith('zh');
+            let langVoices = voices.filter(v => v.lang.startsWith(isZh ? 'zh' : 'en'));
+
+            if (langVoices.length > 0) {
+                // 定義高品質/自然語音的關鍵字與優先順序 (陣列越前面越優先)
+                const premiumKeywords = [
+                    'Online (Natural)', // Edge 瀏覽器的 Neural 語音 (目前業界公認最自然)
+                    'Premium',          // macOS/iOS 的進階高品質語音
+                    'Enhanced',         // macOS/iOS 的加強版語音
+                    'Siri',             // Apple Siri 專用語音
+                    'Google',           // Google 語音 (Android/Chrome 中相對較佳的)
+                    'Neural'            // 其他系統標示為神經網路的語音
+                ];
+
+                // 針對特定語言加入已知高評價的語音名稱
+                if (isZh) {
+                    // HsiaoChen(曉辰), HsiaoYu(曉雨) 是微軟優秀的台灣口音; Yating(雅婷), Mei-Jia(美佳) 是 Apple 的
+                    premiumKeywords.unshift('HsiaoChen', 'HsiaoYu', 'Yating', 'Mei-Jia');
+                } else {
+                    premiumKeywords.unshift('Aria', 'Guy', 'Samantha', 'Alex');
+                }
+
+                // 依照自然度關鍵字進行評分排序
+                langVoices.sort((a, b) => {
+                    let aScore = premiumKeywords.findIndex(kw => a.name.includes(kw));
+                    let bScore = premiumKeywords.findIndex(kw => b.name.includes(kw));
+                    
+                    // 若名稱中沒有包含任何高品質關鍵字，給予最低優先級 (分數設為 999)
+                    aScore = aScore === -1 ? 999 : aScore;
+                    bScore = bScore === -1 ? 999 : bScore;
+
+                    if (aScore !== bScore) return aScore - bScore;
+
+                    // 若優先級相同，優先選擇當地口音 (zh-TW 優先於 zh-CN，en-US 優先於 en-GB)
+                    const preferredLang = isZh ? 'zh-TW' : 'en-US';
+                    if (a.lang === preferredLang && b.lang !== preferredLang) return -1;
+                    if (b.lang === preferredLang && a.lang !== preferredLang) return 1;
+
+                    return 0;
+                });
+
+                // 選用最高分 (排在第一位) 的語音
+                utterance.voice = langVoices[0]; 
+            }
+            
+            // 語速稍微放慢，適合讀經文
+            utterance.rate = 0.85; 
+
+            utterance.onend = () => {
+                if (onEndCallback) onEndCallback();
+            };
+            
+            // 錯誤處理 (避免卡死)
+            utterance.onerror = (e) => {
+                console.error("Speech API error", e);
+                if (onEndCallback) onEndCallback();
+            };
+
+            window.speechSynthesis.speak(utterance);
+        }
+
+        // 處理經文出處念法 (例如：將 "5:17" 轉成 "5章17節"，詩篇轉成 "篇")
+        function formatReferenceForSpeech(ref) {
+            let spokenRef = ref.replace('-', '到'); // 處理多節，如 6-7 變成 6到7
+            const isPsalm = spokenRef.includes('詩篇');
+            
+            // 使用正則表達式捕捉 "數字:數字" 的格式
+            spokenRef = spokenRef.replace(/(\d+):(\d+(到\d+)?)/, (match, chapter, verse) => {
+                const chapterUnit = isPsalm ? '篇' : '章';
+                return `${chapter}${chapterUnit}${verse}節`;
+            });
+            return spokenRef;
+        }
+
+        function readCurrentCard() {
+            cancelSpeech();
+            speechId++;
+            const currentSpeech = speechId; // 記錄當下這次任務的 ID
+
+            if (isFlipped) {
+                // 讀反面
+                const verse = currentList[currentIndex];
+                const spokenRef = formatReferenceForSpeech(verse.ref);
+                speakText(spokenRef, 'zh-TW', () => {
+                    if (currentSpeech !== speechId) return; // 使用者已經按了其他按鈕中斷
+                    speakText(verse.zh, 'zh-TW', () => {
+                        if (currentSpeech !== speechId) return;
+                        
+                        const onFinishReading = () => {
+                            if (currentSpeech !== speechId) return;
+                            if (isPlayingAll) {
+                                // 讀完反面後，停頓 1.5 秒自動跳下一張
+                                setTimeout(() => {
+                                    if (currentSpeech !== speechId) return;
+                                    nextCardForPlayAll();
+                                }, 1500);
+                            }
+                        };
+
+                        if (showEnglish) {
+                            speakText(verse.en, 'en-US', onFinishReading);
+                        } else {
+                            onFinishReading();
+                        }
+                    });
+                });
+            } else {
+                // 讀正面
+                const verse = currentList[currentIndex];
+                const spokenRef = formatReferenceForSpeech(verse.ref);
+                // 移除「主題」、「大綱」、「出處」等前綴詞，直接念出內容
+                const text = `${verse.topic}。${verse.outline}。${spokenRef}`;
+                speakText(text, 'zh-TW', () => {
+                    if (currentSpeech !== speechId) return;
+                    if (isPlayingAll) {
+                        // 讀完正面後，停頓 0.8 秒自動翻面
+                        setTimeout(() => {
+                            if (currentSpeech !== speechId) return;
+                            isFlipped = true;
+                            renderCard();
+                            readCurrentCard(); // 翻面後觸發讀反面
+                        }, 800);
+                    }
+                });
+            }
+        }
+
+        // --- 自動播放控制 ---
+        function stopPlayAll() {
+            isPlayingAll = false;
+            playIcon.textContent = '▶️';
+            playText.textContent = '全部朗讀';
+            playAllBtn.classList.replace('bg-red-100', 'bg-purple-100');
+            playAllBtn.classList.replace('text-red-700', 'text-purple-700');
+            playAllBtn.classList.replace('hover:bg-red-200', 'hover:bg-purple-200');
+            
+            // 關鍵修復：按下停止時，立刻更新語音任務 ID，徹底截斷先前的「語音接力賽」
+            speechId++; 
+            
+            cancelSpeech();
+        }
+
+        function nextCardForPlayAll() {
+            if (!isPlayingAll) return;
+            currentIndex++;
+            if (currentIndex >= currentList.length) {
+                // 整個列表讀完了
+                stopPlayAll();
+                currentIndex = 0;
+                isFlipped = false;
+                updateUI();
+                return;
+            }
+            isFlipped = false;
+            updateUI();
+            readCurrentCard();
+        }
+
+        // --- 核心渲染邏輯 ---
+        function renderCard() {
+            if (currentList.length === 0) return;
+            const verse = currentList[currentIndex];
+
+            // 更新正面內容
+            frontTopic.textContent = verse.topic;
+            frontOutline.textContent = `— ${verse.outline} —`;
+            frontRef.textContent = verse.ref;
+
+            // 更新反面內容
+            backRef.textContent = verse.ref;
+            backZh.textContent = verse.zh;
+            backEn.textContent = verse.en;
+
+            // 處理英文顯示狀態
+            if (showEnglish) {
+                backDivider.classList.remove('hidden');
+                backEn.classList.remove('hidden');
+            } else {
+                backDivider.classList.add('hidden');
+                backEn.classList.add('hidden');
+            }
+
+            // 處理翻轉動畫狀態
+            if (isFlipped) {
+                flashcardInner.classList.add('rotate-y-180');
+            } else {
+                flashcardInner.classList.remove('rotate-y-180');
+            }
+        }
+
+        function updateUI() {
+            totalCountDisplay.textContent = currentList.length;
+            if (currentList.length === 0) {
+                currentIndexDisplay.textContent = 0;
+            } else {
+                currentIndexDisplay.textContent = currentIndex + 1;
+            }
+            renderCard();
+        }
+
+        // --- 事件監聽 ---
+        
+        // 主題按鈕點擊事件
+        topicBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                // 移除所有按鈕的 active 樣式
+                topicBtns.forEach(b => {
+                    b.classList.remove('bg-blue-500', 'text-white', 'shadow', 'border-transparent');
+                    b.classList.add('bg-white', 'text-gray-600', 'border-gray-200');
+                });
+                // 加上當前點擊按鈕的 active 樣式
+                const target = e.currentTarget;
+                target.classList.remove('bg-white', 'text-gray-600', 'border-gray-200');
+                target.classList.add('bg-blue-500', 'text-white', 'shadow', 'border-transparent');
+
+                stopPlayAll();
+                const selectedTopic = target.dataset.topic;
+                if (selectedTopic === 'all') {
+                    currentList = [...versesData];
+                } else {
+                    currentList = versesData.filter(v => v.topic === selectedTopic);
+                }
+                currentIndex = 0;
+                isFlipped = false;
+                updateUI();
+            });
+        });
+
+        // 中英對照切換按鈕事件
+        langToggleBtn.addEventListener('click', () => {
+            showEnglish = !showEnglish;
+            langToggleBtn.textContent = showEnglish ? '純中文' : '中英對照';
+            
+            if (showEnglish) {
+                langToggleBtn.classList.replace('bg-white', 'bg-blue-100');
+                langToggleBtn.classList.replace('text-gray-700', 'text-blue-700');
+                langToggleBtn.classList.replace('border-gray-300', 'border-blue-300');
+            } else {
+                langToggleBtn.classList.replace('bg-blue-100', 'bg-white');
+                langToggleBtn.classList.replace('text-blue-700', 'text-gray-700');
+                langToggleBtn.classList.replace('border-blue-300', 'border-gray-300');
+            }
+            
+            renderCard();
+            // 如果正在翻面狀態，切換語言後重新朗讀
+            if (isFlipped) {
+                readCurrentCard();
+            }
+        });
+
+        flashcardContainer.addEventListener('click', () => {
+            if (isPlayingAll) stopPlayAll(); // 手動點擊就中斷自動播放
+            isFlipped = !isFlipped;
+            renderCard();
+            readCurrentCard();
+        });
+
+        nextBtn.addEventListener('click', () => {
+            if (isPlayingAll) stopPlayAll();
+            if (currentList.length === 0) return;
+            currentIndex = (currentIndex + 1) % currentList.length;
+            isFlipped = false;
+            updateUI();
+            readCurrentCard();
+        });
+
+        prevBtn.addEventListener('click', () => {
+            if (isPlayingAll) stopPlayAll();
+            if (currentList.length === 0) return;
+            currentIndex = (currentIndex - 1 + currentList.length) % currentList.length;
+            isFlipped = false;
+            updateUI();
+            readCurrentCard();
+        });
+
+        randomBtn.addEventListener('click', () => {
+            if (isPlayingAll) stopPlayAll();
+            if (currentList.length <= 1) return;
+            let newIndex = currentIndex;
+            while (newIndex === currentIndex) {
+                newIndex = Math.floor(Math.random() * currentList.length);
+            }
+            currentIndex = newIndex;
+            isFlipped = false;
+            updateUI();
+            readCurrentCard();
+        });
+
+        playAllBtn.addEventListener('click', () => {
+            isPlayingAll = !isPlayingAll;
+            if (isPlayingAll) {
+                // 開始播放：改變按鈕樣式並從當前卡片正面開始讀
+                playIcon.textContent = '⏹️';
+                playText.textContent = '停止朗讀';
+                playAllBtn.classList.replace('bg-purple-100', 'bg-red-100');
+                playAllBtn.classList.replace('text-purple-700', 'text-red-700');
+                playAllBtn.classList.replace('hover:bg-purple-200', 'hover:bg-red-200');
+                
+                isFlipped = false;
+                renderCard();
+                readCurrentCard();
+            } else {
+                stopPlayAll();
+            }
+        });
+
+        // 初始化
+        updateUI();
+        lucide.createIcons();
+
+    </script>
+</body>
+</html>
