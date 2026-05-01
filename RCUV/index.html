@@ -1,10 +1,9 @@
 <!DOCTYPE html>
 <!-- 
-  版本號：v1.31
+  版本號：v1.32
   修改主旨：
-  1. 重構底層 bookMap 順序，將舊約改為 TaNaKh (律法、先知、詩歌) 排序。
-  2. 於頂部控制列新增「< (上一章)」、「> (下一章)」導航按鈕，支援跨書卷、跨約平滑切換全章閱讀。
-  3. 當選取新書卷時，自動將「到」預設為首章的最後一節，以直接顯示全章內容。
+  1. UI 極簡化：移除書卷按鈕的向下箭頭與「從」、「到」文字。
+  2. 排版優化：調整 Kebab Menu 的邊距與內距以消滅不必要的空白，進一步節省頂部導航列空間。
 -->
 <html lang="zh-TW">
 <head>
@@ -92,18 +91,15 @@
                     <!-- 書卷 Modal 觸發按鈕 -->
                     <button id="btn-book-modal" disabled onclick="toggleBookModal()" class="py-1.5 px-3 md:px-4 border border-stone-300 rounded-full focus:ring-2 focus:ring-amber-500 outline-none bg-white text-stone-800 disabled:opacity-60 font-bold text-sm sm:text-base flex items-center gap-1.5 shadow-sm transition hover:bg-stone-50 shrink-0">
                         <span id="current-book-name">載入中...</span>
-                        <svg class="w-4 h-4 text-stone-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                     </button>
                     
                     <!-- 章節 Modal 觸發按鈕群 -->
                     <div class="flex items-center gap-1.5 shrink-0">
                         <button id="btn-from-modal" disabled onclick="openCvModal('from')" class="py-1.5 px-3 border border-stone-300 rounded-lg bg-stone-50 text-stone-800 disabled:opacity-60 hover:bg-stone-100 transition flex items-center gap-1 shadow-sm focus:ring-2 focus:ring-amber-500 outline-none">
-                            <span class="text-xs font-bold text-stone-500">從</span>
                             <span id="label-from" class="text-sm font-bold tracking-wide">載入中...</span>
                         </button>
                         <span class="text-stone-300 font-bold">-</span>
                         <button id="btn-to-modal" disabled onclick="openCvModal('to')" class="py-1.5 px-3 border border-stone-300 rounded-lg bg-stone-50 text-stone-800 disabled:opacity-60 hover:bg-stone-100 transition flex items-center gap-1 shadow-sm focus:ring-2 focus:ring-amber-500 outline-none">
-                            <span class="text-xs font-bold text-stone-500">到</span>
                             <span id="label-to" class="text-sm font-bold tracking-wide">載入中...</span>
                         </button>
                     </div>
@@ -115,7 +111,7 @@
                 </div>
 
                 <!-- Kebab Menu (僅手機版顯示) -->
-                <button id="btn-kebab" class="md:hidden p-1.5 -mr-1.5 rounded-full text-stone-500 hover:bg-stone-100 transition" title="更多功能">
+                <button id="btn-kebab" class="md:hidden px-1 py-1.5 -mr-3 rounded-full text-stone-500 hover:bg-stone-100 transition" title="更多功能">
                     <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
                         <path fill-rule="evenodd" d="M12 5a2 2 0 110-4 2 2 0 010 4zm0 9a2 2 0 110-4 2 2 0 010 4zm0 9a2 2 0 110-4 2 2 0 010 4z" clip-rule="evenodd" />
                     </svg>
@@ -291,7 +287,7 @@
     </div>
 
     <!-- 右下角版本號標示 (用於確認佈署狀態) -->
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.31</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.32</div>
 
     <script>
         // ==========================================
