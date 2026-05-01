@@ -1,10 +1,9 @@
 <!DOCTYPE html>
 <!-- 
-  版本號：v1.29
+  版本號：v1.30
   修改主旨：
-  1. 移除獨立的「書卷簡寫表」彈出視窗與設定中的觸發按鈕。
-  2. 於「選擇書卷」Modal 標題列新增「顯示中英縮寫」Switch 開關，透過 CSS 瞬間切換書卷膠囊的視圖 (單行中文全名 / 雙行中英縮寫)。
-  3. 優化閱讀體驗：當使用者在「從」選單選擇某章「第 1 節」時，系統自動將「到」設為同章最後一節，方便全章閱讀。
+  1. 重構底層 bookMap 順序，將舊約改為 TaNaKh (律法、先知、詩歌) 排序。
+  2. 於頂部控制列新增「< (上一章)」、「> (下一章)」導航按鈕，支援跨書卷、跨約平滑切換全章閱讀。
 -->
 <html lang="zh-TW">
 <head>
@@ -82,7 +81,13 @@
             
             <!-- 上層/左側：控制選單區塊與 Kebab Menu -->
             <div class="flex justify-between items-center w-full md:w-auto flex-1 gap-2">
-                <div class="flex flex-wrap items-center gap-2 flex-1">
+                <div class="flex flex-wrap items-center gap-1.5 md:gap-2 flex-1">
+                    
+                    <!-- 上一章按鈕 -->
+                    <button id="btn-prev-chap" disabled onclick="goToPrevChapter()" class="p-1.5 md:p-2 border border-stone-300 rounded-full text-stone-500 hover:bg-stone-100 hover:text-stone-800 transition disabled:opacity-30 disabled:cursor-not-allowed bg-white shadow-sm outline-none focus:ring-2 focus:ring-amber-500 shrink-0" title="上一章">
+                        <svg class="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"></path></svg>
+                    </button>
+
                     <!-- 書卷 Modal 觸發按鈕 -->
                     <button id="btn-book-modal" disabled onclick="toggleBookModal()" class="py-1.5 px-3 md:px-4 border border-stone-300 rounded-full focus:ring-2 focus:ring-amber-500 outline-none bg-white text-stone-800 disabled:opacity-60 font-bold text-sm sm:text-base flex items-center gap-1.5 shadow-sm transition hover:bg-stone-50 shrink-0">
                         <span id="current-book-name">載入中...</span>
@@ -101,6 +106,11 @@
                             <span id="label-to" class="text-sm font-bold tracking-wide">載入中...</span>
                         </button>
                     </div>
+
+                    <!-- 下一章按鈕 -->
+                    <button id="btn-next-chap" disabled onclick="goToNextChapter()" class="p-1.5 md:p-2 border border-stone-300 rounded-full text-stone-500 hover:bg-stone-100 hover:text-stone-800 transition disabled:opacity-30 disabled:cursor-not-allowed bg-white shadow-sm outline-none focus:ring-2 focus:ring-amber-500 shrink-0" title="下一章">
+                        <svg class="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"></path></svg>
+                    </button>
                 </div>
 
                 <!-- Kebab Menu (僅手機版顯示) -->
@@ -280,7 +290,7 @@
     </div>
 
     <!-- 右下角版本號標示 (用於確認佈署狀態) -->
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.29</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.30</div>
 
     <script>
         // ==========================================
@@ -300,15 +310,22 @@
         let mappings = []; // DOM 捲動對齊映射
 
         // 66 卷書中英對照表 (嚴格遵循 FSD 規範：無空白、無句點)
+        // [v1.30更新] 字典順序已重構，舊約依照 TaNaKh 排序，新約為標準順序
+        // 此順序將作為系統上一章/下一章的全局單一導航指標 (Single Source of Truth)
         const bookMap = {
+            // 律法 (Torah)
             "Gen": "創世記", "Ex": "出埃及記", "Lev": "利未記", "Num": "民數記", "Deut": "申命記",
-            "Josh": "約書亞記", "Judg": "士師記", "Ruth": "路得記", "1Sam": "撒母耳記上", "2Sam": "撒母耳記下",
-            "1Kings": "列王紀上", "2Kings": "列王紀下", "1Chron": "歷代志上", "2Chron": "歷代志下",
-            "Ezra": "以斯拉記", "Neh": "尼希米記", "Est": "以斯帖記", "Job": "約伯記", "Ps": "詩篇",
-            "Prov": "箴言", "Eccles": "傳道書", "Song": "雅歌", "Isa": "以賽亞書", "Jer": "耶利米書",
-            "Lam": "耶利米哀歌", "Ezek": "以西結書", "Dan": "但以理書", "Hos": "何西阿書", "Joel": "約珥書",
-            "Amos": "阿摩司書", "Obad": "俄巴底亞書", "Jonah": "約拿書", "Mic": "彌迦書", "Nah": "那鴻書",
+            // 先知 (Nevi'im)
+            "Josh": "約書亞記", "Judg": "士師記", "1Sam": "撒母耳記上", "2Sam": "撒母耳記下",
+            "1Kings": "列王紀上", "2Kings": "列王紀下", "Isa": "以賽亞書", "Jer": "耶利米書",
+            "Ezek": "以西結書", "Hos": "何西阿書", "Joel": "約珥書", "Amos": "阿摩司書",
+            "Obad": "俄巴底亞書", "Jonah": "約拿書", "Mic": "彌迦書", "Nah": "那鴻書",
             "Hab": "哈巴谷書", "Zeph": "西番雅書", "Hag": "哈該書", "Zech": "撒迦利亞書", "Mal": "瑪拉基書",
+            // 詩歌 / 著作 (Ketuvim)
+            "Ps": "詩篇", "Prov": "箴言", "Job": "約伯記", "Song": "雅歌", "Ruth": "路得記",
+            "Lam": "耶利米哀歌", "Eccles": "傳道書", "Est": "以斯帖記", "Dan": "但以理書",
+            "Ezra": "以斯拉記", "Neh": "尼希米記", "1Chron": "歷代志上", "2Chron": "歷代志下",
+            // 新約
             "Matt": "馬太福音", "Mark": "馬可福音", "Luke": "路加福音", "John": "約翰福音", "Acts": "使徒行傳",
             "Rom": "羅馬書", "1Cor": "哥林多前書", "2Cor": "哥林多後書", "Gal": "加拉太書", "Eph": "以弗所書",
             "Phil": "腓立比書", "Col": "歌羅西書", "1Thess": "帖撒羅尼迦前書", "2Thess": "帖撒羅尼迦後書",
@@ -316,6 +333,7 @@
             "James": "雅各書", "1Pet": "彼得前書", "2Pet": "彼得後書", "1John": "約翰一書", "2John": "約翰二書",
             "3John": "約翰三書", "Jude": "猶大書", "Rev": "啟示錄"
         };
+
         // 反向對照表 (用於生成 URL)
         const revBookMap = Object.keys(bookMap).reduce((acc, key) => { acc[bookMap[key]] = key; return acc; }, {});
         const bookOrderArray = Object.values(bookMap);
@@ -385,6 +403,8 @@
             btnKebab: document.getElementById('btn-kebab'),
             actionBarWrapper: document.getElementById('action-bar-wrapper'),
             statusBar: document.getElementById('status-bar'),
+            btnPrevChap: document.getElementById('btn-prev-chap'),
+            btnNextChap: document.getElementById('btn-next-chap'),
             bookSelect: document.getElementById('book-select'),
             btnBookModal: document.getElementById('btn-book-modal'),
             currentBookName: document.getElementById('current-book-name'),
@@ -741,6 +761,32 @@
             }
         }
 
+        // 更新 < 與 > 導航按鈕的啟用狀態
+        function updateNavButtonsState() {
+            if (!isDataReady) return;
+            const b = els.bookSelect.value;
+            const fc = parseInt(els.fChap.value);
+            const tc = parseInt(els.tChap.value);
+            
+            // 防呆：「<」按鈕 (創世記 第 1 章時反灰)
+            const isFirstBook = bookOrderArray.indexOf(b) === 0;
+            if (isFirstBook && fc === 1) {
+                els.btnPrevChap.disabled = true;
+            } else {
+                els.btnPrevChap.disabled = false;
+            }
+            
+            // 防呆：「>」按鈕 (啟示錄 末章時反灰)
+            const isLastBook = bookOrderArray.indexOf(b) === bookOrderArray.length - 1;
+            const chapters = Object.keys(bibleData[b]).map(Number).sort((a,b)=>a-b);
+            const maxChap = chapters[chapters.length - 1];
+            if (isLastBook && tc === maxChap) {
+                els.btnNextChap.disabled = true;
+            } else {
+                els.btnNextChap.disabled = false;
+            }
+        }
+
         function enforceValidationAndExtract() {
             if (!isDataReady) return;
             
@@ -748,8 +794,74 @@
             // 系統保證迄點必定 >= 起點，因此移除舊版事後校正邏輯，直接執行更新。
             
             syncLabels();
+            updateNavButtonsState();
             updateUrlAndTitle();
             extractAndRenderScripture();
+        }
+
+        // ==========================================
+        // 4.1 上一章/下一章 (導航) 控制邏輯
+        // ==========================================
+        window.goToPrevChapter = function() {
+            if (!isDataReady) return;
+            const currentBook = els.bookSelect.value;
+            const currentChap = parseInt(els.fChap.value);
+            
+            if (currentChap > 1) {
+                // 同一卷書，上一章全章
+                navigateToFullChapter(currentBook, currentChap - 1);
+            } else {
+                // 跨卷，上一卷書末章全章
+                const bookIndex = bookOrderArray.indexOf(currentBook);
+                if (bookIndex > 0) {
+                    const prevBook = bookOrderArray[bookIndex - 1];
+                    const chapters = Object.keys(bibleData[prevBook]).map(Number).sort((a,b)=>a-b);
+                    const lastChap = chapters[chapters.length - 1];
+                    navigateToFullChapter(prevBook, lastChap);
+                }
+            }
+        };
+
+        window.goToNextChapter = function() {
+            if (!isDataReady) return;
+            const currentBook = els.bookSelect.value;
+            const currentChap = parseInt(els.tChap.value);
+            const chapters = Object.keys(bibleData[currentBook]).map(Number).sort((a,b)=>a-b);
+            const maxChap = chapters[chapters.length - 1];
+            
+            if (currentChap < maxChap) {
+                // 同一卷書，下一章全章
+                navigateToFullChapter(currentBook, currentChap + 1);
+            } else {
+                // 跨卷，下一卷書第 1 章全章
+                const bookIndex = bookOrderArray.indexOf(currentBook);
+                if (bookIndex < bookOrderArray.length - 1) {
+                    const nextBook = bookOrderArray[bookIndex + 1];
+                    navigateToFullChapter(nextBook, 1);
+                }
+            }
+        };
+
+        // 輔助函式：切換至指定書卷與章數，並強制設定範圍為「全章」
+        function navigateToFullChapter(bookName, chapter) {
+            els.bookSelect.value = bookName;
+            els.currentBookName.textContent = bookName;
+            
+            // 重建「從」的選單
+            updateChapterSelects(false); 
+            els.fChap.value = chapter;
+            updateVerseSelects('from', false); 
+            
+            const verses = Object.keys(bibleData[bookName][chapter]).map(Number).sort((a,b)=>a-b);
+            els.fVerse.value = verses[0]; // 設定從第 1 節
+            
+            // 重建「到」的選單並對齊
+            updateToChapterSelect(false);
+            els.tChap.value = chapter;
+            updateToVerseSelect(false);
+            els.tVerse.value = verses[verses.length - 1]; // 設定至末節
+            
+            enforceValidationAndExtract();
         }
 
         // 當使用者在 Modal 點擊膠囊按鈕時觸發
