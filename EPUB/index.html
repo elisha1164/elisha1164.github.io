@@ -305,9 +305,10 @@
 
     <div id="print-area"></div>
     
-    <div class="version-tag">v3.10</div>
+    <div class="version-tag">v3.11</div>
 
     <script>
+        // v3.11 (導入 IndexedDB 建立自動暫存與恢復機制，解決系統清除記憶體導致的重載問題)
         // v3.10 (修復：在 file input 綁定 click 事件強制清空數值，解決重新選擇同一本機檔案時失效的問題)
         // v3.9 (新增 2.5x、3.0x 語音速度選項)
         // v3.8 (優化 TTS 體驗：移除句尾補點、加入 2.0x 語速、起點優先尋找新段落、停頓時間與語速動態連動)
@@ -339,6 +340,92 @@
             });
         }
         checkInAppBrowser();
+
+        // ==========================================
+        // IndexedDB 自動暫存與恢復機制
+        // ==========================================
+        const DB_NAME = 'EpubReaderDB';
+        const DB_VERSION = 1;
+        const STORE_NAME = 'BookStore';
+
+        function initDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+                request.onerror = (event) => reject(event.target.error);
+                request.onsuccess = (event) => resolve(event.target.result);
+                request.onupgradeneeded = (event) => {
+                    const db = event.target.result;
+                    if (!db.objectStoreNames.contains(STORE_NAME)) {
+                        db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+                    }
+                };
+            });
+        }
+
+        async function saveBookToDB(arrayBuffer) {
+            try {
+                const db = await initDB();
+                const tx = db.transaction(STORE_NAME, 'readwrite');
+                const store = tx.objectStore(STORE_NAME);
+                store.put({
+                    id: 'current_book',
+                    data: arrayBuffer,
+                    location: null,
+                    timestamp: Date.now()
+                });
+                return new Promise((resolve, reject) => {
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = (e) => reject(e.target.error);
+                });
+            } catch (error) {
+                console.warn("儲存至資料庫失敗 (可能容量不足):", error);
+            }
+        }
+
+        async function saveLocationToDB(cfi) {
+            try {
+                const db = await initDB();
+                const tx = db.transaction(STORE_NAME, 'readwrite');
+                const store = tx.objectStore(STORE_NAME);
+                const request = store.get('current_book');
+                request.onsuccess = (event) => {
+                    const record = event.target.result;
+                    if (record) {
+                        record.location = cfi;
+                        store.put(record);
+                    }
+                };
+            } catch (error) {
+                console.warn("儲存閱讀進度失敗:", error);
+            }
+        }
+
+        async function clearDB() {
+            try {
+                const db = await initDB();
+                const tx = db.transaction(STORE_NAME, 'readwrite');
+                const store = tx.objectStore(STORE_NAME);
+                store.delete('current_book');
+            } catch (error) {
+                console.warn("清除資料庫失敗:", error);
+            }
+        }
+
+        async function loadBookFromDB() {
+            try {
+                const db = await initDB();
+                const tx = db.transaction(STORE_NAME, 'readonly');
+                const store = tx.objectStore(STORE_NAME);
+                const request = store.get('current_book');
+                return new Promise((resolve, reject) => {
+                    request.onsuccess = (event) => resolve(event.target.result);
+                    request.onerror = (e) => reject(e.target.error);
+                });
+            } catch (error) {
+                console.warn("讀取資料庫失敗:", error);
+                return null;
+            }
+        }
 
         // ==========================================
         // 核心邏輯變數
@@ -415,6 +502,7 @@
                 if (rendition) { viewer.innerHTML = ''; rendition = null; }
                 tocContent.innerHTML = ''; fileInput.value = ''; urlInput.value = '';
                 tocMap = {}; locationsGenerated = false;
+                clearDB(); // 主動關閉時清除資料庫
                 const newUrl = new URL(window.location); newUrl.searchParams.delete('src'); window.history.pushState({}, '', newUrl);
             }
         });
@@ -481,7 +569,7 @@
         // ==========================================
         // 初始化書籍與動態 Title
         // ==========================================
-        function initBook(bookData) {
+        function initBook(bookData, savedLocation = null) {
             if (typeof ePub === 'undefined') { showLoading(false); alert("⚠️ 核心套件載入失敗！\n請檢查網路連線。"); return; }
             showLoading(true, '正在準備沉浸式閱讀體驗...');
             if (book) book.destroy(); 
@@ -510,6 +598,7 @@
 
                     rendition.on('relocated', (location) => {
                         updateProgressDisplay(location);
+                        saveLocationToDB(location.start.cfi); // 翻頁時非同步儲存最新座標
                         if (isPlayingTTS && !isAutoTurning) {
                             window.speechSynthesis.cancel();
                             setTimeout(async () => {
@@ -519,7 +608,11 @@
                         }
                     });
 
-                    return rendition.display();
+                    if (savedLocation) {
+                        return rendition.display(savedLocation);
+                    } else {
+                        return rendition.display();
+                    }
                 }).then(() => {
                     clearTimeout(loadingTimeout); showLoading(false);
                     document.body.classList.add('is-reading');
@@ -766,6 +859,7 @@
                 const response = await fetch(url);
                 if (!response.ok) throw new Error(`伺服器回應錯誤: ${response.status}`);
                 const arrayBuffer = await response.arrayBuffer();
+                await saveBookToDB(arrayBuffer);
                 initBook(arrayBuffer);
             } catch (error) {
                 showLoading(false);
@@ -794,7 +888,11 @@
             urlInput.value = '';
             if (window.FileReader) {
                 const reader = new FileReader();
-                reader.onload = (event) => initBook(event.target.result); 
+                reader.onload = async (event) => {
+                    showLoading(true, '正在處理並暫存電子書...');
+                    await saveBookToDB(event.target.result);
+                    initBook(event.target.result); 
+                };
                 reader.readAsArrayBuffer(file);
             }
         });
@@ -955,11 +1053,22 @@
             }
         });
 
-        window.addEventListener('DOMContentLoaded', () => {
+        window.addEventListener('DOMContentLoaded', async () => {
             if (document.getElementById('iab-warning-overlay').style.display === 'flex') return;
             const params = new URLSearchParams(window.location.search);
             const srcUrl = params.get('src');
-            if (srcUrl) { urlInput.value = srcUrl; loadBookFromUrl(srcUrl); }
+            
+            if (srcUrl) { 
+                urlInput.value = srcUrl; 
+                loadBookFromUrl(srcUrl); 
+            } else {
+                // 若無網址載入需求，檢查 IndexedDB 是否有上次被系統強制關閉的暫存進度
+                const savedRecord = await loadBookFromDB();
+                if (savedRecord && savedRecord.data) {
+                    showLoading(true, '正在恢復上次的閱讀進度...');
+                    initBook(savedRecord.data, savedRecord.location);
+                }
+            }
         });
     </script>
 </body>
