@@ -305,9 +305,10 @@
 
     <div id="print-area"></div>
     
-    <div class="version-tag">v3.9</div>
+    <div class="version-tag">v3.10</div>
 
     <script>
+        // v3.10 (修復：在 file input 綁定 click 事件強制清空數值，解決重新選擇同一本機檔案時失效的問題)
         // v3.9 (新增 2.5x、3.0x 語音速度選項)
         // v3.8 (優化 TTS 體驗：移除句尾補點、加入 2.0x 語速、起點優先尋找新段落、停頓時間與語速動態連動)
         // v3.7 (UI修改：新增齒輪設定按鈕，並將排版與列印功能移至隱藏的第二行，加入語音速度下拉選單)
@@ -780,6 +781,10 @@
                 });
             }
         }
+
+        fileInput.addEventListener('click', (e) => {
+            e.target.value = null;
+        });
 
         fileInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
