@@ -305,9 +305,10 @@
 
     <div id="print-area"></div>
     
-    <div class="version-tag">v3.12</div>
+    <div class="version-tag">v3.13</div>
 
     <script>
+        // v3.13 (新增：根據章節漢字比例自動切換中/英語音引擎，支援 30% 閥值判定與英文優選邏輯)
         // v3.12 (開放首頁下拉重新整理，閱讀階段鎖定；關閉書本時強制重新整理以徹底釋放記憶體)
         // v3.11 (導入 IndexedDB 建立自動暫存與恢復機制，解決系統清除記憶體導致的重載問題)
         // v3.10 (修復：在 file input 綁定 click 事件強制清空數值，解決重新選擇同一本機檔案時失效的問題)
@@ -444,6 +445,7 @@
         let ttsQueue = [];
         let currentSpeechIndex = 0;
         let wakeLock = null;
+        let currentChapterIsChinese = true; // 預設為中文，依賴後續動態判定
         const DEFAULT_TITLE = "純前端 EPUB 閱讀與列印工具";
 
         // 進度追蹤狀態
@@ -669,13 +671,25 @@
 
         window.speechSynthesis.onvoiceschanged = () => {}; 
 
-        function getBestVoice() {
+        function getBestVoice(isChineseContext) {
             const voices = window.speechSynthesis.getVoices();
-            let voice = voices.find(v => v.lang.includes('zh-TW') && v.name.includes('Natural'));
-            if (!voice) voice = voices.find(v => v.lang.includes('zh-TW') && (v.name.includes('Premium') || v.name.includes('Siri') || v.name.includes('Mei-Jia')));
-            if (!voice) voice = voices.find(v => v.lang.includes('zh-TW') && v.localService);
-            if (!voice) voice = voices.find(v => v.lang.includes('zh-TW'));
-            if (!voice) voice = voices.find(v => v.lang.includes('zh'));
+            let voice;
+
+            if (isChineseContext) {
+                // 中文語境優選邏輯
+                voice = voices.find(v => v.lang.includes('zh-TW') && v.name.includes('Natural'));
+                if (!voice) voice = voices.find(v => v.lang.includes('zh-TW') && (v.name.includes('Premium') || v.name.includes('Siri') || v.name.includes('Mei-Jia')));
+                if (!voice) voice = voices.find(v => v.lang.includes('zh-TW') && v.localService);
+                if (!voice) voice = voices.find(v => v.lang.includes('zh-TW'));
+                if (!voice) voice = voices.find(v => v.lang.includes('zh'));
+            } else {
+                // 英文語境優選邏輯 (Fallback for all non-Chinese)
+                voice = voices.find(v => (v.lang === 'en-US' || v.lang === 'en-GB') && (v.name.includes('Natural') || v.name.includes('Premium') || v.name.includes('Siri')));
+                if (!voice) voice = voices.find(v => v.lang === 'en-US' && v.localService);
+                if (!voice) voice = voices.find(v => v.lang.includes('en-US') || v.lang.includes('en-GB'));
+                if (!voice) voice = voices.find(v => v.lang.includes('en'));
+            }
+            
             return voice;
         }
 
@@ -721,6 +735,16 @@
                 }
             };
             walk(body);
+
+            // === 語言判定：合併章節內文字，計算漢字比例 (30% 閥值) ===
+            const fullChapterText = newQueue.map(item => item.text).join('');
+            if (fullChapterText.length > 0) {
+                const hanziMatches = fullChapterText.match(/[\u4e00-\u9fa5]/g);
+                const hanziCount = hanziMatches ? hanziMatches.length : 0;
+                currentChapterIsChinese = (hanziCount / fullChapterText.length) >= 0.3;
+            } else {
+                currentChapterIsChinese = true; // 預設防呆
+            }
 
             const currentCfi = loc.start.cfi;
             const endCfi = loc.end.cfi;
@@ -816,7 +840,7 @@
             }
 
             const utterance = new SpeechSynthesisUtterance(item.text);
-            const voice = getBestVoice();
+            const voice = getBestVoice(currentChapterIsChinese);
             if (voice) utterance.voice = voice;
             utterance.rate = currentTtsRate;
             
