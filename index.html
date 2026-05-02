@@ -1,4 +1,10 @@
-<!-- 版本號: 1.1, 修改主旨: 將靜態內容抽離至 contents.json，並加入動態載入腳本 -->
+<!-- 
+  版本號：v1.2
+  修改主旨：
+  1. 將 category 改為 tags 陣列架構
+  2. 實作動態標籤篩選列 (Filter Bar)
+  3. 卡片內新增 tags 視覺呈現 (Pill Badges)
+-->
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -77,7 +83,7 @@
     </header>
 
     <!-- About Section -->
-    <section class="container mx-auto px-6 max-w-3xl mb-16 text-center relative">
+    <section class="container mx-auto px-6 max-w-3xl mb-12 text-center relative">
         <div class="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-brand-light opacity-50 z-0">
             <i data-lucide="quote" class="w-24 h-24"></i>
         </div>
@@ -86,8 +92,13 @@
         </p>
     </section>
 
-    <!-- Tools Grid -->
+    <!-- Tools Grid & Filter -->
     <main class="container mx-auto px-6 max-w-5xl flex-grow mb-20">
+        <!-- 標籤篩選列 -->
+        <div id="filter-container" class="flex flex-wrap gap-2 mb-8 justify-center">
+            <!-- 篩選按鈕將由 JavaScript 動態載入於此處 -->
+        </div>
+
         <div id="tools-container" class="grid grid-cols-1 md:grid-cols-2 gap-8">
             <!-- 應用程式卡片將由 JavaScript 動態載入於此處 -->
         </div>
@@ -103,6 +114,9 @@
 
     <!-- Initialize App Logic -->
     <script>
+        let allToolsData = [];
+        let currentFilter = '全部';
+
         document.addEventListener('DOMContentLoaded', () => {
             fetch('contents.json')
                 .then(response => {
@@ -112,37 +126,113 @@
                     return response.json();
                 })
                 .then(data => {
-                    const container = document.getElementById('tools-container');
-                    let html = '';
-                    
-                    data.forEach(tool => {
-                        html += `
-                        <article class="bg-white rounded-2xl p-8 shadow-sm border border-stone-100 card-hover flex flex-col h-full">
-                            <div class="flex items-center mb-4">
-                                <div class="w-12 h-12 rounded-xl bg-brand-light text-brand-dark flex items-center justify-center mr-4">
-                                    <i data-lucide="${tool.icon}" class="w-6 h-6"></i>
-                                </div>
-                                <h3 class="text-xl font-bold text-stone-850 leading-tight">${tool.title}<br><span class="text-sm text-stone-400 font-normal">${tool.subtitle}</span></h3>
-                            </div>
-                            <h4 class="text-brand-dark font-medium mb-3">${tool.tagline}</h4>
-                            <p class="text-stone-600 mb-6 flex-grow leading-relaxed text-sm md:text-base">
-                                ${tool.description}
-                            </p>
-                            <a href="${tool.link}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center w-full bg-stone-100 hover:bg-stone-200 text-stone-800 font-bold py-3 px-4 rounded-xl transition-colors">
-                                <i data-lucide="${tool.buttonIcon}" class="w-5 h-5 mr-2"></i> ${tool.buttonText}
-                            </a>
-                        </article>
-                        `;
-                    });
-                    
-                    container.innerHTML = html;
-                    lucide.createIcons();
+                    allToolsData = data;
+                    renderFilterBar();
+                    renderTools();
                 })
                 .catch(error => {
                     console.error('載入內容失敗:', error);
                     document.getElementById('tools-container').innerHTML = '<p class="text-center text-red-500 col-span-full">無法載入工具列表，請確認伺服器環境或檔案路徑是否正確。</p>';
                 });
         });
+
+        // 渲染標籤篩選列
+        function renderFilterBar() {
+            const filterContainer = document.getElementById('filter-container');
+            const tagsSet = new Set();
+            
+            // 提取所有不重複的標籤
+            allToolsData.forEach(tool => {
+                if (tool.tags && Array.isArray(tool.tags)) {
+                    tool.tags.forEach(tag => tagsSet.add(tag));
+                }
+            });
+            const uniqueTags = Array.from(tagsSet);
+            
+            // 定義狀態樣式
+            const activeClass = 'bg-stone-800 text-white shadow-md';
+            const inactiveClass = 'bg-white text-stone-500 border border-stone-200 hover:bg-stone-100 hover:text-stone-800';
+
+            let html = `<button onclick="setFilter('全部')" class="px-5 py-2 rounded-full text-sm font-bold transition-all duration-200 ${currentFilter === '全部' ? activeClass : inactiveClass}">全部</button>`;
+            
+            uniqueTags.forEach(tag => {
+                html += `<button onclick="setFilter('${tag}')" class="px-5 py-2 rounded-full text-sm font-bold transition-all duration-200 ${currentFilter === tag ? activeClass : inactiveClass}">${tag}</button>`;
+            });
+            
+            filterContainer.innerHTML = html;
+        }
+
+        // 設定篩選條件並重新渲染
+        window.setFilter = function(tag) {
+            currentFilter = tag;
+            renderFilterBar();
+            renderTools();
+        };
+
+        // 渲染應用程式卡片
+        function renderTools() {
+            const container = document.getElementById('tools-container');
+            
+            // 過濾資料
+            const filteredData = currentFilter === '全部' 
+                ? allToolsData 
+                : allToolsData.filter(tool => tool.tags && tool.tags.includes(currentFilter));
+            
+            let html = '';
+            
+            filteredData.forEach(tool => {
+                // 產生卡片標籤 HTML
+                const tagsHtml = tool.tags ? tool.tags.map(tag => 
+                    `<span class="inline-block bg-brand-light text-brand-dark text-xs px-2.5 py-1 rounded-md mr-2 mb-2 font-medium tracking-wide">#${tag}</span>`
+                ).join('') : '';
+
+                html += `
+                <article class="bg-white rounded-2xl p-8 shadow-sm border border-stone-100 card-hover flex flex-col h-full animate-[fadeIn_0.3s_ease-out]">
+                    <div class="flex items-start mb-4">
+                        <div class="w-12 h-12 rounded-xl bg-brand-light text-brand-dark flex items-center justify-center mr-4 shrink-0">
+                            <i data-lucide="${tool.icon}" class="w-6 h-6"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-bold text-stone-850 leading-tight">${tool.title}</h3>
+                            <span class="text-sm text-stone-400 font-normal">${tool.subtitle}</span>
+                        </div>
+                    </div>
+                    
+                    <h4 class="text-brand-dark font-medium mb-3">${tool.tagline}</h4>
+                    
+                    <div class="flex flex-wrap mb-2">
+                        ${tagsHtml}
+                    </div>
+                    
+                    <p class="text-stone-600 mb-6 flex-grow leading-relaxed text-sm md:text-base">
+                        ${tool.description}
+                    </p>
+                    
+                    <a href="${tool.link}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center w-full bg-stone-100 hover:bg-stone-200 text-stone-800 font-bold py-3 px-4 rounded-xl transition-colors mt-auto">
+                        <i data-lucide="${tool.buttonIcon}" class="w-5 h-5 mr-2"></i> ${tool.buttonText}
+                    </a>
+                </article>
+                `;
+            });
+            
+            // 若篩選後無結果的防呆處理
+            if (filteredData.length === 0) {
+                html = `<div class="col-span-full text-center py-12 text-stone-400 font-medium">沒有找到符合此標籤的工具。</div>`;
+            }
+            
+            container.innerHTML = html;
+            
+            // 重新初始化 Lucide 圖示
+            lucide.createIcons();
+        }
     </script>
+    
+    <!-- 簡單的淡入動畫 -->
+    <style>
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
 </body>
 </html>

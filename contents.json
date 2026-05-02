@@ -1,7 +1,7 @@
 [
   {
     "id": "app1",
-    "category": "Podcast",
+    "tags": ["Podcast", "神學", "語音"],
     "icon": "headphones",
     "title": "老張讀書筆記",
     "subtitle": "The Remnant Reads",
@@ -13,7 +13,7 @@
   },
   {
     "id": "app2",
-    "category": "靈修",
+    "tags": ["讀經", "靈修", "語音"],
     "icon": "book-open",
     "title": "指向耶穌的大故事",
     "subtitle": "358 天讀經計畫",
@@ -25,7 +25,7 @@
   },
   {
     "id": "app3",
-    "category": "背經",
+    "tags": ["背經", "語音"],
     "icon": "layers",
     "title": "主題背經系統",
     "subtitle": "TMS 經典閃卡",
@@ -37,7 +37,7 @@
   },
   {
     "id": "app4",
-    "category": "背經",
+    "tags": ["背經", "神學", "語音"],
     "icon": "message-circle-question",
     "title": "聖經大故事問答",
     "subtitle": "主線故事一把抓",
@@ -49,7 +49,7 @@
   },
   {
     "id": "app5",
-    "category": "靈修",
+    "tags": ["靈修", "家庭", "語音"],
     "icon": "users",
     "title": "聖經大故事家庭靈修",
     "subtitle": "50 週共讀計畫",
@@ -61,7 +61,7 @@
   },
   {
     "id": "app6",
-    "category": "讀經",
+    "tags": ["讀經", "工具", "語音"],
     "icon": "book",
     "title": "和合本 2010",
     "subtitle": "輕量數位聖經",
