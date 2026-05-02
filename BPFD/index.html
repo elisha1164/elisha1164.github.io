@@ -1,7 +1,9 @@
 <!-- 
-  版本號：v1.20
+  版本號：v1.21
   修改主旨：
-  1. 將介面與語音朗讀中的兩處「本週問答」修改為「大故事金句」。
+  1. 將介面與語音朗讀中的兩處「本週問答」修改為「大故事金句」。(v1.20)
+  2. 實作 Sequential Landing Orchestration：淨化網址並透過事件接力排程 PWA 推廣與設定精靈。
+  3. 移除 checkTourTrigger() 內的 setTimeout，並加入獨立模式 (Standalone) 防擾判定。
 -->
 <!DOCTYPE html>
 <html lang="zh-TW">
@@ -171,8 +173,8 @@
             </div>
 
             <div class="flex flex-col gap-2">
-                <button id="resetActionBtn1" class="w-full bg-stone-800 text-white py-2.5 rounded-xl font-medium">匯出備份再重置</button>
-                <button id="resetActionBtn2" class="w-full bg-red-600 text-white py-2.5 rounded-xl font-medium">立即重置 (不備份)</button>
+                <button id="resetActionBtn1" onclick="exportData(); performReset();" class="w-full bg-stone-800 text-white py-2.5 rounded-xl font-medium">匯出備份再重置</button>
+                <button id="resetActionBtn2" onclick="performReset()" class="w-full bg-red-600 text-white py-2.5 rounded-xl font-medium">立即重置 (不備份)</button>
                 <button id="resetActionBtnChangeDays" onclick="closeModal('resetConfirmModal'); openReadingDaysModal();" class="w-full bg-stone-100 text-stone-700 py-2.5 rounded-xl font-medium hidden">重新設定閱讀日</button>
                 <button onclick="closeModal('resetConfirmModal')" class="w-full bg-white border border-stone-200 text-stone-600 py-2.5 rounded-xl font-medium mt-2">取消</button>
             </div>
@@ -420,7 +422,7 @@
 
         <!-- Fixed Version Number -->
         <div class="fixed bottom-2 right-2 text-[10px] text-stone-300 font-mono select-none pointer-events-none z-0">
-            v1.20
+            v1.21
         </div>
     </div>
 
@@ -428,10 +430,12 @@
         // ==========================================
         // 1. Constants & State Variables
         // ==========================================
-        const APP_VERSION = '1.20';
+        const APP_VERSION = '1.21';
         const APP_LOAD_TIME = Date.now();
         const TOTAL_DAYS = 150;
         
+        let isPwaEntry = false; // 新增：PWA 入口標記
+
         const STORE_KEYS = {
             START_DATE: 'family_devo_start_date',
             READING_DAYS: 'family_devo_reading_days',
@@ -480,6 +484,7 @@
 
         // PWA Routing Guard
         if (window.location.search.includes('pwa=1')) {
+            isPwaEntry = true; // 記錄為 PWA 入口
             const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
             window.history.replaceState({path: newUrl}, '', newUrl);
         }
@@ -492,12 +497,29 @@
                     speechSynthesis.onvoiceschanged = populateVoiceList;
                 }
 
-                if (!getStorage(STORE_KEYS.START_DATE) || !getStorage(STORE_KEYS.READING_DAYS)) {
-                    showSetupWizard();
+                // 環境偵測：是否已是 PWA 獨立模式
+                const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+                const needsSetup = !getStorage(STORE_KEYS.START_DATE) || !getStorage(STORE_KEYS.READING_DAYS);
+
+                // 定義接力執行的下一步：設定精靈 或 直接載入畫面
+                const proceedToNextStep = () => {
+                    if (needsSetup) {
+                        showSetupWizard();
+                    } else {
+                        loadAndRenderCurrentDay();
+                        checkTourTrigger();
+                    }
+                };
+
+                // 若為 PWA 推廣連結且非獨立模式，則觸發安裝提示並接力
+                if (isPwaEntry && !isStandalone) {
+                    window._pwaEntryOnComplete = proceedToNextStep;
+                    document.getElementById('installPromptModal').classList.remove('hidden');
+                    setStorage(STORE_KEYS.INSTALL_PROMPT, 'true');
                 } else {
-                    loadAndRenderCurrentDay();
-                    checkTourTrigger();
+                    proceedToNextStep();
                 }
+
             } catch (err) {
                 console.error("Init Error:", err);
                 showGlobalError("無法載入資料，請檢查網路連線或稍後重試。");
@@ -1465,6 +1487,13 @@
 
         function closeModal(id) {
             document.getElementById(id).classList.add('hidden');
+            
+            // 攔截手動安裝教學的關閉事件，接力後續排程
+            if (id === 'manualInstallModal' && window._pwaEntryOnComplete) {
+                const cb = window._pwaEntryOnComplete;
+                window._pwaEntryOnComplete = null;
+                cb();
+            }
         }
 
         function updateStartDate(newDateStr) {
@@ -1555,7 +1584,8 @@
             const data = {
                 [STORE_KEYS.START_DATE]: getStorage(STORE_KEYS.START_DATE),
                 [STORE_KEYS.READING_DAYS]: getStorage(STORE_KEYS.READING_DAYS, true),
-                [STORE_KEYS.PROGRESS]: getStorage(STORE_KEYS.PROGRESS, true)
+                [STORE_KEYS.PROGRESS]: getStorage(STORE_KEYS.PROGRESS, true),
+                [STORE_KEYS.TOUR_COMPLETED]: getStorage(STORE_KEYS.TOUR_COMPLETED)
             };
             const blob = new Blob([JSON.stringify(data, null, 2)], {type: "application/json"});
             const url = URL.createObjectURL(blob);
@@ -1703,8 +1733,17 @@
         function triggerInstall() {
             if (deferredPrompt) {
                 deferredPrompt.prompt();
-                deferredPrompt.userChoice.then(() => { deferredPrompt = null; });
+                deferredPrompt.userChoice.then(() => { 
+                    deferredPrompt = null; 
+                    // 攔截原生安裝提示的完成事件，接力後續排程
+                    if (window._pwaEntryOnComplete) {
+                        const cb = window._pwaEntryOnComplete;
+                        window._pwaEntryOnComplete = null;
+                        cb();
+                    }
+                });
             } else {
+                document.getElementById('installPromptModal').classList.add('hidden');
                 document.getElementById('manualInstallModal').classList.remove('hidden');
             }
         }
@@ -1712,6 +1751,13 @@
         function handleInstallPromptClose() {
             closeModal('installPromptModal');
             setStorage(STORE_KEYS.INSTALL_PROMPT, 'true');
+            
+            // 攔截「稍後再說」或「背景點擊」，接力後續排程
+            if (window._pwaEntryOnComplete) {
+                const cb = window._pwaEntryOnComplete;
+                window._pwaEntryOnComplete = null;
+                cb();
+            }
         }
 
         function copyAppUrl() {
@@ -1740,14 +1786,8 @@
         // 12. Onboarding Tour (Driver.js)
         // ==========================================
         function checkTourTrigger() {
-            if (!getStorage(STORE_KEYS.TOUR_COMPLETED) && !window.location.search.includes('pwa=1')) {
-                // Modal collision protection
-                setTimeout(() => {
-                    const installMod = document.getElementById('installPromptModal');
-                    if (installMod.classList.contains('hidden')) {
-                        startTour();
-                    }
-                }, 1500);
+            if (!getStorage(STORE_KEYS.TOUR_COMPLETED)) {
+                startTour();
             }
         }
 
