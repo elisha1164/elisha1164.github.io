@@ -1,9 +1,11 @@
 <!-- 
-  版本號：v1.21
+  版本號：v1.23
   修改主旨：
   1. 將介面與語音朗讀中的兩處「本週問答」修改為「大故事金句」。(v1.20)
   2. 實作 Sequential Landing Orchestration：淨化網址並透過事件接力排程 PWA 推廣與設定精靈。
   3. 移除 checkTourTrigger() 內的 setTimeout，並加入獨立模式 (Standalone) 防擾判定。
+  4. 頁尾新增「The Big Picture Family Devotional」原文版權宣告與超連結。
+  5. 移除 completeSetup() 中多餘的事件接力判斷，直接載入畫面與導覽。
 -->
 <!DOCTYPE html>
 <html lang="zh-TW">
@@ -423,7 +425,7 @@
 
         <!-- Fixed Version Number -->
         <div class="fixed bottom-2 right-2 text-[10px] text-stone-300 font-mono select-none pointer-events-none z-0">
-            v1.21
+            v1.23
         </div>
     </div>
 
@@ -431,7 +433,7 @@
         // ==========================================
         // 1. Constants & State Variables
         // ==========================================
-        const APP_VERSION = '1.21';
+        const APP_VERSION = '1.23';
         const APP_LOAD_TIME = Date.now();
         const TOTAL_DAYS = 150;
         
@@ -769,6 +771,7 @@
             if (!getStorage(STORE_KEYS.PROGRESS)) setStorage(STORE_KEYS.PROGRESS, {}, true);
 
             closeModal('setupWizardModal');
+            
             loadAndRenderCurrentDay();
             checkTourTrigger();
         }
