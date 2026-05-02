@@ -1,7 +1,9 @@
 <!-- 
-  版本號：v1.20
+  版本號：v1.21
   修改主旨：
-  1. 將介面與語音朗讀中的兩處「本週問答」修改為「大故事金句」。
+  1. 實作 Sequential Landing Orchestration (序列化著陸排程)，解決 ?pwa=1 與新手導覽、設定精靈互撞的時序問題。
+  2. 導入 Promise 狀態機與 Standalone 模式檢測，確保 UX 流程為：淨化網址 ➔ PWA推廣(僅非APP模式) ➔ 首次設定 ➔ 新手導覽。
+  3. 解除 Modal 遮罩點擊的 inline onclick 耦合，統一綁定 Promise resolve 防死鎖。
 -->
 <!DOCTYPE html>
 <html lang="zh-TW">
@@ -103,7 +105,7 @@
     </div>
 
     <!-- Setup Wizard Modal -->
-    <div id="setupWizardModal" class="fixed inset-0 z-50 bg-stone-900/50 backdrop-blur-sm flex items-center justify-center hidden p-4" onclick="if(event.target === this) closeModal('setupWizardModal')">
+    <div id="setupWizardModal" class="fixed inset-0 z-50 bg-stone-900/50 backdrop-blur-sm flex items-center justify-center hidden p-4">
         <div class="bg-white rounded-2xl p-6 sm:p-8 w-full max-w-md shadow-2xl relative max-h-[90vh] overflow-y-auto">
             <h2 class="text-2xl font-bold text-stone-800 mb-2">👋 歡迎來到家庭靈修</h2>
             <p class="text-stone-500 mb-6 text-sm">這是一趟 50 週的聖經大故事旅程，什麼時候開始都是好日子！讓我們來設定專屬你們家的進度步調。</p>
@@ -171,8 +173,8 @@
             </div>
 
             <div class="flex flex-col gap-2">
-                <button id="resetActionBtn1" class="w-full bg-stone-800 text-white py-2.5 rounded-xl font-medium">匯出備份再重置</button>
-                <button id="resetActionBtn2" class="w-full bg-red-600 text-white py-2.5 rounded-xl font-medium">立即重置 (不備份)</button>
+                <button id="resetActionBtn1" onclick="exportData(); performReset();" class="w-full bg-stone-800 text-white py-2.5 rounded-xl font-medium">匯出備份再重置</button>
+                <button id="resetActionBtn2" onclick="performReset()" class="w-full bg-red-600 text-white py-2.5 rounded-xl font-medium">立即重置 (不備份)</button>
                 <button id="resetActionBtnChangeDays" onclick="closeModal('resetConfirmModal'); openReadingDaysModal();" class="w-full bg-stone-100 text-stone-700 py-2.5 rounded-xl font-medium hidden">重新設定閱讀日</button>
                 <button onclick="closeModal('resetConfirmModal')" class="w-full bg-white border border-stone-200 text-stone-600 py-2.5 rounded-xl font-medium mt-2">取消</button>
             </div>
@@ -201,20 +203,20 @@
         </div>
     </div>
 
-    <!-- PWA Install Prompts -->
-    <div id="installPromptModal" class="fixed inset-0 z-50 bg-stone-900/50 backdrop-blur-sm flex items-center justify-center hidden p-4" onclick="if(event.target === this) handleInstallPromptClose()">
+    <!-- PWA Install Prompts (Managed via Promise Orchestrator) -->
+    <div id="installPromptModal" class="fixed inset-0 z-50 bg-stone-900/50 backdrop-blur-sm flex items-center justify-center hidden p-4">
         <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl text-center">
             <div class="w-16 h-16 bg-amber-100 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-inner">
                 <i data-lucide="download-cloud" class="w-8 h-8 text-amber-600"></i>
             </div>
             <h3 class="text-xl font-bold text-stone-800 mb-2">安裝到主畫面</h3>
             <p class="text-stone-500 mb-6 text-sm">將家庭靈修加入手機桌面，就像一般的 APP，日後開啟更方便！</p>
-            <button onclick="triggerInstall()" class="w-full bg-amber-600 text-white py-3 rounded-xl font-bold mb-2">立即安裝</button>
-            <button onclick="handleInstallPromptClose()" class="w-full text-stone-400 py-2 text-sm">稍後再說</button>
+            <button id="installActionBtn" class="w-full bg-amber-600 text-white py-3 rounded-xl font-bold mb-2">立即安裝</button>
+            <button id="installCancelBtn" class="w-full text-stone-400 py-2 text-sm">稍後再說</button>
         </div>
     </div>
 
-    <div id="manualInstallModal" class="fixed inset-0 z-50 bg-stone-900/50 backdrop-blur-sm flex items-end sm:items-center justify-center hidden pb-8 sm:p-4" onclick="if(event.target === this) closeModal('manualInstallModal')">
+    <div id="manualInstallModal" class="fixed inset-0 z-50 bg-stone-900/50 backdrop-blur-sm flex items-end sm:items-center justify-center hidden pb-8 sm:p-4">
         <div class="bg-white rounded-t-3xl sm:rounded-2xl p-6 w-full max-w-sm shadow-2xl text-center relative animate-[slideUp_0.3s_ease-out]">
             <i data-lucide="share" class="w-10 h-10 text-blue-500 mx-auto mb-3"></i>
             <h3 class="text-xl font-bold text-stone-800 mb-2">如何安裝到 iPhone 桌面</h3>
@@ -223,61 +225,60 @@
                 2. 往下滑動，選擇 <b>「加入主畫面」</b> <br>
                 3. 點擊右上角的 <b>「新增」</b>
             </p>
-            <button onclick="closeModal('manualInstallModal')" class="w-full bg-stone-100 text-stone-700 py-3 rounded-xl font-medium">我知道了</button>
+            <button id="manualInstallCloseBtn" class="w-full bg-stone-100 text-stone-700 py-3 rounded-xl font-medium">我知道了</button>
         </div>
     </div>
 
     <!-- Main Layout -->
     <div class="max-w-xl mx-auto min-h-screen flex flex-col relative bg-stone-50 pb-20">
         
-        <!-- Top Navigation Bar (Dynamic Background Color) -->
-        <header id="topNavBar" class="sticky top-0 z-30 bg-stone-50/90 border-stone-200 backdrop-blur-md border-b px-4 py-2 flex justify-between items-center shadow-sm transition-colors duration-300">
+        <!-- Top Navigation Bar -->
+        <header class="sticky top-0 z-30 bg-stone-50/90 backdrop-blur-md border-b border-stone-200 px-4 py-2 flex justify-between items-center shadow-sm">
             
             <!-- Left: Date Switcher & Absolute Date -->
             <div class="flex flex-col items-start" id="tour-day-selector">
                 <div class="flex items-center space-x-1">
-                    <button id="prevDayBtn" onclick="changeDay(-1)" class="p-1.5 bg-white/50 rounded-full hover:bg-white/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-stone-200/50">
+                    <button id="prevDayBtn" onclick="changeDay(-1)" class="p-1.5 bg-stone-200 rounded-full hover:bg-stone-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                         <i data-lucide="chevron-left" class="w-5 h-5 text-stone-600"></i>
                     </button>
-                    <div class="flex items-center text-base sm:text-lg font-bold text-stone-800 bg-white/80 backdrop-blur px-2 py-1 rounded-lg shadow-sm border border-stone-200/80 cursor-pointer">
+                    <div class="flex items-center text-base sm:text-lg font-bold text-stone-800 bg-white px-2 py-1 rounded-lg shadow-sm border border-stone-100 cursor-pointer">
                         <span>第</span>
-                        <input type="number" id="weekInput" min="1" max="50" class="w-8 text-center bg-transparent focus:outline-none focus:ring-2 focus:ring-amber-500 rounded px-1" onchange="jumpToProgress()">
+                        <input type="number" id="weekInput" min="1" max="50" class="w-10 text-center bg-transparent focus:outline-none focus:ring-2 focus:ring-amber-500 rounded px-1" onchange="jumpToProgress()">
                         <span>週 - </span>
-                        <input type="number" id="dayInput" min="1" max="3" class="w-6 text-center bg-transparent focus:outline-none focus:ring-2 focus:ring-amber-500 rounded px-1" onchange="jumpToProgress()">
+                        <input type="number" id="dayInput" min="1" max="3" class="w-8 text-center bg-transparent focus:outline-none focus:ring-2 focus:ring-amber-500 rounded px-1" onchange="jumpToProgress()">
                     </div>
-                    <button id="nextDayBtn" onclick="changeDay(1)" class="p-1.5 bg-white/50 rounded-full hover:bg-white/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-stone-200/50">
+                    <button id="nextDayBtn" onclick="changeDay(1)" class="p-1.5 bg-stone-200 rounded-full hover:bg-stone-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                         <i data-lucide="chevron-right" class="w-5 h-5 text-stone-600"></i>
                     </button>
                 </div>
                 <!-- Absolute Date directly below switcher -->
-                <span id="displayDate" class="text-[11px] sm:text-xs font-bold text-stone-500/80 mt-1 ml-9">--</span>
+                <span id="displayDate" class="text-[11px] sm:text-xs font-medium text-stone-500 mt-1 ml-9">--</span>
             </div>
             
             <!-- Right: Actions & Settings -->
-            <div class="flex items-center space-x-1.5">
+            <div class="flex items-center space-x-1">
                 
-                <!-- Toggle Read Button (Pill shape with text) -->
-                <button id="toggleReadBtn" onclick="toggleReadStatus()" class="px-3 py-1.5 rounded-full transition-colors flex items-center justify-center border bg-white border-stone-200 shadow-sm" title="標記為已讀">
-                    <i data-lucide="circle" id="toggleReadIcon" class="w-4 h-4 shrink-0 text-stone-400"></i>
-                    <span id="toggleReadText" class="ml-1.5 text-xs font-bold whitespace-nowrap text-stone-500">未完成</span>
+                <!-- Toggle Read Button -->
+                <button id="toggleReadBtn" onclick="toggleReadStatus()" class="p-2 rounded-full transition-colors flex items-center justify-center" title="標記為已讀">
+                    <i data-lucide="circle" id="toggleReadIcon" class="w-6 h-6 text-stone-400"></i>
                 </button>
                 
                 <!-- Global TTS Controls -->
                 <div class="flex gap-1" id="playAllBtn">
-                    <button id="btn_global_play" onclick="handlePlayAll()" class="p-1.5 bg-stone-800 hover:bg-stone-900 text-white rounded-full transition-colors shadow-sm" title="一鍵全部朗讀">
-                        <i data-lucide="play" class="w-4 h-4 text-white"></i>
+                    <button id="btn_global_play" onclick="handlePlayAll()" class="p-2 bg-stone-800 hover:bg-stone-900 text-white rounded-full transition-colors shadow-sm" title="一鍵全部朗讀">
+                        <i data-lucide="play" class="w-5 h-5 text-white"></i>
                     </button>
-                    <button id="btn_global_pause" onclick="handlePause()" class="p-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-full transition-colors shadow-sm hidden" title="暫停朗讀">
-                        <i data-lucide="pause" class="w-4 h-4 text-white"></i>
+                    <button id="btn_global_pause" onclick="handlePause()" class="p-2 bg-amber-500 hover:bg-amber-600 text-white rounded-full transition-colors shadow-sm hidden" title="暫停朗讀">
+                        <i data-lucide="pause" class="w-5 h-5 text-white"></i>
                     </button>
-                    <button id="btn_global_stop" onclick="handleStop()" class="p-1.5 bg-stone-200 hover:bg-stone-300 text-stone-700 rounded-full transition-colors shadow-sm hidden" title="停止朗讀">
-                        <i data-lucide="square" class="w-4 h-4 text-stone-700"></i>
+                    <button id="btn_global_stop" onclick="handleStop()" class="p-2 bg-stone-200 hover:bg-stone-300 text-stone-700 rounded-full transition-colors shadow-sm hidden" title="停止朗讀">
+                        <i data-lucide="square" class="w-5 h-5 text-stone-700"></i>
                     </button>
                 </div>
 
                 <!-- Settings Dropdown -->
-                <div class="relative pl-0.5">
-                    <button id="settingsBtn" onclick="toggleSettingsMenu()" class="p-1.5 bg-white/50 rounded-full hover:bg-white/80 transition-colors border border-stone-200/50 shadow-sm">
+                <div class="relative pl-1">
+                    <button id="settingsBtn" onclick="toggleSettingsMenu()" class="p-2 bg-stone-200 rounded-full hover:bg-stone-300 transition-colors">
                         <i data-lucide="settings" class="w-5 h-5 text-stone-600"></i>
                     </button>
                     
@@ -293,14 +294,15 @@
                             </select>
                         </div>
                         <div class="p-4 bg-stone-50 border-b border-stone-100">
-                            <label class="block text-xs font-bold text-stone-500 mb-1 uppercase tracking-wider">開始日期</label>
+                            <label class="block text-xs font-bold text-stone-500 mb-1 uppercase tracking-wider">進度起算日</label>
                             <div class="flex gap-2">
                                 <input type="date" id="menuStartDate" onchange="updateStartDate(this.value)" class="w-full text-sm border-stone-200 rounded-lg p-2 bg-white focus:ring-amber-500">
+                                <button onclick="setStartDateToToday()" class="text-xs bg-stone-200 hover:bg-stone-300 text-stone-700 px-3 rounded-lg font-medium whitespace-nowrap transition-colors">設為今日</button>
                             </div>
                         </div>
                         <div class="py-2">
                             <button onclick="openReadingDaysModal(); toggleSettingsMenu();" class="w-full text-left px-4 py-2 text-sm text-stone-700 hover:bg-stone-50 flex items-center"><i data-lucide="calendar" class="w-4 h-4 mr-3 text-stone-400"></i> 設定閱讀日</button>
-                            <button id="installMenuBtn" onclick="triggerInstall(); toggleSettingsMenu();" class="w-full text-left px-4 py-2 text-sm text-stone-700 hover:bg-stone-50 flex items-center hidden"><i data-lucide="download-cloud" class="w-4 h-4 mr-3 text-stone-400"></i> 安裝到桌面 (APP)</button>
+                            <button id="installMenuBtn" onclick="triggerInstallDirect(); toggleSettingsMenu();" class="w-full text-left px-4 py-2 text-sm text-stone-700 hover:bg-stone-50 flex items-center hidden"><i data-lucide="download-cloud" class="w-4 h-4 mr-3 text-stone-400"></i> 安裝到桌面 (APP)</button>
                             <button onclick="exportData(); toggleSettingsMenu();" class="w-full text-left px-4 py-2 text-sm text-stone-700 hover:bg-stone-50 flex items-center"><i data-lucide="download" class="w-4 h-4 mr-3 text-stone-400"></i> 匯出備份</button>
                             <button onclick="document.getElementById('importFile').click(); toggleSettingsMenu();" class="w-full text-left px-4 py-2 text-sm text-stone-700 hover:bg-stone-50 flex items-center"><i data-lucide="upload" class="w-4 h-4 mr-3 text-stone-400"></i> 匯入進度</button>
                             <button onclick="startTour(); toggleSettingsMenu();" class="w-full text-left px-4 py-2 text-sm text-stone-700 hover:bg-stone-50 flex items-center"><i data-lucide="help-circle" class="w-4 h-4 mr-3 text-stone-400"></i> 重新導覽</button>
@@ -335,18 +337,16 @@
                         <button id="btn_qa_stop" onclick="handleStop()" class="p-2 bg-stone-100 text-stone-600 rounded-lg hidden"><i data-lucide="square" class="w-4 h-4"></i></button>
                     </div>
                 </div>
-                <h4 id="qaUnitTitle" class="text-center text-lg font-bold text-blue-600 mb-4 uppercase tracking-wider"></h4>
-                <div id="qaContent" class="space-y-2 text-lg">
-                    <div class="flex items-start bg-blue-50/50 p-3 rounded-xl">
-                        <span class="font-bold text-blue-600 mr-2 shrink-0">問：</span>
+                <h4 id="qaUnitTitle" class="text-sm font-bold text-blue-600 mb-1 uppercase tracking-wider"></h4>
+                <p id="qaParsedReference" class="text-xs text-stone-500 mb-4 font-serif"></p>
+                <div id="qaContent" class="space-y-4 text-lg">
+                    <div class="flex items-start bg-blue-50/50 p-4 rounded-xl">
+                        <span class="font-black text-blue-600 mr-3 text-xl leading-none pt-1">Q</span>
                         <p id="qaQuestion" class="font-bold text-stone-800 font-serif"></p>
                     </div>
-                    <div class="flex items-start px-3 py-1">
-                        <span class="font-bold text-emerald-500 mr-2 shrink-0">答：</span>
-                        <div class="flex-1">
-                            <p id="qaAnswer" class="text-stone-700 font-serif"></p>
-                            <p id="qaParsedReference" class="text-right text-stone-500 mt-2 font-serif"></p>
-                        </div>
+                    <div class="flex items-start p-4">
+                        <span class="font-black text-emerald-500 mr-3 text-xl leading-none pt-1">A</span>
+                        <p id="qaAnswer" class="text-stone-700 font-serif"></p>
                     </div>
                 </div>
             </section>
@@ -420,15 +420,27 @@
 
         <!-- Fixed Version Number -->
         <div class="fixed bottom-2 right-2 text-[10px] text-stone-300 font-mono select-none pointer-events-none z-0">
-            v1.20
+            v1.21
         </div>
     </div>
 
     <script>
         // ==========================================
-        // 1. Constants & State Variables
+        // 1. PWA 著陸檢查與網址淨化 (同步執行)
         // ==========================================
-        const APP_VERSION = '1.20';
+        let isPwaCampaign = false;
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('pwa') === '1') {
+            isPwaCampaign = true;
+            // 立即洗掉網址列上的參數，防止 iOS 將帶有參數的網址存入桌面捷徑中
+            const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+            window.history.replaceState({path: cleanUrl}, '', cleanUrl);
+        }
+
+        // ==========================================
+        // 2. Constants & State Variables
+        // ==========================================
+        const APP_VERSION = '1.21';
         const APP_LOAD_TIME = Date.now();
         const TOTAL_DAYS = 150;
         
@@ -436,11 +448,11 @@
             START_DATE: 'family_devo_start_date',
             READING_DAYS: 'family_devo_reading_days',
             PROGRESS: 'family_devo_progress',
-            TOUR_COMPLETED: 'family_devo_tour_completed',
-            CONGRATS_SHOWN: 'family_devo_congrats_shown',
-            INSTALL_PROMPT: 'family_devo_install_prompt_shown',
-            TTS_VOICE: 'family_devo_tts_voice',
-            TTS_RATE: 'family_devo_tts_rate'
+            TOUR_COMPLETED: 'tour_completed',
+            CONGRATS_SHOWN: 'congrats_shown',
+            INSTALL_PROMPT: 'install_prompt_shown',
+            TTS_VOICE: 'tts_voice_name',
+            TTS_RATE: 'tts_rate'
         };
 
         // Data Stores
@@ -465,7 +477,7 @@
         lucide.createIcons();
 
         // ==========================================
-        // 2. Initialization & Data Fetching
+        // 3. Initialization & Data Fetching
         // ==========================================
         document.addEventListener('DOMContentLoaded', initApp);
         document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -478,12 +490,6 @@
             if(btn) btn.classList.remove('hidden');
         });
 
-        // PWA Routing Guard
-        if (window.location.search.includes('pwa=1')) {
-            const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
-            window.history.replaceState({path: newUrl}, '', newUrl);
-        }
-
         async function initApp() {
             try {
                 await fetchDatabases();
@@ -492,12 +498,9 @@
                     speechSynthesis.onvoiceschanged = populateVoiceList;
                 }
 
-                if (!getStorage(STORE_KEYS.START_DATE) || !getStorage(STORE_KEYS.READING_DAYS)) {
-                    showSetupWizard();
-                } else {
-                    loadAndRenderCurrentDay();
-                    checkTourTrigger();
-                }
+                // 資料準備就緒，啟動「序列化著陸排程器」
+                await runStartupSequence();
+
             } catch (err) {
                 console.error("Init Error:", err);
                 showGlobalError("無法載入資料，請檢查網路連線或稍後重試。");
@@ -512,6 +515,133 @@
             }
         }
 
+        // ==========================================
+        // 4. Sequential Landing Orchestration
+        // ==========================================
+        async function runStartupSequence() {
+            // 偵測是否已經在 APP 模式下
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+
+            // 【第一關】：PWA 推廣 (僅在有推廣參數且非獨立模式下觸發)
+            if (isPwaCampaign && !isStandalone) {
+                await showPwaPromptAndWait();
+                // 等待 Modal 關閉的過場動畫
+                await new Promise(r => setTimeout(r, 400));
+            }
+
+            // 【第二關】：初始設定精靈
+            if (!getStorage(STORE_KEYS.START_DATE) || !getStorage(STORE_KEYS.READING_DAYS)) {
+                await showSetupWizardAndWait();
+                await new Promise(r => setTimeout(r, 400));
+            }
+
+            // 【第三關】：載入當日進度與畫面渲染
+            loadAndRenderCurrentDay();
+
+            // 【第四關】：新手導覽
+            if (!getStorage(STORE_KEYS.TOUR_COMPLETED)) {
+                // 等待畫面完全渲染後，安穩地啟動導覽
+                setTimeout(startTour, 300);
+            }
+        }
+
+        // ==========================================
+        // Promise Modal 封裝
+        // ==========================================
+        function openPwaPrompt(onComplete) {
+            const modal = document.getElementById('installPromptModal');
+            const manualModal = document.getElementById('manualInstallModal');
+            
+            // 統一的清理與 Promise 解鎖
+            const cleanup = () => {
+                modal.classList.add('hidden');
+                manualModal.classList.add('hidden');
+                setStorage(STORE_KEYS.INSTALL_PROMPT, 'true');
+                
+                // 移除監聽器防 Memory Leak
+                modal.onclick = null;
+                manualModal.onclick = null;
+                document.getElementById('installCancelBtn').onclick = null;
+                document.getElementById('installActionBtn').onclick = null;
+                document.getElementById('manualInstallCloseBtn').onclick = null;
+                
+                if (onComplete) onComplete();
+            };
+
+            modal.classList.remove('hidden');
+
+            // 背景遮罩點擊
+            modal.onclick = (e) => { if (e.target === modal) cleanup(); };
+            
+            // 取消按鈕
+            document.getElementById('installCancelBtn').onclick = cleanup;
+            
+            // 安裝按鈕
+            document.getElementById('installActionBtn').onclick = () => {
+                modal.classList.add('hidden'); // 先藏起目前的 Modal
+                
+                if (deferredPrompt) {
+                    deferredPrompt.prompt();
+                    deferredPrompt.userChoice.then(() => { 
+                        deferredPrompt = null; 
+                        cleanup(); // 無論安裝成功與否，皆推進流程
+                    });
+                } else {
+                    // 若無原生提示，接力顯示手動教學
+                    manualModal.classList.remove('hidden');
+                    manualModal.onclick = (e) => { if (e.target === manualModal) cleanup(); };
+                    document.getElementById('manualInstallCloseBtn').onclick = cleanup;
+                }
+            };
+        }
+
+        function showPwaPromptAndWait() {
+            return new Promise(resolve => openPwaPrompt(resolve));
+        }
+
+        function showSetupWizardAndWait() {
+            return new Promise(resolve => {
+                const modal = document.getElementById('setupWizardModal');
+                
+                // 註冊全域的解鎖函式，供內部步驟完成時呼叫
+                window._setupWizardResolve = () => {
+                    modal.classList.add('hidden');
+                    modal.onclick = null;
+                    resolve();
+                };
+
+                // 綁定背景遮罩點擊，強制讓使用者關閉時依然能繼續 (雖然沒有設定進度畫面會空白，但防卡死)
+                modal.onclick = (e) => { 
+                    if (e.target === modal) window._setupWizardResolve(); 
+                };
+
+                // 啟動 UI 流程
+                showSetupWizard();
+            });
+        }
+
+        // 一般選單直接點擊安裝
+        function triggerInstallDirect() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then(() => { deferredPrompt = null; });
+            } else {
+                const manualModal = document.getElementById('manualInstallModal');
+                manualModal.classList.remove('hidden');
+                const closeHandler = (e) => {
+                    if (e.type === 'click' && e.target !== manualModal && e.currentTarget !== document.getElementById('manualInstallCloseBtn')) return;
+                    manualModal.classList.add('hidden');
+                    manualModal.onclick = null;
+                    document.getElementById('manualInstallCloseBtn').onclick = null;
+                };
+                manualModal.onclick = closeHandler;
+                document.getElementById('manualInstallCloseBtn').onclick = closeHandler;
+            }
+        }
+
+        // ==========================================
+        // 5. 資料處理與其他邏輯
+        // ==========================================
         async function fetchDatabases() {
             const [devoRes, rcuvRes] = await Promise.all([
                 fetch(`devotional.json?v=${APP_VERSION}`),
@@ -564,23 +694,6 @@
             document.querySelector('#loadingScreen h2').innerText = '載入失敗';
         }
 
-        // ==========================================
-        // 3. Storage Utils
-        // ==========================================
-        function getStorage(key, isJson = false) {
-            const val = localStorage.getItem(key);
-            if (!val) return null;
-            try { return isJson ? JSON.parse(val) : val; } 
-            catch { return val; }
-        }
-
-        function setStorage(key, val, isJson = false) {
-            localStorage.setItem(key, isJson ? JSON.stringify(val) : val);
-        }
-
-        // ==========================================
-        // 4. Pacing Engine & Logic
-        // ==========================================
         function getLocalTodayString() {
             const now = new Date();
             const localDate = new Date(now.getTime() - (now.getTimezoneOffset() * 60000));
@@ -619,7 +732,7 @@
             current.setHours(0,0,0,0);
             let count = 0;
 
-            // Advance to the first valid reading day if start date itself isnt one
+            // Advance to the first valid reading day if start date itself isn't one
             while (!readingDays.includes(current.getDay())) {
                 current.setDate(current.getDate() + 1);
             }
@@ -659,9 +772,6 @@
             renderDay(targetLoadDay);
         }
 
-        // ==========================================
-        // 5. Setup Wizard & Config Modals
-        // ==========================================
         function showSetupWizard() {
             document.getElementById('setupWizardModal').classList.remove('hidden');
             document.getElementById('wizardStartDate').value = getLocalTodayString();
@@ -745,14 +855,17 @@
             setStorage(STORE_KEYS.READING_DAYS, selectedDays, true);
             if (!getStorage(STORE_KEYS.PROGRESS)) setStorage(STORE_KEYS.PROGRESS, {}, true);
 
-            closeModal('setupWizardModal');
-            loadAndRenderCurrentDay();
-            checkTourTrigger();
+            // 檢查是否是由 Promise 排程器呼叫
+            if (window._setupWizardResolve) {
+                window._setupWizardResolve();
+                window._setupWizardResolve = null;
+            } else {
+                // 原有獨立觸發的保底邏輯
+                closeModal('setupWizardModal');
+                loadAndRenderCurrentDay();
+            }
         }
 
-        // ==========================================
-        // 6. UI Rendering Engine
-        // ==========================================
         function sanitizeText(str) {
             if (!str) return '';
             // Remove zero-width spaces and BOM
@@ -993,10 +1106,7 @@
             // Contextual PWA Prompt
             if (progress[currentDay] && !getStorage(STORE_KEYS.INSTALL_PROMPT)) {
                 setTimeout(() => {
-                    if (deferredPrompt) {
-                        document.getElementById('installPromptModal').classList.remove('hidden');
-                        setStorage(STORE_KEYS.INSTALL_PROMPT, 'true');
-                    }
+                    if (deferredPrompt) openPwaPrompt();
                 }, 1000);
             }
 
@@ -1700,18 +1810,24 @@
             if (deferredPrompt && btn) btn.classList.remove('hidden');
         }
 
-        function triggerInstall() {
+        function triggerInstallDirect() {
             if (deferredPrompt) {
                 deferredPrompt.prompt();
                 deferredPrompt.userChoice.then(() => { deferredPrompt = null; });
             } else {
-                document.getElementById('manualInstallModal').classList.remove('hidden');
+                const manualModal = document.getElementById('manualInstallModal');
+                manualModal.classList.remove('hidden');
+                
+                const closeHandler = (e) => {
+                    if (e.type === 'click' && e.target !== manualModal && e.currentTarget !== document.getElementById('manualInstallCloseBtn')) return;
+                    manualModal.classList.add('hidden');
+                    manualModal.onclick = null;
+                    document.getElementById('manualInstallCloseBtn').onclick = null;
+                };
+                
+                manualModal.onclick = closeHandler;
+                document.getElementById('manualInstallCloseBtn').onclick = closeHandler;
             }
-        }
-
-        function handleInstallPromptClose() {
-            closeModal('installPromptModal');
-            setStorage(STORE_KEYS.INSTALL_PROMPT, 'true');
         }
 
         function copyAppUrl() {
@@ -1740,15 +1856,7 @@
         // 12. Onboarding Tour (Driver.js)
         // ==========================================
         function checkTourTrigger() {
-            if (!getStorage(STORE_KEYS.TOUR_COMPLETED) && !window.location.search.includes('pwa=1')) {
-                // Modal collision protection
-                setTimeout(() => {
-                    const installMod = document.getElementById('installPromptModal');
-                    if (installMod.classList.contains('hidden')) {
-                        startTour();
-                    }
-                }, 1500);
-            }
+            // 本函式已由 runStartupSequence 接管，留空防止舊呼叫報錯
         }
 
         function startTour() {
