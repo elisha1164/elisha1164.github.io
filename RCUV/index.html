@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!-- 
-  版本號：v1.35
+  版本號：v1.36
   修改主旨：
   1. UI 極簡化：移除書卷按鈕的向下箭頭與「從」、「到」文字。
   2. 排版優化：調整 Kebab Menu 的邊距與內距以消滅不必要的空白，進一步節省頂部導航列空間。
@@ -8,6 +8,7 @@
   4. 網址標題優化：當起訖為同一節時，網址與標題不再顯示冗餘的結束節號 (如 1:1-1 改為 1:1)。
   5. 預設載入優化：無參數進入系統時，預設顯示《創世記》第一章全章。
   6. PWA 安裝引導：新增 `?pwa=1` 網址參數觸發機制。精準攔截原生事件避免失效；並針對 iOS 裝置提供專屬圖文手動安裝引導 Modal。
+  7. 參與度推廣：使用者點擊上一章/下一章達 10 次時，自動觸發獨立的 PWA 安裝引導，並終生只觸發一次。
 -->
 <html lang="zh-TW">
 <head>
@@ -321,7 +322,7 @@
     </div>
 
     <!-- 右下角版本號標示 (用於確認佈署狀態) -->
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.35</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.36</div>
 
     <script>
         // ==========================================
@@ -841,9 +842,11 @@
             const currentBook = els.bookSelect.value;
             const currentChap = parseInt(els.fChap.value);
             
+            let navigated = false;
             if (currentChap > 1) {
                 // 同一卷書，上一章全章
                 navigateToFullChapter(currentBook, currentChap - 1);
+                navigated = true;
             } else {
                 // 跨卷，上一卷書末章全章
                 const bookIndex = bookOrderArray.indexOf(currentBook);
@@ -852,8 +855,10 @@
                     const chapters = Object.keys(bibleData[prevBook]).map(Number).sort((a,b)=>a-b);
                     const lastChap = chapters[chapters.length - 1];
                     navigateToFullChapter(prevBook, lastChap);
+                    navigated = true;
                 }
             }
+            if (navigated) handleNavEngagement();
         };
 
         window.goToNextChapter = function() {
@@ -863,17 +868,21 @@
             const chapters = Object.keys(bibleData[currentBook]).map(Number).sort((a,b)=>a-b);
             const maxChap = chapters[chapters.length - 1];
             
+            let navigated = false;
             if (currentChap < maxChap) {
                 // 同一卷書，下一章全章
                 navigateToFullChapter(currentBook, currentChap + 1);
+                navigated = true;
             } else {
                 // 跨卷，下一卷書第 1 章全章
                 const bookIndex = bookOrderArray.indexOf(currentBook);
                 if (bookIndex < bookOrderArray.length - 1) {
                     const nextBook = bookOrderArray[bookIndex + 1];
                     navigateToFullChapter(nextBook, 1);
+                    navigated = true;
                 }
             }
+            if (navigated) handleNavEngagement();
         };
 
         // 輔助函式：切換至指定書卷與章數，並強制設定範圍為「全章」
@@ -917,6 +926,38 @@
             
             enforceValidationAndExtract();
         };
+
+        // 參與度計數與 PWA 推廣 (Engagement-based PWA Prompt)
+        async function handleNavEngagement() {
+            try {
+                let count = await localforage.getItem('navClickCount') || 0;
+                if (count < 10) {
+                    count++;
+                    await localforage.setItem('navClickCount', count);
+                    if (count === 10) {
+                        // 標記為已觸發 (狀態推進至 11，終生不再觸發)
+                        await localforage.setItem('navClickCount', 11);
+                        
+                        // 延遲 500ms 彈出，確保經文先順利渲染，不打斷閱讀體驗
+                        setTimeout(() => {
+                            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+                            const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+                            
+                            // 若已在 PWA 環境內則靜默中止
+                            if (isStandalone) return;
+
+                            if (isIOS) {
+                                showPwaModal('ios');
+                            } else if (deferredPrompt) {
+                                showPwaModal('standard');
+                            }
+                        }, 500);
+                    }
+                }
+            } catch (e) {
+                console.error("Engagement tracking error:", e);
+            }
+        }
 
         // ==========================================
         // 4.5 章節選擇 Modal (CV Modal) 控制邏輯
