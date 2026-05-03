@@ -1,12 +1,13 @@
 <!DOCTYPE html>
 <!-- 
-  版本號：v1.34
+  版本號：v1.35
   修改主旨：
   1. UI 極簡化：移除書卷按鈕的向下箭頭與「從」、「到」文字。
   2. 排版優化：調整 Kebab Menu 的邊距與內距以消滅不必要的空白，進一步節省頂部導航列空間。
   3. 分類名稱更新：變更書卷選擇器的分類名稱以符合更嚴謹的神學與歷史用詞。
   4. 網址標題優化：當起訖為同一節時，網址與標題不再顯示冗餘的結束節號 (如 1:1-1 改為 1:1)。
   5. 預設載入優化：無參數進入系統時，預設顯示《創世記》第一章全章。
+  6. PWA 安裝引導：新增 `?pwa=1` 網址參數觸發機制。精準攔截原生事件避免失效；並針對 iOS 裝置提供專屬圖文手動安裝引導 Modal。
 -->
 <html lang="zh-TW">
 <head>
@@ -229,6 +230,36 @@
         </div>
     </div>
 
+    <!-- PWA 安裝引導 Modal -->
+    <div id="pwa-modal" class="fixed inset-0 bg-stone-900/60 hidden flex items-center justify-center z-[60] transition-opacity backdrop-blur-sm" onclick="if(event.target === this) closePwaModal()">
+        <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4 relative transform transition-transform scale-100">
+            <button onclick="closePwaModal()" class="absolute top-4 right-4 text-stone-400 hover:text-stone-600 transition bg-stone-100 hover:bg-stone-200 rounded-full p-1">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+            <div class="flex flex-col items-center text-center pt-2">
+                <div class="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mb-4 shadow-sm">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                </div>
+                <h4 class="font-bold text-stone-800 text-lg mb-4">想要常常讀聖經嗎？</h4>
+                
+                <!-- 標準安裝模式 (Android / Desktop) -->
+                <div id="pwa-standard-view" class="hidden w-full">
+                    <p class="text-stone-600 text-sm mb-6 leading-relaxed">將應用程式安裝到桌面，<br>享受離線秒開的流暢體驗！</p>
+                    <button onclick="installPwaFromModal()" class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 rounded-xl transition shadow-sm mb-2">安裝到桌面</button>
+                    <button onclick="closePwaModal()" class="w-full bg-stone-50 hover:bg-stone-100 text-stone-500 font-bold py-2.5 rounded-xl transition">暫時不用</button>
+                </div>
+
+                <!-- iOS 特例引導模式 -->
+                <div id="pwa-ios-view" class="hidden w-full">
+                    <p class="text-stone-600 text-sm mb-6 leading-relaxed">
+                        請點擊下方 <span class="inline-flex items-center justify-center bg-stone-100 px-1.5 py-0.5 rounded border border-stone-200 mx-0.5"><svg class="w-4 h-4 text-stone-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg></span> 分享圖示<br>並選擇<strong>「加入主畫面」</strong><br>即可享受離線秒開的流暢體驗！
+                    </p>
+                    <button onclick="closePwaModal()" class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 rounded-xl transition shadow-sm">我知道了</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 書卷選擇 Modal (Book Selection Modal) -->
     <div id="book-modal" class="fixed inset-0 bg-stone-900/60 hidden flex items-center justify-center z-50 transition-opacity backdrop-blur-sm" onclick="if(event.target === this) toggleBookModal()">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-4 flex flex-col max-h-[85vh] relative transform transition-transform scale-100">
@@ -290,7 +321,7 @@
     </div>
 
     <!-- 右下角版本號標示 (用於確認佈署狀態) -->
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.34</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.35</div>
 
     <script>
         // ==========================================
@@ -1571,31 +1602,75 @@
             }
         });
 
-        // PWA 安裝邏輯
+        // ==========================================
+        // 9. PWA 安裝邏輯與推廣 Modal
+        // ==========================================
         let deferredPrompt;
+        
+        // 記錄畫面載入瞬間網址是否帶有安裝意圖
+        const initialUrlParams = new URLSearchParams(window.location.search);
+        const hasPwaIntent = initialUrlParams.get('pwa') === '1';
+
+        window.showPwaModal = function(type) {
+            document.getElementById('pwa-standard-view').classList.add('hidden');
+            document.getElementById('pwa-ios-view').classList.add('hidden');
+            
+            if (type === 'standard') {
+                document.getElementById('pwa-standard-view').classList.remove('hidden');
+            } else if (type === 'ios') {
+                document.getElementById('pwa-ios-view').classList.remove('hidden');
+            }
+            
+            document.getElementById('pwa-modal').classList.remove('hidden');
+        };
+
+        window.closePwaModal = function() {
+            document.getElementById('pwa-modal').classList.add('hidden');
+        };
+
+        window.installPwaFromModal = async function() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                deferredPrompt = null;
+                closePwaModal();
+                if (els.btnInstallPwa) els.btnInstallPwa.classList.add('hidden');
+                if (els.settingsDropdown) els.settingsDropdown.classList.add('hidden');
+            }
+        };
+
         window.addEventListener('beforeinstallprompt', (e) => {
             // 避免預設提示
             e.preventDefault();
             // 存儲事件
             deferredPrompt = e;
-            // 解除隱藏安裝按鈕
+            // 解除設定選單中隱藏的安裝按鈕
             if (els.btnInstallPwa) els.btnInstallPwa.classList.remove('hidden');
+
+            // 若使用者帶有 ?pwa=1 意圖，且攔截到原生事件，則自動彈出標準安裝 Modal
+            if (hasPwaIntent) {
+                showPwaModal('standard');
+            }
         });
 
-        if (els.btnInstallPwa) {
-            els.btnInstallPwa.addEventListener('click', async () => {
-                if (deferredPrompt) {
-                    deferredPrompt.prompt();
-                    const { outcome } = await deferredPrompt.userChoice;
-                    deferredPrompt = null;
-                    els.btnInstallPwa.classList.add('hidden');
-                    els.settingsDropdown.classList.add('hidden'); // 安裝完順便收起選單
+        // 針對 iOS 裝置的 PWA 特例檢查
+        function checkIosPwaIntent() {
+            if (hasPwaIntent) {
+                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+                const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+                
+                if (isIOS && !isStandalone) {
+                    // 延遲 500ms 確保畫面繪製完成後彈出專屬圖文 Modal
+                    setTimeout(() => { showPwaModal('ios'); }, 500);
                 }
-            });
+            }
         }
-
-        // 啟動系統
-        window.addEventListener('DOMContentLoaded', initApp);
+        
+        // 綁定啟動系統與檢查 PWA 意圖
+        window.addEventListener('DOMContentLoaded', () => {
+            initApp();
+            checkIosPwaIntent();
+        });
 
     </script>
 </body>
