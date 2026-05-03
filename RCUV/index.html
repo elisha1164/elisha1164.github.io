@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <!-- 
-  版本號：v1.33
+  版本號：v1.34
   修改主旨：
   1. UI 極簡化：移除書卷按鈕的向下箭頭與「從」、「到」文字。
   2. 排版優化：調整 Kebab Menu 的邊距與內距以消滅不必要的空白，進一步節省頂部導航列空間。
   3. 分類名稱更新：變更書卷選擇器的分類名稱以符合更嚴謹的神學與歷史用詞。
+  4. 網址標題優化：當起訖為同一節時，網址與標題不再顯示冗餘的結束節號 (如 1:1-1 改為 1:1)。
+  5. 預設載入優化：無參數進入系統時，預設顯示《創世記》第一章全章。
 -->
 <html lang="zh-TW">
 <head>
@@ -288,7 +290,7 @@
     </div>
 
     <!-- 右下角版本號標示 (用於確認佈署狀態) -->
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.33</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.34</div>
 
     <script>
         // ==========================================
@@ -500,7 +502,7 @@
             const params = new URLSearchParams(window.location.search);
             const refParam = params.get('ref');
             
-            let state = { b: "創世記", fc: 1, fv: 1, tc: 1, tv: 1 }; // 預設值
+            let state = { b: "創世記", fc: 1, fv: 1, tc: 1, tv: 999 }; // 預設值改為全章 (tv: 999 會觸發自動校正)
             
             if (refParam) {
                 // 解析 ?ref=Gen1:1-2:5, Gen1-2, Gen1, Gen 等格式
@@ -608,6 +610,9 @@
                 if (isWholeChapter) {
                     refStr = `${abbrev}${fc}`;
                     titleStr = `${b} 第 ${fc} ${unitName}`;
+                } else if (fv === tv) {
+                    refStr = `${abbrev}${fc}:${fv}`;
+                    titleStr = `${b} ${fc}:${fv}`;
                 } else {
                     refStr = `${abbrev}${fc}:${fv}-${tv}`;
                     titleStr = `${b} ${fc}:${fv}-${tv}`;
