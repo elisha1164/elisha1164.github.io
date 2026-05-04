@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!-- 
-  版本號：v1.36
+  版本號：v1.37
   修改主旨：
   1. UI 極簡化：移除書卷按鈕的向下箭頭與「從」、「到」文字。
   2. 排版優化：調整 Kebab Menu 的邊距與內距以消滅不必要的空白，進一步節省頂部導航列空間。
@@ -9,6 +9,7 @@
   5. 預設載入優化：無參數進入系統時，預設顯示《創世記》第一章全章。
   6. PWA 安裝引導：新增 `?pwa=1` 網址參數觸發機制。精準攔截原生事件避免失效；並針對 iOS 裝置提供專屬圖文手動安裝引導 Modal。
   7. 參與度推廣：使用者點擊上一章/下一章達 10 次時，自動觸發獨立的 PWA 安裝引導，並終生只觸發一次。
+  8. 中英對照功能：支援讀取 `esv2016.json`，透過功能列「英」按鈕即時切換雙語對照。視覺上使用灰色微距排版，且天然隔離不影響原有的 TTS 語音朗讀與複製分享功能。
 -->
 <html lang="zh-TW">
 <head>
@@ -142,6 +143,9 @@
 
                     <!-- 分隔線 -->
                     <div class="w-px h-5 bg-stone-300 mx-1"></div>
+
+                    <!-- 英譯本對照按鈕 -->
+                    <button id="btn-bilingual" class="w-9 h-9 rounded-full text-stone-500 hover:bg-stone-100 hover:text-stone-800 transition flex items-center justify-center font-bold text-sm" title="英譯本 ESV 對照">英</button>
 
                     <!-- 匯出簡報按鈕 -->
                     <button id="btn-export-ppt" class="p-2 rounded-full text-stone-500 hover:bg-stone-100 hover:text-stone-800 transition flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed" title="匯出簡報 (PPTX)">
@@ -322,14 +326,16 @@
     </div>
 
     <!-- 右下角版本號標示 (用於確認佈署狀態) -->
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.36</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.37</div>
 
     <script>
         // ==========================================
         // 1. 全域變數與字典定義
         // ==========================================
         let bibleData = null;
+        let esvData = null;
         let isDataReady = false;
+        let isBilingual = false; // 中英對照狀態切換
         
         // 語音引擎相關變數
         const synth = window.speechSynthesis;
@@ -454,6 +460,7 @@
             btnResume: document.getElementById('btn-resume'),
             btnStop: document.getElementById('btn-stop'),
             btnExportPpt: document.getElementById('btn-export-ppt'),
+            btnBilingual: document.getElementById('btn-bilingual'),
             btnSettings: document.getElementById('btn-settings'),
             settingsDropdown: document.getElementById('settings-dropdown'),
             settingsContainer: document.getElementById('settings-container'),
@@ -481,19 +488,30 @@
 
                 // 嘗試從本地快取讀取
                 let data = await localforage.getItem('rcuv_data');
+                let esv = await localforage.getItem('esv_data');
                 
-                if (!data) {
-                    els.statusBar.innerHTML = "⏳ 正在首次下載聖經資料 (約 3MB)，請稍候...";
-                    // 依據 FSD 規範，載入上層目錄的 rcuv.json
-                    const response = await fetch('../rcuv.json');
-                    if (!response.ok) throw new Error(`HTTP 錯誤: ${response.status}`);
-                    data = await response.json();
+                if (!data || !esv) {
+                    els.statusBar.innerHTML = "⏳ 正在首次下載聖經資料 (約 6MB)，請稍候...";
+                    
+                    // 依據 FSD 規範，並行載入上層目錄的資料
+                    const [resRcuv, resEsv] = await Promise.all([
+                        fetch('../rcuv.json'),
+                        fetch('../esv2016.json')
+                    ]);
+                    
+                    if (!resRcuv.ok) throw new Error(`RCUV HTTP 錯誤: ${resRcuv.status}`);
+                    if (!resEsv.ok) throw new Error(`ESV HTTP 錯誤: ${resEsv.status}`);
+                    
+                    data = await resRcuv.json();
+                    esv = await resEsv.json();
                     
                     // 異步寫入快取，不阻塞主線程渲染
-                    localforage.setItem('rcuv_data', data).catch(e => console.warn('寫入快取失敗:', e));
+                    localforage.setItem('rcuv_data', data).catch(e => console.warn('寫入 RCUV 快取失敗:', e));
+                    localforage.setItem('esv_data', esv).catch(e => console.warn('寫入 ESV 快取失敗:', e));
                 }
 
                 bibleData = data;
+                esvData = esv;
                 isDataReady = true;
                 
                 // 初始化選單
@@ -1147,11 +1165,20 @@
                             return `<span class="inline-flex items-center justify-center cursor-pointer text-xl ml-1 opacity-80 hover:opacity-100 hover:scale-110 transition-transform" onclick="showFootnoteModal('註：${safeFootnote}')" title="點擊查看註釋">📝</span>`;
                         });
 
+                        // 處理 ESV 對照文本
+                        let esvTextHtml = '';
+                        if (isBilingual && esvData && esvData[book] && esvData[book][c] && esvData[book][c][v]) {
+                            esvTextHtml = `<span class="text-stone-500 text-[15px] mt-1 leading-snug font-sans block">${esvData[book][c][v]}</span>`;
+                        }
+
                         // 節號 Flexbox 排版與防選取 (select-none)
                         htmlChunks.push(`
                             <div class="mb-3 flex items-start leading-relaxed">
                                 <strong class="text-stone-400 font-bold mr-3 text-base w-6 text-right shrink-0 select-none pt-[2px]">${v}</strong>
-                                <span class="text-stone-800 text-lg">${formattedText}</span>
+                                <div class="flex flex-col">
+                                    <span class="text-stone-800 text-lg">${formattedText}</span>
+                                    ${esvTextHtml}
+                                </div>
                             </div>
                         `);
                     });
@@ -1161,6 +1188,21 @@
             els.container.innerHTML = htmlChunks.length ? htmlChunks.join('') : '<p class="text-stone-400">無法抽取指定的經文範圍。</p>';
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
+
+        // ==========================================
+        // 5.5 雙語對照按鈕事件綁定
+        // ==========================================
+        els.btnBilingual.addEventListener('click', () => {
+            isBilingual = !isBilingual;
+            if (isBilingual) {
+                els.btnBilingual.classList.remove('text-stone-500');
+                els.btnBilingual.classList.add('bg-stone-800', 'text-white', 'hover:bg-stone-700', 'hover:text-white');
+            } else {
+                els.btnBilingual.classList.add('text-stone-500');
+                els.btnBilingual.classList.remove('bg-stone-800', 'text-white', 'hover:bg-stone-700', 'hover:text-white');
+            }
+            if (isDataReady) extractAndRenderScripture();
+        });
 
         // ==========================================
         // 6. 語音朗讀模組 (TTS Engine) 與暫停/繼續控制
@@ -1244,6 +1286,7 @@
             if (isPlaying) stopTTS();
             
             // 1. 從 DOM 擷取純文字與建立 Mappings
+            // 由於英文經文使用了 text-stone-500，此處的選擇器會天然且完美地將其忽略，完全不影響中文朗讀
             let textToSpeak = "";
             mappings = [];
             let currIdx = 0;
