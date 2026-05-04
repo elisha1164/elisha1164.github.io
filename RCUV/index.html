@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!-- 
-  版本號：v1.39
+  版本號：v1.40
   修改主旨：
   1. UI 極簡化：移除書卷按鈕的向下箭頭與「從」、「到」文字。
   2. 排版優化：調整 Kebab Menu 的邊距與內距以消滅不必要的空白，進一步節省頂部導航列空間。
@@ -11,6 +11,7 @@
   7. 參與度推廣：使用者點擊上一章/下一章達 10 次時，自動觸發獨立的 PWA 安裝引導，並終生只觸發一次。
   8. 中英對照功能 (無縫版)：改為初始載入即將 ESV 寫入 DOM，並透過純 CSS 控制顯示隱藏，實現切換雙語時「語音朗讀完全不中斷」的完美體驗。
   9. 儲存機制優化：配置專屬 IndexedDB (`RCUV`) 並為所有鍵值加上 `RCUV_` 前綴以避免同網域衝突。新增記憶「中英縮寫」與「中英對照」的使用者偏好。
+  10. 靜默背景更新 (SWR)：實作 HTTP HEAD 請求檢查 `Last-Modified` 時間戳記。在不干擾使用者當下閱讀的前提下，若發現伺服器有新版資料，會於背景自動下載並更新本地 IndexedDB，達成下次開啟自動升級的效果。
 -->
 <html lang="zh-TW">
 <head>
@@ -331,7 +332,7 @@
     </div>
 
     <!-- 右下角版本號標示 (用於確認佈署狀態) -->
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.39</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.40</div>
 
     <script>
         // ==========================================
@@ -484,7 +485,51 @@
         let cvState = { type: 'from', chap: 1, verse: 1 };
 
         // ==========================================
-        // 2. 初始化與資料快取 (IndexedDB / localforage)
+        // 2. 靜默背景更新機制 (SWR: Stale-while-revalidate)
+        // ==========================================
+        async function checkAndUpdateDataInBackground() {
+            try {
+                const localRcuvTime = await localforage.getItem('RCUV_rcuv_timestamp');
+                const localEsvTime = await localforage.getItem('RCUV_esv_timestamp');
+
+                // 發送 HEAD 請求，加上時間戳記強制繞過快取
+                const [headRcuv, headEsv] = await Promise.all([
+                    fetch('../rcuv.json?t=' + Date.now(), { method: 'HEAD' }),
+                    fetch('../esv2016.json?t=' + Date.now(), { method: 'HEAD' })
+                ]);
+
+                if (headRcuv.ok) {
+                    const serverRcuvTime = headRcuv.headers.get('Last-Modified');
+                    if (serverRcuvTime && serverRcuvTime !== localRcuvTime) {
+                        console.log('RCUV 有新版本，背景更新中...');
+                        const res = await fetch('../rcuv.json?t=' + Date.now());
+                        if (res.ok) {
+                            const newData = await res.json();
+                            await localforage.setItem('RCUV_data', newData);
+                            await localforage.setItem('RCUV_rcuv_timestamp', serverRcuvTime);
+                        }
+                    }
+                }
+
+                if (headEsv.ok) {
+                    const serverEsvTime = headEsv.headers.get('Last-Modified');
+                    if (serverEsvTime && serverEsvTime !== localEsvTime) {
+                        console.log('ESV 有新版本，背景更新中...');
+                        const res = await fetch('../esv2016.json?t=' + Date.now());
+                        if (res.ok) {
+                            const newEsv = await res.json();
+                            await localforage.setItem('RCUV_esv_data', newEsv);
+                            await localforage.setItem('RCUV_esv_timestamp', serverEsvTime);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn('背景檢查更新機制失敗:', e);
+            }
+        }
+
+        // ==========================================
+        // 3. 初始化與資料快取 (IndexedDB / localforage)
         // ==========================================
         async function initApp() {
             try {
@@ -504,21 +549,30 @@
                 if (!data || !esv) {
                     els.statusBar.innerHTML = "⏳ 正在首次下載聖經資料 (約 6MB)，請稍候...";
                     
-                    // 依據 FSD 規範，並行載入上層目錄的資料
+                    // 依據 FSD 規範，並行載入上層目錄的資料 (加入破壞快取參數)
                     const [resRcuv, resEsv] = await Promise.all([
-                        fetch('../rcuv.json'),
-                        fetch('../esv2016.json')
+                        fetch('../rcuv.json?t=' + Date.now()),
+                        fetch('../esv2016.json?t=' + Date.now())
                     ]);
                     
                     if (!resRcuv.ok) throw new Error(`RCUV HTTP 錯誤: ${resRcuv.status}`);
                     if (!resEsv.ok) throw new Error(`ESV HTTP 錯誤: ${resEsv.status}`);
                     
+                    // 擷取伺服器的 Last-Modified 時間戳記
+                    const rcuvTime = resRcuv.headers.get('Last-Modified') || Date.now().toString();
+                    const esvTime = resEsv.headers.get('Last-Modified') || Date.now().toString();
+
                     data = await resRcuv.json();
                     esv = await resEsv.json();
                     
-                    // 異步寫入快取，不阻塞主線程渲染
+                    // 異步寫入快取與時間戳記，不阻塞主線程渲染
                     localforage.setItem('RCUV_data', data).catch(e => console.warn('寫入 RCUV 快取失敗:', e));
                     localforage.setItem('RCUV_esv_data', esv).catch(e => console.warn('寫入 ESV 快取失敗:', e));
+                    localforage.setItem('RCUV_rcuv_timestamp', rcuvTime).catch(e => console.warn('寫入 RCUV 時間戳記失敗:', e));
+                    localforage.setItem('RCUV_esv_timestamp', esvTime).catch(e => console.warn('寫入 ESV 時間戳記失敗:', e));
+                } else {
+                    // 若本地已有資料，觸發 SWR 靜默背景更新檢查
+                    checkAndUpdateDataInBackground();
                 }
 
                 bibleData = data;
@@ -574,7 +628,7 @@
         }
 
         // ==========================================
-        // 3. 網址解析器 (Parser) 與狀態綁定
+        // 4. 網址解析器 (Parser) 與狀態綁定
         // ==========================================
         function parseUrlAndRender() {
             const params = new URLSearchParams(window.location.search);
