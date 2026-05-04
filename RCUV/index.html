@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!-- 
-  版本號：v1.37
+  版本號：v1.38
   修改主旨：
   1. UI 極簡化：移除書卷按鈕的向下箭頭與「從」、「到」文字。
   2. 排版優化：調整 Kebab Menu 的邊距與內距以消滅不必要的空白，進一步節省頂部導航列空間。
@@ -9,7 +9,7 @@
   5. 預設載入優化：無參數進入系統時，預設顯示《創世記》第一章全章。
   6. PWA 安裝引導：新增 `?pwa=1` 網址參數觸發機制。精準攔截原生事件避免失效；並針對 iOS 裝置提供專屬圖文手動安裝引導 Modal。
   7. 參與度推廣：使用者點擊上一章/下一章達 10 次時，自動觸發獨立的 PWA 安裝引導，並終生只觸發一次。
-  8. 中英對照功能：支援讀取 `esv2016.json`，透過功能列「英」按鈕即時切換雙語對照。視覺上使用灰色微距排版，且天然隔離不影響原有的 TTS 語音朗讀與複製分享功能。
+  8. 中英對照功能 (無縫版)：改為初始載入即將 ESV 寫入 DOM，並透過純 CSS 控制顯示隱藏，實現切換雙語時「語音朗讀完全不中斷」的完美體驗。
 -->
 <html lang="zh-TW">
 <head>
@@ -68,6 +68,10 @@
         #book-modal-body.abbrev-mode .abbrev-view { display: flex; }
         #book-modal-body .normal-view { display: block; }
         #book-modal-body.abbrev-mode .normal-view { display: none; }
+
+        /* 中英對照視圖切換 (Bilingual View Toggle) */
+        #scripture-container .esv-text { display: none; }
+        #scripture-container.bilingual-mode .esv-text { display: block; }
     </style>
 </head>
 <body class="bg-stone-50 text-stone-800 font-sans min-h-screen pb-20">
@@ -326,7 +330,7 @@
     </div>
 
     <!-- 右下角版本號標示 (用於確認佈署狀態) -->
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.37</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.38</div>
 
     <script>
         // ==========================================
@@ -1165,10 +1169,10 @@
                             return `<span class="inline-flex items-center justify-center cursor-pointer text-xl ml-1 opacity-80 hover:opacity-100 hover:scale-110 transition-transform" onclick="showFootnoteModal('註：${safeFootnote}')" title="點擊查看註釋">📝</span>`;
                         });
 
-                        // 處理 ESV 對照文本
+                        // 處理 ESV 對照文本 (一律預先寫入 DOM，透過 CSS 控制隱藏/顯示)
                         let esvTextHtml = '';
-                        if (isBilingual && esvData && esvData[book] && esvData[book][c] && esvData[book][c][v]) {
-                            esvTextHtml = `<span class="text-stone-500 text-[15px] mt-1 leading-snug font-sans block">${esvData[book][c][v]}</span>`;
+                        if (esvData && esvData[book] && esvData[book][c] && esvData[book][c][v]) {
+                            esvTextHtml = `<span class="esv-text text-stone-500 text-[15px] mt-1 leading-snug font-sans">${esvData[book][c][v]}</span>`;
                         }
 
                         // 節號 Flexbox 排版與防選取 (select-none)
@@ -1190,10 +1194,15 @@
         }
 
         // ==========================================
-        // 5.5 雙語對照按鈕事件綁定
+        // 5.5 雙語對照按鈕事件綁定 (純 CSS 切換，不中斷語音)
         // ==========================================
         els.btnBilingual.addEventListener('click', () => {
             isBilingual = !isBilingual;
+            
+            // 透過切換父容器的 class 來控制內部 ESV 經文的顯示與隱藏
+            els.container.classList.toggle('bilingual-mode', isBilingual);
+            
+            // 更新按鈕視覺狀態
             if (isBilingual) {
                 els.btnBilingual.classList.remove('text-stone-500');
                 els.btnBilingual.classList.add('bg-stone-800', 'text-white', 'hover:bg-stone-700', 'hover:text-white');
@@ -1201,7 +1210,6 @@
                 els.btnBilingual.classList.add('text-stone-500');
                 els.btnBilingual.classList.remove('bg-stone-800', 'text-white', 'hover:bg-stone-700', 'hover:text-white');
             }
-            if (isDataReady) extractAndRenderScripture();
         });
 
         // ==========================================
