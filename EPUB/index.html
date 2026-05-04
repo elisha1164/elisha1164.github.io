@@ -66,7 +66,7 @@
 
         /* 極簡頂部工具列 */
         #header-container {
-            background-color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.05); z-index: 10; display: flex; flex-direction: column; flex-shrink: 0;
+            background-color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.05); z-index: 10; display: flex; flex-direction: column; flex-shrink: 0; position: relative;
         }
         #toolbar {
             padding: 10px 15px; display: flex; gap: 8px; align-items: center;
@@ -106,6 +106,32 @@
         #btn-tts { color: #0056b3; width: 40px; }
         #btn-tts.playing { background: #e0f0ff; border-color: #b3d7ff; color: #004494; animation: pulse 2s infinite; }
         @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(0, 86, 179, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(0, 86, 179, 0); } 100% { box-shadow: 0 0 0 0 rgba(0, 86, 179, 0); } }
+
+        /* 返回朗讀位置浮動按鈕 */
+        #btn-return-audio {
+            position: absolute;
+            top: 60px; /* 在 toolbar 之下 */
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(217, 83, 79, 0.95);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+            z-index: 100;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+            display: none;
+            align-items: center;
+            gap: 8px;
+            backdrop-filter: blur(4px);
+            transition: background 0.2s;
+            animation: bounceIn 0.3s ease;
+        }
+        #btn-return-audio:hover { background: rgba(201, 48, 44, 1); }
+        @keyframes bounceIn { 0% { transform: translate(-50%, -10px); opacity: 0; } 100% { transform: translate(-50%, 0); opacity: 1; } }
 
         /* 閱讀器主體 */
         #main-container {
@@ -217,7 +243,7 @@
 
         @media print {
             html, body { height: auto !important; display: block !important; overflow: visible !important; background: #fff !important; }
-            #welcome-screen, #reader-ui, #toc-tab, #toc-sidebar, #toc-overlay, #loading-overlay, .modal-overlay, .version-tag, #iab-warning-overlay, #glowing-progress-bar { display: none !important; }
+            #welcome-screen, #reader-ui, #toc-tab, #toc-sidebar, #toc-overlay, #loading-overlay, .modal-overlay, .version-tag, #iab-warning-overlay, #glowing-progress-bar, #btn-return-audio { display: none !important; }
             #print-area { display: block !important; position: relative; width: 100%; font-size: 12pt; line-height: 1.6; color: #000; }
             a { text-decoration: none; color: inherit; } a[href]:after { content: none !important; }
             #print-area img, #print-area svg, #print-area image { max-width: 100% !important; max-height: 980px !important; height: auto !important; width: auto !important; break-inside: avoid; page-break-inside: avoid; display: block; margin: 0 auto; }
@@ -258,6 +284,7 @@
                 <button id="btn-tts" class="tool-btn" title="朗讀本頁 (自動翻頁)">▶</button>
                 <button id="btn-settings" class="tool-btn" title="設定">⚙️</button>
             </div>
+            <button id="btn-return-audio">🎧 返回朗讀位置</button>
             <div id="settings-panel">
                 <select id="tts-rate-select" class="tool-btn" title="語音速度">
                     <option value="0.8">0.8x</option>
@@ -305,9 +332,10 @@
 
     <div id="print-area"></div>
     
-    <div class="version-tag">v3.13</div>
+    <div class="version-tag">v3.14</div>
 
     <script>
+        // v3.14 (新增：視聽分離功能，嚴格脫鉤模式與「返回朗讀位置」按鈕，背景載入下一章語音佇列不干擾畫面)
         // v3.13 (新增：根據章節漢字比例自動切換中/英語音引擎，支援 30% 閥值判定與英文優選邏輯)
         // v3.12 (開放首頁下拉重新整理，閱讀階段鎖定；關閉書本時強制重新整理以徹底釋放記憶體)
         // v3.11 (導入 IndexedDB 建立自動暫存與恢復機制，解決系統清除記憶體導致的重載問題)
@@ -439,13 +467,18 @@
         let currentLineHeight = 1.6;
         let currentTtsRate = 1.0;
 
-        // TTS 狀態與防休眠
+        // TTS 狀態與視聽分離追蹤
         let isPlayingTTS = false;
         let isAutoTurning = false;
+        let isSyncMode = true; // 預設跟隨模式
         let ttsQueue = [];
         let currentSpeechIndex = 0;
+        let currentAudioCfi = null; // 當前語音朗讀的確切坐標
+        let currentAudioSpineIndex = -1; // 當前語音朗讀的章節索引
+        let currentAudioHref = null; // 當前語音朗讀的 href (供 TOC 比對)
         let wakeLock = null;
-        let currentChapterIsChinese = true; // 預設為中文，依賴後續動態判定
+        let currentChapterIsChinese = true; 
+
         const DEFAULT_TITLE = "純前端 EPUB 閱讀與列印工具";
 
         // 進度追蹤狀態
@@ -467,6 +500,7 @@
         const closeTocBtn = document.getElementById('close-toc-btn');
         const tocContent = document.getElementById('toc-content');
         const btnTts = document.getElementById('btn-tts');
+        const btnReturnAudio = document.getElementById('btn-return-audio');
         const progressDisplay = document.getElementById('reading-progress');
         const glowingProgressBar = document.getElementById('glowing-progress-bar');
         
@@ -489,6 +523,58 @@
             customModal.style.display = 'flex';
         }
         modalCancelBtn.addEventListener('click', () => customModal.style.display = 'none');
+
+        // ==========================================
+        // 視聽分離 (Decoupled Reading/Listening) 邏輯
+        // ==========================================
+        function detachAudioSync() {
+            if (!isSyncMode) return;
+            isSyncMode = false;
+            updateReturnAudioBtn();
+        }
+
+        function updateReturnAudioBtn() {
+            if (isPlayingTTS && !isSyncMode) {
+                btnReturnAudio.style.display = 'flex';
+            } else {
+                btnReturnAudio.style.display = 'none';
+            }
+        }
+
+        btnReturnAudio.addEventListener('click', () => {
+            isSyncMode = true;
+            updateReturnAudioBtn();
+            if (currentAudioCfi && rendition) {
+                isAutoTurning = true;
+                rendition.display(currentAudioCfi).then(() => {
+                    setTimeout(() => isAutoTurning = false, 400); // 等待 relocated 觸發後解除保護
+                });
+            }
+        });
+
+        function updateTocAudioIcon() {
+            // 清除舊圖示
+            document.querySelectorAll('.toc-audio-icon').forEach(el => el.remove());
+            if (!isPlayingTTS || !currentAudioHref) return;
+            
+            // 尋找並標示當前朗讀章節
+            const links = document.querySelectorAll('#toc-content a');
+            links.forEach(a => {
+                let href = a.getAttribute('data-href');
+                if (href) {
+                    let cleanHref = href.split('#')[0];
+                    try { cleanHref = decodeURIComponent(cleanHref); } catch(e){}
+                    if (cleanHref === currentAudioHref) {
+                        let icon = document.createElement('span');
+                        icon.className = 'toc-audio-icon';
+                        icon.textContent = ' 🔊';
+                        icon.style.color = '#d9534f';
+                        icon.style.marginLeft = '6px';
+                        a.appendChild(icon);
+                    }
+                }
+            });
+        }
 
         function openToc() { tocSidebar.classList.add('open'); tocOverlay.classList.add('open'); }
         function closeToc() { tocSidebar.classList.remove('open'); tocOverlay.classList.remove('open'); }
@@ -595,13 +681,11 @@
 
                     rendition.on('relocated', (location) => {
                         updateProgressDisplay(location);
-                        saveLocationToDB(location.start.cfi); // 翻頁時非同步儲存最新座標
+                        saveLocationToDB(location.start.cfi);
+                        
+                        // 視聽分離防呆：若非系統自動翻頁，即為使用者主動導航，觸發脫鉤模式
                         if (isPlayingTTS && !isAutoTurning) {
-                            window.speechSynthesis.cancel();
-                            setTimeout(async () => {
-                                await buildSpeechQueueFromCurrentChapter();
-                                playNextChunk();
-                            }, 350); 
+                            detachAudioSync();
                         }
                     });
 
@@ -624,8 +708,14 @@
                             if (!tocMap[targetPath]) tocMap[targetPath] = item.label.trim();
 
                             const li = document.createElement('li'); const a = document.createElement('a');
-                            a.href = "#"; a.textContent = item.label;
-                            a.onclick = (e) => { e.preventDefault(); rendition.display(item.href); closeToc(); };
+                            a.href = "#"; 
+                            a.setAttribute('data-href', item.href); // 寫入供 🔊 標示比對用
+                            a.textContent = item.label;
+                            a.onclick = (e) => { 
+                                e.preventDefault(); 
+                                rendition.display(item.href); 
+                                closeToc(); 
+                            };
                             li.appendChild(a);
                             if (item.subitems && item.subitems.length > 0) generateToc(item.subitems, li);
                             ul.appendChild(li);
@@ -693,14 +783,20 @@
             return voice;
         }
 
-        async function buildSpeechQueueFromCurrentChapter() {
-            const loc = rendition.currentLocation();
-            if (!loc) return;
-
-            // v3.2 修復：直接獲取當前已渲染的 DOM，不再背景重新載入避免錯誤與資源浪費
-            const contents = rendition.getContents()[0];
-            if (!contents) return;
-            const body = contents.document.body;
+        // 改寫為「背景載入 Spine」以支援脫鉤模式的佇列生成
+        async function buildSpeechQueue(spineIndex) {
+            const item = book.spine.get(spineIndex);
+            if (!item) return false;
+            
+            await item.load(book.load.bind(book)); // 背景提取該章節骨架資料
+            let doc = item.document;
+            if (!doc && book.archive) {
+                try { doc = await book.archive.getXml(item.href); } catch(e){}
+            }
+            if (!doc) return false;
+            
+            let body = doc.querySelector('body');
+            if (!body) return false;
             
             let newQueue = [];
             const walk = (node) => {
@@ -713,13 +809,11 @@
                             if (cleanS) {
                                 let cfi = "";
                                 try {
-                                    cfi = contents.cfiFromNode(node);
+                                    // 直接利用 epub.js 內部機制將未渲染的 Node 轉換為合法 CFI
+                                    cfi = new ePub.CFI(node, item.cfiBase).toString();
                                 } catch(e) {
-                                    try {
-                                        cfi = contents.cfiFromNode(node.parentElement);
-                                    } catch(e2) {}
+                                    try { cfi = new ePub.CFI(node.parentElement, item.cfiBase).toString(); } catch(e2) {}
                                 }
-
                                 if (cfi) {
                                     newQueue.push({ 
                                         text: cleanS, 
@@ -737,7 +831,7 @@
             walk(body);
 
             // === 語言判定：合併章節內文字，計算漢字比例 (30% 閥值) ===
-            const fullChapterText = newQueue.map(item => item.text).join('');
+            const fullChapterText = newQueue.map(i => i.text).join('');
             if (fullChapterText.length > 0) {
                 const hanziMatches = fullChapterText.match(/[\u4e00-\u9fa5]/g);
                 const hanziCount = hanziMatches ? hanziMatches.length : 0;
@@ -746,52 +840,71 @@
                 currentChapterIsChinese = true; // 預設防呆
             }
 
-            const currentCfi = loc.start.cfi;
-            const endCfi = loc.end.cfi;
-            let startIndex = 0;
-            try {
-                const cfiHelper = new ePub.CFI();
-                let firstVisibleIndex = newQueue.findIndex(item => {
-                    try {
-                        return cfiHelper.compare(item.cfi, currentCfi) >= 0;
-                    } catch(e) {
-                        return false; 
-                    }
-                });
-
-                if (firstVisibleIndex !== -1) {
-                    let firstNewParagraphIndex = -1;
-                    for (let i = firstVisibleIndex; i < newQueue.length; i++) {
-                        try {
-                            if (cfiHelper.compare(newQueue[i].cfi, endCfi) > 0) break;
-                            if (newQueue[i].isNewParagraph) {
-                                firstNewParagraphIndex = i;
-                                break;
-                            }
-                        } catch(e) { break; }
-                    }
-                    startIndex = firstNewParagraphIndex !== -1 ? firstNewParagraphIndex : firstVisibleIndex;
-                }
-            } catch(e) {
-                // 如果 ePub.CFI 無法呼叫的 fallback 保護
-                startIndex = newQueue.findIndex(item => item.cfi >= currentCfi);
-            }
-            
             ttsQueue = newQueue;
-            currentSpeechIndex = startIndex < 0 ? 0 : startIndex;
+            currentSpeechIndex = 0;
+            currentAudioSpineIndex = spineIndex;
+            
+            let cleanHref = item.href.split('#')[0];
+            try { cleanHref = decodeURIComponent(cleanHref); } catch(e){}
+            currentAudioHref = cleanHref;
+            
+            updateTocAudioIcon(); // 更新目錄音符標示
+            
+            return true;
         }
 
         async function startTTS() {
             isPlayingTTS = true;
+            isSyncMode = true; // 重新播放必定還原為跟隨模式
+            updateReturnAudioBtn();
+            
             btnTts.textContent = '⏹';
             btnTts.classList.add('playing');
             await requestWakeLock();
-            await buildSpeechQueueFromCurrentChapter();
+            
+            const loc = rendition.currentLocation();
+            if (loc) {
+                // 從目前畫面所在章節為基準建立佇列
+                const spineItem = book.spine.get(loc.start.cfi);
+                await buildSpeechQueue(spineItem.index);
+                
+                // 比對畫面可見範圍，找到精準的第一句話
+                const currentCfi = loc.start.cfi;
+                const endCfi = loc.end.cfi;
+                let startIndex = 0;
+                try {
+                    const cfiHelper = new ePub.CFI();
+                    let firstVisibleIndex = ttsQueue.findIndex(item => cfiHelper.compare(item.cfi, currentCfi) >= 0);
+                    if (firstVisibleIndex !== -1) {
+                        let firstNewParagraphIndex = -1;
+                        for (let i = firstVisibleIndex; i < ttsQueue.length; i++) {
+                            if (cfiHelper.compare(ttsQueue[i].cfi, endCfi) > 0) break;
+                            if (ttsQueue[i].isNewParagraph) {
+                                firstNewParagraphIndex = i;
+                                break;
+                            }
+                        }
+                        startIndex = firstNewParagraphIndex !== -1 ? firstNewParagraphIndex : firstVisibleIndex;
+                    }
+                } catch(e) {
+                    startIndex = ttsQueue.findIndex(item => item.cfi >= currentCfi);
+                }
+                currentSpeechIndex = Math.max(0, startIndex);
+            } else {
+                await buildSpeechQueue(0);
+                currentSpeechIndex = 0;
+            }
+            
             playNextChunk();
         }
 
         function stopTTS() {
             isPlayingTTS = false;
+            isSyncMode = true;
+            currentAudioCfi = null;
+            currentAudioHref = null;
+            updateReturnAudioBtn();
+            updateTocAudioIcon();
             window.speechSynthesis.cancel();
             releaseWakeLock();
             btnTts.textContent = '▶';
@@ -803,39 +916,46 @@
             if (!isPlayingTTS) return;
             
             if (currentSpeechIndex >= ttsQueue.length) {
-                isAutoTurning = true;
-                rendition.next().then(() => {
-                    setTimeout(async () => {
-                        isAutoTurning = false;
-                        if (isPlayingTTS) {
-                            await buildSpeechQueueFromCurrentChapter();
-                            playNextChunk();
-                        }
-                    }, 600);
-                });
+                isAutoTurning = true; // 保護換章節期間不受 relocated 影響
+                const nextIndex = currentAudioSpineIndex + 1;
+                if (book.spine && nextIndex < book.spine.length) {
+                    // 背景解析下一章並直接連貫語音，完全不需等待前端畫面翻頁
+                    const success = await buildSpeechQueue(nextIndex);
+                    if (success && ttsQueue.length > 0) {
+                        playNextChunk();
+                    } else {
+                        stopTTS();
+                    }
+                } else {
+                    stopTTS(); // 全書念完
+                }
+                setTimeout(() => isAutoTurning = false, 600);
                 return;
             }
             
             const item = ttsQueue[currentSpeechIndex];
-            const loc = rendition.currentLocation();
+            currentAudioCfi = item.cfi;
             
-            if (loc) {
-                let isOutside = false;
-                try {
-                    const cfiHelper = new ePub.CFI();
-                    if (cfiHelper.compare(item.cfi, loc.end.cfi) > 0 || cfiHelper.compare(item.cfi, loc.start.cfi) < 0) {
-                        isOutside = true;
+            // 跟隨模式下，偵測是否需要畫面自動跟進
+            if (isSyncMode) {
+                const loc = rendition.currentLocation();
+                if (loc) {
+                    let isOutside = false;
+                    try {
+                        const cfiHelper = new ePub.CFI();
+                        if (cfiHelper.compare(item.cfi, loc.end.cfi) > 0 || cfiHelper.compare(item.cfi, loc.start.cfi) < 0) {
+                            isOutside = true;
+                        }
+                    } catch(e) {
+                        if (item.cfi > loc.end.cfi || item.cfi < loc.start.cfi) isOutside = true;
                     }
-                } catch(e) {
-                    if (item.cfi > loc.end.cfi || item.cfi < loc.start.cfi) isOutside = true;
-                }
 
-                if (isOutside) {
-                    isAutoTurning = true;
-                    await rendition.display(item.cfi);
-                    // 延長 isAutoTurning 的保護時間，確保 display 觸發的 relocated 事件被完全攔截核銷
-                    await new Promise(r => setTimeout(r, 400));
-                    isAutoTurning = false;
+                    if (isOutside) {
+                        isAutoTurning = true;
+                        await rendition.display(item.cfi);
+                        await new Promise(r => setTimeout(r, 400));
+                        isAutoTurning = false;
+                    }
                 }
             }
 
