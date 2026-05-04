@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!-- 
-  版本號：v1.38
+  版本號：v1.39
   修改主旨：
   1. UI 極簡化：移除書卷按鈕的向下箭頭與「從」、「到」文字。
   2. 排版優化：調整 Kebab Menu 的邊距與內距以消滅不必要的空白，進一步節省頂部導航列空間。
@@ -10,6 +10,7 @@
   6. PWA 安裝引導：新增 `?pwa=1` 網址參數觸發機制。精準攔截原生事件避免失效；並針對 iOS 裝置提供專屬圖文手動安裝引導 Modal。
   7. 參與度推廣：使用者點擊上一章/下一章達 10 次時，自動觸發獨立的 PWA 安裝引導，並終生只觸發一次。
   8. 中英對照功能 (無縫版)：改為初始載入即將 ESV 寫入 DOM，並透過純 CSS 控制顯示隱藏，實現切換雙語時「語音朗讀完全不中斷」的完美體驗。
+  9. 儲存機制優化：配置專屬 IndexedDB (`RCUV`) 並為所有鍵值加上 `RCUV_` 前綴以避免同網域衝突。新增記憶「中英縮寫」與「中英對照」的使用者偏好。
 -->
 <html lang="zh-TW">
 <head>
@@ -283,7 +284,7 @@
                         <span class="text-xs font-bold text-stone-500 hidden sm:inline">顯示中英縮寫</span>
                         <span class="text-xs font-bold text-stone-500 sm:hidden">縮寫</span>
                         <div class="relative inline-flex items-center">
-                            <input type="checkbox" id="toggle-abbrev-view" class="sr-only peer" onchange="document.getElementById('book-modal-body').classList.toggle('abbrev-mode', this.checked)">
+                            <input type="checkbox" id="toggle-abbrev-view" class="sr-only peer">
                             <div class="w-9 h-5 bg-stone-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
                         </div>
                     </label>
@@ -330,12 +331,17 @@
     </div>
 
     <!-- 右下角版本號標示 (用於確認佈署狀態) -->
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.38</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.39</div>
 
     <script>
         // ==========================================
         // 1. 全域變數與字典定義
         // ==========================================
+        localforage.config({
+            name: 'RCUV',
+            storeName: 'bible_preferences'
+        });
+
         let bibleData = null;
         let esvData = null;
         let isDataReady = false;
@@ -470,7 +476,8 @@
             settingsContainer: document.getElementById('settings-container'),
             btnInstallPwa: document.getElementById('btn-install-pwa'),
             voiceSelect: document.getElementById('voice-select'),
-            rateSelect: document.getElementById('rate-select')
+            rateSelect: document.getElementById('rate-select'),
+            toggleAbbrev: document.getElementById('toggle-abbrev-view')
         };
 
         // 章節選擇 Modal 的暫存狀態
@@ -491,8 +498,8 @@
                 initBookModalContent();
 
                 // 嘗試從本地快取讀取
-                let data = await localforage.getItem('rcuv_data');
-                let esv = await localforage.getItem('esv_data');
+                let data = await localforage.getItem('RCUV_data');
+                let esv = await localforage.getItem('RCUV_esv_data');
                 
                 if (!data || !esv) {
                     els.statusBar.innerHTML = "⏳ 正在首次下載聖經資料 (約 6MB)，請稍候...";
@@ -510,13 +517,30 @@
                     esv = await resEsv.json();
                     
                     // 異步寫入快取，不阻塞主線程渲染
-                    localforage.setItem('rcuv_data', data).catch(e => console.warn('寫入 RCUV 快取失敗:', e));
-                    localforage.setItem('esv_data', esv).catch(e => console.warn('寫入 ESV 快取失敗:', e));
+                    localforage.setItem('RCUV_data', data).catch(e => console.warn('寫入 RCUV 快取失敗:', e));
+                    localforage.setItem('RCUV_esv_data', esv).catch(e => console.warn('寫入 ESV 快取失敗:', e));
                 }
 
                 bibleData = data;
                 esvData = esv;
                 isDataReady = true;
+
+                // 讀取 UI 偏好設定
+                let savedBilingual = await localforage.getItem('RCUV_bilingual');
+                if (savedBilingual !== null) {
+                    isBilingual = savedBilingual;
+                    els.container.classList.toggle('bilingual-mode', isBilingual);
+                    if (isBilingual) {
+                        els.btnBilingual.classList.remove('text-stone-500');
+                        els.btnBilingual.classList.add('bg-stone-800', 'text-white', 'hover:bg-stone-700', 'hover:text-white');
+                    }
+                }
+
+                let savedAbbrev = await localforage.getItem('RCUV_abbrev_view');
+                if (savedAbbrev !== null && els.toggleAbbrev) {
+                    els.toggleAbbrev.checked = savedAbbrev;
+                    document.getElementById('book-modal-body').classList.toggle('abbrev-mode', savedAbbrev);
+                }
                 
                 // 初始化選單
                 populateBookSelect();
@@ -952,13 +976,13 @@
         // 參與度計數與 PWA 推廣 (Engagement-based PWA Prompt)
         async function handleNavEngagement() {
             try {
-                let count = await localforage.getItem('navClickCount') || 0;
+                let count = await localforage.getItem('RCUV_navClickCount') || 0;
                 if (count < 10) {
                     count++;
-                    await localforage.setItem('navClickCount', count);
+                    await localforage.setItem('RCUV_navClickCount', count);
                     if (count === 10) {
                         // 標記為已觸發 (狀態推進至 11，終生不再觸發)
-                        await localforage.setItem('navClickCount', 11);
+                        await localforage.setItem('RCUV_navClickCount', 11);
                         
                         // 延遲 500ms 彈出，確保經文先順利渲染，不打斷閱讀體驗
                         setTimeout(() => {
@@ -1210,7 +1234,16 @@
                 els.btnBilingual.classList.add('text-stone-500');
                 els.btnBilingual.classList.remove('bg-stone-800', 'text-white', 'hover:bg-stone-700', 'hover:text-white');
             }
+
+            localforage.setItem('RCUV_bilingual', isBilingual);
         });
+
+        if (els.toggleAbbrev) {
+            els.toggleAbbrev.addEventListener('change', function() {
+                document.getElementById('book-modal-body').classList.toggle('abbrev-mode', this.checked);
+                localforage.setItem('RCUV_abbrev_view', this.checked);
+            });
+        }
 
         // ==========================================
         // 6. 語音朗讀模組 (TTS Engine) 與暫停/繼續控制
@@ -1233,7 +1266,7 @@
             if (!voices.length) return;
 
             // 讀取偏好與名稱淨化
-            localforage.getItem('tts_voice_name').then(savedVoiceName => {
+            localforage.getItem('RCUV_tts_voice_name').then(savedVoiceName => {
                 voices.forEach((voice, i) => {
                     const option = document.createElement('option');
                     option.textContent = voice.name.replace('Microsoft ', '').replace('Google ', '');
@@ -1245,17 +1278,17 @@
                 });
             });
 
-            localforage.getItem('tts_rate').then(rate => {
+            localforage.getItem('RCUV_tts_rate').then(rate => {
                 if (rate) els.rateSelect.value = rate;
             });
         }
 
         // 綁定設定改變事件 (選項改變時即時儲存與生效)
         els.voiceSelect.addEventListener('change', e => {
-            if (e.target.value !== "" && voices[e.target.value]) localforage.setItem('tts_voice_name', voices[e.target.value].name);
+            if (e.target.value !== "" && voices[e.target.value]) localforage.setItem('RCUV_tts_voice_name', voices[e.target.value].name);
         });
         els.rateSelect.addEventListener('change', e => {
-            localforage.setItem('tts_rate', e.target.value);
+            localforage.setItem('RCUV_tts_rate', e.target.value);
         });
 
         // 螢幕防休眠
