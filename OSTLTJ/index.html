@@ -1,4 +1,6 @@
 <!DOCTYPE html>
+<!-- v1.45 移除 og:url 與 og:image 標籤，避免硬編碼絕對路徑影響未來搬遷 -->
+<!-- v1.44 新增 Open Graph (OG) 標籤，優化社群平台網址分享預覽效果 -->
 <!-- v1.43 移除設定選單中缺乏自然使用場景之「設為今日」按鈕，避免誤觸 -->
 <!-- v1.42 於問題回報表單連結新增專案名稱 (project) 參數 -->
 <!-- v1.41 實作智慧載入定位邏輯：若未讀天數大於今日進度，則退回載入最後一個已完成天數，避免未來焦慮 -->
@@ -47,6 +49,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>指向耶穌的大故事：358 天讀完整本聖經</title>
+    
+    <!-- Open Graph (OG) 標籤 -->
+    <meta property="og:title" content="📖 指向耶穌的大故事">
+    <meta property="og:description" content="原來創世記到啟示錄不是零碎的篇章，而是一個完整的大故事，一起來發現！">
+    <meta property="og:type" content="website">
     
     <!-- PWA 與桌面圖示設定 -->
     <link rel="manifest" href="manifest.json">
@@ -2121,6 +2128,6 @@
 
         window.addEventListener('DOMContentLoaded', init);
     </script>
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.43</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.45</div>
 </body>
 </html>
