@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!-- 
-  版本號：v1.40
+  版本號：v1.41
   修改主旨：
   1. UI 極簡化：移除書卷按鈕的向下箭頭與「從」、「到」文字。
   2. 排版優化：調整 Kebab Menu 的邊距與內距以消滅不必要的空白，進一步節省頂部導航列空間。
@@ -12,6 +12,7 @@
   8. 中英對照功能 (無縫版)：改為初始載入即將 ESV 寫入 DOM，並透過純 CSS 控制顯示隱藏，實現切換雙語時「語音朗讀完全不中斷」的完美體驗。
   9. 儲存機制優化：配置專屬 IndexedDB (`RCUV`) 並為所有鍵值加上 `RCUV_` 前綴以避免同網域衝突。新增記憶「中英縮寫」與「中英對照」的使用者偏好。
   10. 靜默背景更新 (SWR)：實作 HTTP HEAD 請求檢查 `Last-Modified` 時間戳記。在不干擾使用者當下閱讀的前提下，若發現伺服器有新版資料，會於背景自動下載並更新本地 IndexedDB，達成下次開啟自動升級的效果。
+  11. 閱讀進度記憶：實作「網址優先 > 本地紀錄 > 預設創世記第一章」的三階段優先級讀取邏輯。
 -->
 <html lang="zh-TW">
 <head>
@@ -332,7 +333,7 @@
     </div>
 
     <!-- 右下角版本號標示 (用於確認佈署狀態) -->
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.40</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.41</div>
 
     <script>
         // ==========================================
@@ -596,11 +597,14 @@
                     document.getElementById('book-modal-body').classList.toggle('abbrev-mode', savedAbbrev);
                 }
                 
+                // 讀取最後一次閱讀進度
+                let savedRef = await localforage.getItem('RCUV_last_read_ref');
+
                 // 初始化選單
                 populateBookSelect();
                 
-                // 解析 URL 並渲染
-                parseUrlAndRender();
+                // 解析 URL 並渲染 (傳入 savedRef 作為備用)
+                parseUrlAndRender(savedRef);
 
                 // 隱藏狀態列，解鎖選單與按鈕
                 els.statusBar.classList.add('hidden');
@@ -630,9 +634,9 @@
         // ==========================================
         // 4. 網址解析器 (Parser) 與狀態綁定
         // ==========================================
-        function parseUrlAndRender() {
+        function parseUrlAndRender(refParamOverride = null) {
             const params = new URLSearchParams(window.location.search);
-            const refParam = params.get('ref');
+            const refParam = params.get('ref') || refParamOverride;
             
             let state = { b: "創世記", fc: 1, fv: 1, tc: 1, tv: 999 }; // 預設值改為全章 (tv: 999 會觸發自動校正)
             
@@ -766,6 +770,9 @@
                 window.history.pushState(null, '', newUrl);
             }
             document.title = `${titleStr} | 和合本 2010`;
+            
+            // 儲存進度供下次無參數啟動時讀取
+            localforage.setItem('RCUV_last_read_ref', refStr).catch(e => console.warn('寫入進度失敗:', e));
         }
         
         // 同步隱藏選單的值到 UI 按鈕上
