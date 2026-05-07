@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>純前端 EPUB 閱讀與列印工具</title>
+    <title>老張 EPUB 閱讀器</title>
     
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%230056b3' d='M12 21.33V6.2C10.6 5.4 9 5 7.5 5 5 5 2 6 2 6v15s3-1 5.5-1c2 0 4 .67 4.5 1.33z'/><path fill='%23ffffff' stroke='%230056b3' stroke-width='1.5' stroke-linejoin='round' d='M12 21.33V6.2C13.4 5.4 15 5 16.5 5 19 5 22 6 22 6v15s-3-1-5.5-1c-2 0-4 .67-4.5 1.33z'/></svg>" type="image/svg+xml">
 
@@ -54,10 +54,10 @@
         .divider::before { content: ""; position: absolute; top: 50%; left: 0; right: 0; border-top: 1px solid #ddd; z-index: 1; }
         .divider span { background: #fff; padding: 0 15px; color: #aaa; font-size: 14px; position: relative; z-index: 2; }
 
-        /* 最近閱讀區塊 (v3.16 新增) */
-        #recent-reads-container { margin-top: 30px; text-align: left; }
+        /* 最近閱讀區塊 (v3.19 調整為 input-group 樣式) */
+        #recent-reads-container { text-align: left; }
         .recent-list { display: flex; flex-direction: column; gap: 10px; max-height: 220px; overflow-y: auto; padding-right: 5px; }
-        .recent-item { display: flex; align-items: center; justify-content: space-between; background: #fafafa; padding: 12px 15px; border-radius: 8px; border: 1px solid #eee; transition: background 0.2s; }
+        .recent-item { display: flex; align-items: center; justify-content: space-between; background: #fafafa; padding: 12px 15px; border-radius: 8px; border: 1px solid #ddd; transition: background 0.2s; }
         .recent-item:hover { background: #f0f7ff; border-color: #cce5ff; }
         .recent-item-info { flex: 1; min-width: 0; cursor: pointer; display: flex; flex-direction: column; }
         .recent-title { font-weight: bold; font-size: 14px; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; }
@@ -284,7 +284,7 @@
 
     <div id="welcome-screen">
         <div class="welcome-card">
-            <h1>📖 EPUB 閱讀器</h1>
+            <h1>📖 老張 EPUB 閱讀器</h1>
             <div class="input-group"><label for="file-input">📂 上傳本機檔案</label><input type="file" id="file-input" accept=".epub"></div>
             <div class="divider"><span>或</span></div>
             <div class="input-group">
@@ -293,8 +293,11 @@
             </div>
             
             <div id="recent-reads-container" style="display: none;">
-                <div class="divider"><span>📚 最近閱讀</span></div>
-                <div class="recent-list" id="recent-reads-list"></div>
+                <div class="divider"><span>或</span></div>
+                <div class="input-group">
+                    <label>📚 最近閱讀</label>
+                    <div class="recent-list" id="recent-reads-list"></div>
+                </div>
             </div>
         </div>
     </div>
@@ -311,7 +314,7 @@
             <div id="settings-panel">
                 <select id="tts-rate-select" class="tool-btn" title="語音速度">
                     <option value="0.8">0.8x</option>
-                    <option value="1.0" selected>1.0x</option>
+                    <option value="1.0">1.0x</option>
                     <option value="1.2">1.2x</option>
                     <option value="1.5">1.5x</option>
                     <option value="2.0">2.0x</option>
@@ -355,9 +358,10 @@
 
     <div id="print-area"></div>
     
-    <div class="version-tag">v3.18</div>
+    <div class="version-tag">v3.19</div>
 
     <script>
+        // v3.19 (UI微調：移除關閉警告、重構首頁三選一佈局、過濾 .epub 副檔名、改名為老張閱讀器，並修復 TTS 語速設定記憶問題)
         // v3.18 (修復：改用 full.js 確保 OpenCC 初始化，並移除對標題等短字串的特徵字限制，確保完美簡轉繁)
         // v3.17 (修改：最近閱讀區塊改為顯示閱讀進度百分比而非時間，並將進度存入 IndexedDB)
         // v3.16 (新增：書櫃與最近閱讀功能，採用指標與 LRU 快取淘汰機制，安全管理儲存配額)
@@ -399,7 +403,7 @@
         checkInAppBrowser();
 
         // ==========================================
-        // IndexedDB LRU 書櫃與快取機制 (v3.16)
+        // IndexedDB LRU 書櫃與快取機制
         // ==========================================
         const DB_NAME = 'EpubReaderDB';
         const DB_VERSION = 1;
@@ -591,7 +595,8 @@
 
                 const title = document.createElement('div');
                 title.className = 'recent-title';
-                title.textContent = bookRecord.title || '未知書名';
+                // 過濾掉可能殘留的 .epub 副檔名 (v3.19)
+                title.textContent = (bookRecord.title || '未知書名').replace(/\.epub$/i, '');
                 
                 const meta = document.createElement('div');
                 meta.className = 'recent-meta';
@@ -607,7 +612,7 @@
                 delBtn.innerHTML = '🗑️';
                 delBtn.onclick = async (e) => {
                     e.stopPropagation();
-                    if (confirm(`確定要移除「${bookRecord.title || '這本書'}」的紀錄與檔案嗎？`)) {
+                    if (confirm(`確定要移除「${(bookRecord.title || '這本書').replace(/\.epub$/i, '')}」的紀錄與檔案嗎？`)) {
                         await deleteBookFromDB(bookRecord.id);
                         renderRecentReads();
                     }
@@ -627,7 +632,9 @@
         let loadingTimeout = null; 
         let currentFontSize = 100;
         let currentLineHeight = 1.6;
-        let currentTtsRate = 1.0;
+        
+        // 讀取本地儲存的語速偏好，若無則預設 1.0 (v3.19)
+        let currentTtsRate = parseFloat(localStorage.getItem('ttsRate')) || 1.0;
 
         // TTS 狀態與視聽分離追蹤
         let isPlayingTTS = false;
@@ -641,7 +648,7 @@
         let wakeLock = null;
         let currentChapterIsChinese = true; 
         
-        // 簡轉繁特徵字與轉換器 (v3.18 修正與擴充)
+        // 簡轉繁特徵字與轉換器 
         const simpRegex = /[这那们个么会对过发机当成来两还与里为说实从种现]/;
         let s2tConverter = null;
         try {
@@ -649,7 +656,7 @@
             else console.warn("OpenCC 未載入，請確認網路連線。");
         } catch(e) { console.warn("OpenCC 初始化失敗", e); }
 
-        const DEFAULT_TITLE = "純前端 EPUB 閱讀與列印工具";
+        const DEFAULT_TITLE = "老張 EPUB 閱讀器";
 
         // 進度追蹤狀態
         let locationsGenerated = false;
@@ -750,14 +757,13 @@
         function closeToc() { tocSidebar.classList.remove('open'); tocOverlay.classList.remove('open'); }
         tocTab.addEventListener('click', openToc); closeTocBtn.addEventListener('click', closeToc); tocOverlay.addEventListener('click', closeToc);
 
+        // v3.19：移除多餘的離開確認警告，因為資料已安全存入最近閱讀中
         document.getElementById('btn-close').addEventListener('click', async () => {
-            if (confirm("確定要關閉目前的書本，返回首頁嗎？\n(未列印的內容將會儲存在最近閱讀中)")) {
-                stopTTS(); 
-                await clearCurrentPointer(); 
-                const newUrl = new URL(window.location); 
-                newUrl.searchParams.delete('src'); 
-                window.location.replace(newUrl.toString()); // 強制重載以釋放記憶體並刷新最近閱讀
-            }
+            stopTTS(); 
+            await clearCurrentPointer(); 
+            const newUrl = new URL(window.location); 
+            newUrl.searchParams.delete('src'); 
+            window.location.replace(newUrl.toString()); 
         });
 
         function applyStyles() {
@@ -769,7 +775,12 @@
         }
 
         btnSettings.addEventListener('click', () => { settingsPanel.classList.toggle('open'); });
-        ttsRateSelect.addEventListener('change', (e) => { currentTtsRate = parseFloat(e.target.value); });
+        
+        // v3.19：寫入使用者的語速偏好至 localStorage，以利跨頁面保留設定
+        ttsRateSelect.addEventListener('change', (e) => { 
+            currentTtsRate = parseFloat(e.target.value); 
+            localStorage.setItem('ttsRate', currentTtsRate);
+        });
 
         document.getElementById('btn-font-dec').addEventListener('click', () => { currentFontSize = Math.max(80, currentFontSize - 10); applyStyles(); });
         document.getElementById('btn-font-inc').addEventListener('click', () => { currentFontSize = Math.min(200, currentFontSize + 10); applyStyles(); });
@@ -842,7 +853,7 @@
                 book.ready.then(() => {
                     rendition = book.renderTo("viewer", { width: "100%", height: "100%", spread: "none" });
                     
-                    // 註冊內容渲染 Hook：實時掃描特徵字與簡轉繁 (v3.15)
+                    // 註冊內容渲染 Hook：實時掃描特徵字與簡轉繁
                     rendition.hooks.content.register(contents => {
                         const body = contents.document.body;
                         if (!body) return;
@@ -910,7 +921,7 @@
                             let targetPath = item.href.split('#')[0];
                             try { targetPath = decodeURIComponent(targetPath); } catch(e){}
                             
-                            // 目錄標題簡轉繁 (v3.18：對短字串移除特徵字限制，直接轉換)
+                            // 目錄標題簡轉繁 (無差別轉換，不依賴特徵字)
                             let labelText = item.label.trim();
                             if (s2tConverter) {
                                 labelText = s2tConverter(labelText);
@@ -939,7 +950,7 @@
                         updateProgressDisplay(rendition.currentLocation());
                     }
 
-                    // 書籍屬性動態簡轉繁與資料庫更新 (v3.18：移除對標題等短字串的特徵字限制)
+                    // 書籍屬性動態簡轉繁與資料庫更新 (無差別轉換，不依賴特徵字)
                     book.loaded.metadata.then(meta => {
                         let title = meta.title;
                         let creator = meta.creator;
@@ -1006,7 +1017,7 @@
             return voice;
         }
 
-        // 改寫為「背景載入 Spine」以支援脫鉤模式的佇列生成
+        // 背景載入 Spine 以支援脫鉤模式的佇列生成
         async function buildSpeechQueue(spineIndex) {
             const item = book.spine.get(spineIndex);
             if (!item) return false;
@@ -1232,7 +1243,7 @@
                 const arrayBuffer = await response.arrayBuffer();
                 const id = url;
                 let titleName = url.split('/').pop() || url;
-                try { titleName = decodeURIComponent(titleName); } catch(e){}
+                try { titleName = decodeURIComponent(titleName).replace(/\.epub$/i, ''); } catch(e){ titleName = titleName.replace(/\.epub$/i, ''); }
                 await saveBookToDB(id, arrayBuffer, titleName);
                 initBook(arrayBuffer);
             } catch (error) {
@@ -1265,7 +1276,8 @@
                 reader.onload = async (event) => {
                     showLoading(true, '正在處理並暫存電子書...');
                     const id = file.name + '_' + file.size;
-                    await saveBookToDB(id, event.target.result, file.name);
+                    // 過濾掉本機檔案的 .epub 副檔名
+                    await saveBookToDB(id, event.target.result, file.name.replace(/\.epub$/i, ''));
                     initBook(event.target.result); 
                 };
                 reader.readAsArrayBuffer(file);
@@ -1441,6 +1453,9 @@
         });
 
         window.addEventListener('DOMContentLoaded', async () => {
+            // v3.19：將儲存的語速偏好同步回介面的下拉選單
+            document.getElementById('tts-rate-select').value = currentTtsRate.toFixed(1);
+
             if (document.getElementById('iab-warning-overlay').style.display === 'flex') return;
             const params = new URLSearchParams(window.location.search);
             const srcUrl = params.get('src');
