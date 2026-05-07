@@ -354,9 +354,10 @@
 
     <div id="print-area"></div>
     
-    <div class="version-tag">v3.16</div>
+    <div class="version-tag">v3.17</div>
 
     <script>
+        // v3.17 (修改：最近閱讀區塊改為顯示閱讀進度百分比而非時間，並將進度存入 IndexedDB)
         // v3.16 (新增：書櫃與最近閱讀功能，採用指標與 LRU 快取淘汰機制，安全管理儲存配額)
         // v3.15 (導入 opencc-js，結合特徵字極速掃描與 30% 漢字閥值，實現智能簡轉繁與 TTS 語音引擎動態配置)
         // v3.14 (新增：視聽分離功能，嚴格脫鉤模式與「返回朗讀位置」按鈕，背景載入下一章語音佇列不干擾畫面)
@@ -450,6 +451,7 @@
                 id: id,
                 data: arrayBuffer,
                 location: existing ? existing.location : null,
+                percentage: existing ? existing.percentage : null,
                 timestamp: Date.now(),
                 title: title || id
             };
@@ -465,12 +467,13 @@
             }
         }
 
-        async function saveLocationToDB(cfi) {
+        async function saveLocationToDB(cfi, percentageStr = null) {
             if (!currentBookId) return;
             try {
                 const record = await loadBookDataFromDB(currentBookId);
                 if (record) {
                     record.location = cfi;
+                    if (percentageStr !== null) record.percentage = percentageStr;
                     record.timestamp = Date.now(); 
                     await putBookToDB(record);
                 }
@@ -590,8 +593,8 @@
                 
                 const meta = document.createElement('div');
                 meta.className = 'recent-meta';
-                const dateStr = new Date(bookRecord.timestamp).toLocaleString('zh-TW', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-                meta.textContent = `上次閱讀: ${dateStr}`;
+                const progressStr = bookRecord.percentage ? bookRecord.percentage : (bookRecord.location ? '計算中...' : '未開始');
+                meta.textContent = `閱讀進度: ${progressStr}`;
 
                 info.appendChild(title);
                 info.appendChild(meta);
@@ -856,13 +859,30 @@
                     book.locations.generate(600).then(() => {
                         locationsGenerated = true;
                         if (rendition && rendition.currentLocation()) {
-                            updateProgressDisplay(rendition.currentLocation());
+                            const loc = rendition.currentLocation();
+                            updateProgressDisplay(loc);
+                            
+                            // 產生 locations 後，補存進度百分比
+                            const percentage = book.locations.percentageFromCfi(loc.start.cfi);
+                            let p = Math.round(percentage * 100);
+                            if (p >= 100 && !loc.atEnd) p = 99;
+                            else if (loc.atEnd) p = 100;
+                            saveLocationToDB(loc.start.cfi, p + "%");
                         }
                     });
 
                     rendition.on('relocated', (location) => {
                         updateProgressDisplay(location);
-                        saveLocationToDB(location.start.cfi);
+                        
+                        let pStr = null;
+                        if (locationsGenerated && book.locations) {
+                            const percentage = book.locations.percentageFromCfi(location.start.cfi);
+                            let p = Math.round(percentage * 100);
+                            if (p >= 100 && !location.atEnd) p = 99;
+                            else if (location.atEnd) p = 100;
+                            pStr = p + "%";
+                        }
+                        saveLocationToDB(location.start.cfi, pStr);
                         
                         // 視聽分離防呆：若非系統自動翻頁，即為使用者主動導航，觸發脫鉤模式
                         if (isPlayingTTS && !isAutoTurning) {
