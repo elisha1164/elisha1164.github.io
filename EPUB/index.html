@@ -358,9 +358,10 @@
 
     <div id="print-area"></div>
     
-    <div class="version-tag">v3.19</div>
+    <div class="version-tag">v3.20</div>
 
     <script>
+        // v3.20 (修正：將 localStorage 鍵值改為 EPUB_ttsRate 以避免同網域其他專案干擾)
         // v3.19 (UI微調：移除關閉警告、重構首頁三選一佈局、過濾 .epub 副檔名、改名為老張閱讀器，並修復 TTS 語速設定記憶問題)
         // v3.18 (修復：改用 full.js 確保 OpenCC 初始化，並移除對標題等短字串的特徵字限制，確保完美簡轉繁)
         // v3.17 (修改：最近閱讀區塊改為顯示閱讀進度百分比而非時間，並將進度存入 IndexedDB)
@@ -634,7 +635,7 @@
         let currentLineHeight = 1.6;
         
         // 讀取本地儲存的語速偏好，若無則預設 1.0 (v3.19)
-        let currentTtsRate = parseFloat(localStorage.getItem('ttsRate')) || 1.0;
+        let currentTtsRate = parseFloat(localStorage.getItem('EPUB_ttsRate')) || 1.0;
 
         // TTS 狀態與視聽分離追蹤
         let isPlayingTTS = false;
@@ -779,7 +780,7 @@
         // v3.19：寫入使用者的語速偏好至 localStorage，以利跨頁面保留設定
         ttsRateSelect.addEventListener('change', (e) => { 
             currentTtsRate = parseFloat(e.target.value); 
-            localStorage.setItem('ttsRate', currentTtsRate);
+            localStorage.setItem('EPUB_ttsRate', currentTtsRate);
         });
 
         document.getElementById('btn-font-dec').addEventListener('click', () => { currentFontSize = Math.max(80, currentFontSize - 10); applyStyles(); });
