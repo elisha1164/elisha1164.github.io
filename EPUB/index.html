@@ -358,9 +358,10 @@
 
     <div id="print-area"></div>
     
-    <div class="version-tag">v3.20</div>
+    <div class="version-tag">v3.21</div>
 
     <script>
+        // v3.21 (新增：支援寬螢幕自動雙頁顯示 (spread: auto)，提升大螢幕閱讀體驗)
         // v3.20 (修正：將 localStorage 鍵值改為 EPUB_ttsRate 以避免同網域其他專案干擾)
         // v3.19 (UI微調：移除關閉警告、重構首頁三選一佈局、過濾 .epub 副檔名、改名為老張閱讀器，並修復 TTS 語速設定記憶問題)
         // v3.18 (修復：改用 full.js 確保 OpenCC 初始化，並移除對標題等短字串的特徵字限制，確保完美簡轉繁)
@@ -596,7 +597,7 @@
 
                 const title = document.createElement('div');
                 title.className = 'recent-title';
-                // 過濾掉可能殘留的 .epub 副檔名 (v3.19)
+                // 過濾掉可能殘留的 .epub 副檔名
                 title.textContent = (bookRecord.title || '未知書名').replace(/\.epub$/i, '');
                 
                 const meta = document.createElement('div');
@@ -634,7 +635,7 @@
         let currentFontSize = 100;
         let currentLineHeight = 1.6;
         
-        // 讀取本地儲存的語速偏好，若無則預設 1.0 (v3.19)
+        // 讀取本地儲存的語速偏好，若無則預設 1.0
         let currentTtsRate = parseFloat(localStorage.getItem('EPUB_ttsRate')) || 1.0;
 
         // TTS 狀態與視聽分離追蹤
@@ -758,7 +759,7 @@
         function closeToc() { tocSidebar.classList.remove('open'); tocOverlay.classList.remove('open'); }
         tocTab.addEventListener('click', openToc); closeTocBtn.addEventListener('click', closeToc); tocOverlay.addEventListener('click', closeToc);
 
-        // v3.19：移除多餘的離開確認警告，因為資料已安全存入最近閱讀中
+        // 移除多餘的離開確認警告，因為資料已安全存入最近閱讀中
         document.getElementById('btn-close').addEventListener('click', async () => {
             stopTTS(); 
             await clearCurrentPointer(); 
@@ -777,7 +778,7 @@
 
         btnSettings.addEventListener('click', () => { settingsPanel.classList.toggle('open'); });
         
-        // v3.19：寫入使用者的語速偏好至 localStorage，以利跨頁面保留設定
+        // 寫入使用者的語速偏好至 localStorage，以利跨頁面保留設定
         ttsRateSelect.addEventListener('change', (e) => { 
             currentTtsRate = parseFloat(e.target.value); 
             localStorage.setItem('EPUB_ttsRate', currentTtsRate);
@@ -852,7 +853,7 @@
             try {
                 book = ePub(bookData);
                 book.ready.then(() => {
-                    rendition = book.renderTo("viewer", { width: "100%", height: "100%", spread: "none" });
+                    rendition = book.renderTo("viewer", { width: "100%", height: "100%", spread: "auto", minSpreadWidth: 800 });
                     
                     // 註冊內容渲染 Hook：實時掃描特徵字與簡轉繁
                     rendition.hooks.content.register(contents => {
@@ -1454,7 +1455,7 @@
         });
 
         window.addEventListener('DOMContentLoaded', async () => {
-            // v3.19：將儲存的語速偏好同步回介面的下拉選單
+            // 將儲存的語速偏好同步回介面的下拉選單
             document.getElementById('tts-rate-select').value = currentTtsRate.toFixed(1);
 
             if (document.getElementById('iab-warning-overlay').style.display === 'flex') return;
