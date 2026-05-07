@@ -35,6 +35,7 @@
         .welcome-card {
             background: #fff; padding: 40px; border-radius: 16px;
             box-shadow: 0 15px 35px rgba(0,0,0,0.05); max-width: 400px; width: 90%; text-align: center;
+            max-height: 90vh; overflow-y: auto;
         }
         .welcome-card h1 { margin-top: 0; color: #0056b3; font-size: 24px; margin-bottom: 30px; }
         .input-group { margin-bottom: 20px; text-align: left; }
@@ -51,6 +52,21 @@
         .divider { margin: 25px 0; position: relative; text-align: center; }
         .divider::before { content: ""; position: absolute; top: 50%; left: 0; right: 0; border-top: 1px solid #ddd; z-index: 1; }
         .divider span { background: #fff; padding: 0 15px; color: #aaa; font-size: 14px; position: relative; z-index: 2; }
+
+        /* 最近閱讀區塊 (v3.16 新增) */
+        #recent-reads-container { margin-top: 30px; text-align: left; }
+        .recent-list { display: flex; flex-direction: column; gap: 10px; max-height: 220px; overflow-y: auto; padding-right: 5px; }
+        .recent-item { display: flex; align-items: center; justify-content: space-between; background: #fafafa; padding: 12px 15px; border-radius: 8px; border: 1px solid #eee; transition: background 0.2s; }
+        .recent-item:hover { background: #f0f7ff; border-color: #cce5ff; }
+        .recent-item-info { flex: 1; min-width: 0; cursor: pointer; display: flex; flex-direction: column; }
+        .recent-title { font-weight: bold; font-size: 14px; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; }
+        .recent-meta { font-size: 12px; color: #888; }
+        .recent-delete-btn { background: none; border: none; font-size: 16px; color: #aaa; cursor: pointer; padding: 5px; transition: color 0.2s; }
+        .recent-delete-btn:hover { color: #d9534f; }
+        .recent-list::-webkit-scrollbar { width: 6px; }
+        .recent-list::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 3px; }
+        .recent-list::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+        .recent-list::-webkit-scrollbar-thumb:hover { background: #aaa; }
 
         /* ==========================================
            階段二：閱讀階段 (Reader UI)
@@ -274,6 +290,11 @@
                 <label for="url-input">🌐 透過網址載入</label>
                 <div class="url-row"><input type="text" id="url-input" placeholder="輸入 EPUB 網址 (需支援 CORS)"><button id="load-url-btn" class="btn-primary">載入</button></div>
             </div>
+            
+            <div id="recent-reads-container" style="display: none;">
+                <div class="divider"><span>📚 最近閱讀</span></div>
+                <div class="recent-list" id="recent-reads-list"></div>
+            </div>
         </div>
     </div>
 
@@ -333,9 +354,10 @@
 
     <div id="print-area"></div>
     
-    <div class="version-tag">v3.15</div>
+    <div class="version-tag">v3.16</div>
 
     <script>
+        // v3.16 (新增：書櫃與最近閱讀功能，採用指標與 LRU 快取淘汰機制，安全管理儲存配額)
         // v3.15 (導入 opencc-js，結合特徵字極速掃描與 30% 漢字閥值，實現智能簡轉繁與 TTS 語音引擎動態配置)
         // v3.14 (新增：視聽分離功能，嚴格脫鉤模式與「返回朗讀位置」按鈕，背景載入下一章語音佇列不干擾畫面)
         // v3.13 (新增：根據章節漢字比例自動切換中/英語音引擎，支援 30% 閥值判定與英文優選邏輯)
@@ -374,13 +396,14 @@
         checkInAppBrowser();
 
         // ==========================================
-        // IndexedDB 自動暫存與恢復機制
+        // IndexedDB LRU 書櫃與快取機制 (v3.16)
         // ==========================================
         const DB_NAME = 'EpubReaderDB';
         const DB_VERSION = 1;
         const STORE_NAME = 'BookStore';
+        let currentBookId = null;
 
-        function initDB() {
+        async function initDB() {
             return new Promise((resolve, reject) => {
                 const request = indexedDB.open(DB_NAME, DB_VERSION);
                 request.onerror = (event) => reject(event.target.error);
@@ -394,69 +417,201 @@
             });
         }
 
-        async function saveBookToDB(arrayBuffer) {
-            try {
-                const db = await initDB();
-                const tx = db.transaction(STORE_NAME, 'readwrite');
-                const store = tx.objectStore(STORE_NAME);
-                store.put({
-                    id: 'current_book',
-                    data: arrayBuffer,
-                    location: null,
-                    timestamp: Date.now()
-                });
-                return new Promise((resolve, reject) => {
-                    tx.oncomplete = () => resolve();
-                    tx.onerror = (e) => reject(e.target.error);
-                });
-            } catch (error) {
-                console.warn("儲存至資料庫失敗 (可能容量不足):", error);
+        async function putBookToDB(record) {
+            let db = await initDB();
+            while (true) {
+                try {
+                    await new Promise((resolve, reject) => {
+                        const tx = db.transaction(STORE_NAME, 'readwrite');
+                        const store = tx.objectStore(STORE_NAME);
+                        store.put(record);
+                        tx.oncomplete = () => resolve();
+                        tx.onerror = (e) => reject(e.target.error);
+                    });
+                    break;
+                } catch (e) {
+                    if (e.name === 'QuotaExceededError') {
+                        const allBooks = await getAllBooksFromDB();
+                        if (allBooks.length === 0) throw new Error("儲存空間不足。");
+                        const oldest = allBooks[allBooks.length - 1]; 
+                        await deleteBookFromDB(oldest.id);
+                        console.warn(`空間不足，已自動刪除最舊紀錄: ${oldest.title || oldest.id}`);
+                    } else {
+                        throw e;
+                    }
+                }
+            }
+        }
+
+        async function saveBookToDB(id, arrayBuffer, title) {
+            currentBookId = id;
+            const existing = await loadBookDataFromDB(id);
+            const record = {
+                id: id,
+                data: arrayBuffer,
+                location: existing ? existing.location : null,
+                timestamp: Date.now(),
+                title: title || id
+            };
+            await putBookToDB(record);
+            await setCurrentPointer(id);
+        }
+
+        async function updateBookTitleInDB(id, title) {
+            const record = await loadBookDataFromDB(id);
+            if (record) {
+                record.title = title;
+                await putBookToDB(record);
             }
         }
 
         async function saveLocationToDB(cfi) {
+            if (!currentBookId) return;
             try {
-                const db = await initDB();
-                const tx = db.transaction(STORE_NAME, 'readwrite');
-                const store = tx.objectStore(STORE_NAME);
-                const request = store.get('current_book');
-                request.onsuccess = (event) => {
-                    const record = event.target.result;
-                    if (record) {
-                        record.location = cfi;
-                        store.put(record);
-                    }
-                };
-            } catch (error) {
-                console.warn("儲存閱讀進度失敗:", error);
-            }
+                const record = await loadBookDataFromDB(currentBookId);
+                if (record) {
+                    record.location = cfi;
+                    record.timestamp = Date.now(); 
+                    await putBookToDB(record);
+                }
+            } catch (e) { console.warn("儲存進度失敗", e); }
         }
 
-        async function clearDB() {
-            try {
-                const db = await initDB();
+        async function setCurrentPointer(targetId) {
+            const db = await initDB();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(STORE_NAME, 'readwrite');
+                const store = tx.objectStore(STORE_NAME);
+                store.put({ id: 'current_book', targetId: targetId });
+                tx.oncomplete = () => resolve();
+                tx.onerror = (e) => reject(e.target.error);
+            });
+        }
+
+        async function getCurrentPointer() {
+            const db = await initDB();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(STORE_NAME, 'readwrite');
+                const store = tx.objectStore(STORE_NAME);
+                const req = store.get('current_book');
+                req.onsuccess = (e) => {
+                    const res = e.target.result;
+                    if (!res) resolve(null);
+                    else if (res.targetId) resolve(res.targetId);
+                    else {
+                        // 舊版資料遷移：刪除不相容的舊版 current_book
+                        store.delete('current_book');
+                        resolve(null);
+                    }
+                };
+                req.onerror = (e) => reject(e.target.error);
+            });
+        }
+
+        async function clearCurrentPointer() {
+            const db = await initDB();
+            return new Promise((resolve, reject) => {
                 const tx = db.transaction(STORE_NAME, 'readwrite');
                 const store = tx.objectStore(STORE_NAME);
                 store.delete('current_book');
-            } catch (error) {
-                console.warn("清除資料庫失敗:", error);
-            }
+                tx.oncomplete = () => resolve();
+                tx.onerror = (e) => reject(e.target.error);
+            });
         }
 
-        async function loadBookFromDB() {
-            try {
-                const db = await initDB();
+        async function loadBookDataFromDB(id) {
+            const db = await initDB();
+            return new Promise((resolve, reject) => {
                 const tx = db.transaction(STORE_NAME, 'readonly');
                 const store = tx.objectStore(STORE_NAME);
-                const request = store.get('current_book');
-                return new Promise((resolve, reject) => {
-                    request.onsuccess = (event) => resolve(event.target.result);
-                    request.onerror = (e) => reject(e.target.error);
-                });
-            } catch (error) {
-                console.warn("讀取資料庫失敗:", error);
-                return null;
+                const req = store.get(id);
+                req.onsuccess = (e) => resolve(e.target.result);
+                req.onerror = (e) => reject(e.target.error);
+            });
+        }
+
+        async function getAllBooksFromDB() {
+            const db = await initDB();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(STORE_NAME, 'readonly');
+                const store = tx.objectStore(STORE_NAME);
+                const req = store.getAll();
+                req.onsuccess = (e) => {
+                    const books = e.target.result.filter(b => b.id !== 'current_book');
+                    books.sort((a, b) => b.timestamp - a.timestamp); // 最新在前
+                    resolve(books);
+                };
+                req.onerror = (e) => reject(e.target.error);
+            });
+        }
+
+        async function deleteBookFromDB(id) {
+            const db = await initDB();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(STORE_NAME, 'readwrite');
+                const store = tx.objectStore(STORE_NAME);
+                store.delete(id);
+                tx.oncomplete = () => resolve();
+                tx.onerror = (e) => reject(e.target.error);
+            });
+        }
+
+        async function renderRecentReads() {
+            const container = document.getElementById('recent-reads-container');
+            const list = document.getElementById('recent-reads-list');
+            const allBooks = await getAllBooksFromDB();
+
+            if (allBooks.length === 0) {
+                container.style.display = 'none';
+                return;
             }
+
+            container.style.display = 'block';
+            list.innerHTML = '';
+
+            allBooks.forEach(bookRecord => {
+                const item = document.createElement('div');
+                item.className = 'recent-item';
+
+                const info = document.createElement('div');
+                info.className = 'recent-item-info';
+                info.onclick = async () => {
+                    showLoading(true, '正在載入書本...');
+                    currentBookId = bookRecord.id;
+                    bookRecord.timestamp = Date.now(); 
+                    await putBookToDB(bookRecord);
+                    await setCurrentPointer(bookRecord.id);
+                    initBook(bookRecord.data, bookRecord.location);
+                };
+
+                const title = document.createElement('div');
+                title.className = 'recent-title';
+                title.textContent = bookRecord.title || '未知書名';
+                
+                const meta = document.createElement('div');
+                meta.className = 'recent-meta';
+                const dateStr = new Date(bookRecord.timestamp).toLocaleString('zh-TW', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                meta.textContent = `上次閱讀: ${dateStr}`;
+
+                info.appendChild(title);
+                info.appendChild(meta);
+
+                const delBtn = document.createElement('button');
+                delBtn.className = 'recent-delete-btn';
+                delBtn.title = "移除此紀錄";
+                delBtn.innerHTML = '🗑️';
+                delBtn.onclick = async (e) => {
+                    e.stopPropagation();
+                    if (confirm(`確定要移除「${bookRecord.title || '這本書'}」的紀錄與檔案嗎？`)) {
+                        await deleteBookFromDB(bookRecord.id);
+                        renderRecentReads();
+                    }
+                };
+
+                item.appendChild(info);
+                item.appendChild(delBtn);
+                list.appendChild(item);
+            });
         }
 
         // ==========================================
@@ -590,12 +745,12 @@
         tocTab.addEventListener('click', openToc); closeTocBtn.addEventListener('click', closeToc); tocOverlay.addEventListener('click', closeToc);
 
         document.getElementById('btn-close').addEventListener('click', async () => {
-            if (confirm("確定要關閉目前的書本，返回首頁嗎？\n(未列印的內容將會遺失)")) {
+            if (confirm("確定要關閉目前的書本，返回首頁嗎？\n(未列印的內容將會儲存在最近閱讀中)")) {
                 stopTTS(); 
-                await clearDB(); // 確保資料庫清除完成
+                await clearCurrentPointer(); 
                 const newUrl = new URL(window.location); 
                 newUrl.searchParams.delete('src'); 
-                window.location.replace(newUrl.toString()); // 強制重新整理並返回乾淨的首頁
+                window.location.replace(newUrl.toString()); // 強制重載以釋放記憶體並刷新最近閱讀
             }
         });
 
@@ -761,7 +916,7 @@
                         updateProgressDisplay(rendition.currentLocation());
                     }
 
-                    // 書籍屬性動態簡轉繁
+                    // 書籍屬性動態簡轉繁與資料庫更新 (v3.16)
                     book.loaded.metadata.then(meta => {
                         let title = meta.title;
                         let creator = meta.creator;
@@ -769,8 +924,13 @@
                             if (title && simpRegex.test(title)) title = s2tConverter(title);
                             if (creator && simpRegex.test(creator)) creator = s2tConverter(creator);
                         }
-                        if (title && creator) document.title = `${title} by ${creator}`;
-                        else if (title) document.title = title;
+                        
+                        const displayTitle = title ? (creator ? `${title} by ${creator}` : title) : '未知書名';
+                        document.title = displayTitle;
+                        
+                        if (currentBookId) {
+                            updateBookTitleInDB(currentBookId, displayTitle);
+                        }
                     });
 
                 }).catch((err) => { clearTimeout(loadingTimeout); showLoading(false); alert("電子書開啟失敗 ❌"); });
@@ -1047,7 +1207,10 @@
                 const response = await fetch(url);
                 if (!response.ok) throw new Error(`伺服器回應錯誤: ${response.status}`);
                 const arrayBuffer = await response.arrayBuffer();
-                await saveBookToDB(arrayBuffer);
+                const id = url;
+                let titleName = url.split('/').pop() || url;
+                try { titleName = decodeURIComponent(titleName); } catch(e){}
+                await saveBookToDB(id, arrayBuffer, titleName);
                 initBook(arrayBuffer);
             } catch (error) {
                 showLoading(false);
@@ -1078,7 +1241,8 @@
                 const reader = new FileReader();
                 reader.onload = async (event) => {
                     showLoading(true, '正在處理並暫存電子書...');
-                    await saveBookToDB(event.target.result);
+                    const id = file.name + '_' + file.size;
+                    await saveBookToDB(id, event.target.result, file.name);
                     initBook(event.target.result); 
                 };
                 reader.readAsArrayBuffer(file);
@@ -1262,11 +1426,18 @@
                 urlInput.value = srcUrl; 
                 loadBookFromUrl(srcUrl); 
             } else {
-                // 若無網址載入需求，檢查 IndexedDB 是否有上次被系統強制關閉的暫存進度
-                const savedRecord = await loadBookFromDB();
-                if (savedRecord && savedRecord.data) {
-                    showLoading(true, '正在恢復上次的閱讀進度...');
-                    initBook(savedRecord.data, savedRecord.location);
+                const targetId = await getCurrentPointer();
+                if (targetId) {
+                    const savedRecord = await loadBookDataFromDB(targetId);
+                    if (savedRecord && savedRecord.data) {
+                        currentBookId = targetId; 
+                        showLoading(true, '正在恢復上次的閱讀進度...');
+                        initBook(savedRecord.data, savedRecord.location);
+                    } else {
+                        renderRecentReads();
+                    }
+                } else {
+                    renderRecentReads();
                 }
             }
         });
