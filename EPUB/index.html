@@ -9,7 +9,8 @@
 
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/opencc-js@1.0.5/dist/umd/cn2tw.js"></script>
+    <!-- v3.18 修正：改用 full.js 確保 OpenCC 核心正確載入 -->
+    <script src="https://cdn.jsdelivr.net/npm/opencc-js@1.0.5/dist/umd/full.js"></script>
     
     <style>
         body {
@@ -354,9 +355,10 @@
 
     <div id="print-area"></div>
     
-    <div class="version-tag">v3.17</div>
+    <div class="version-tag">v3.18</div>
 
     <script>
+        // v3.18 (修復：改用 full.js 確保 OpenCC 初始化，並移除對標題等短字串的特徵字限制，確保完美簡轉繁)
         // v3.17 (修改：最近閱讀區塊改為顯示閱讀進度百分比而非時間，並將進度存入 IndexedDB)
         // v3.16 (新增：書櫃與最近閱讀功能，採用指標與 LRU 快取淘汰機制，安全管理儲存配額)
         // v3.15 (導入 opencc-js，結合特徵字極速掃描與 30% 漢字閥值，實現智能簡轉繁與 TTS 語音引擎動態配置)
@@ -639,11 +641,12 @@
         let wakeLock = null;
         let currentChapterIsChinese = true; 
         
-        // 簡轉繁特徵字與轉換器 (v3.15 導入)
-        const simpRegex = /[这那们个么会对过发机当成]/;
+        // 簡轉繁特徵字與轉換器 (v3.18 修正與擴充)
+        const simpRegex = /[这那们个么会对过发机当成来两还与里为说实从种现]/;
         let s2tConverter = null;
         try {
             if (typeof OpenCC !== 'undefined') s2tConverter = OpenCC.Converter({ from: 'cn', to: 'tw' });
+            else console.warn("OpenCC 未載入，請確認網路連線。");
         } catch(e) { console.warn("OpenCC 初始化失敗", e); }
 
         const DEFAULT_TITLE = "純前端 EPUB 閱讀與列印工具";
@@ -907,9 +910,9 @@
                             let targetPath = item.href.split('#')[0];
                             try { targetPath = decodeURIComponent(targetPath); } catch(e){}
                             
-                            // 目錄標題簡轉繁防呆
+                            // 目錄標題簡轉繁 (v3.18：對短字串移除特徵字限制，直接轉換)
                             let labelText = item.label.trim();
-                            if (simpRegex.test(labelText) && s2tConverter) {
+                            if (s2tConverter) {
                                 labelText = s2tConverter(labelText);
                             }
 
@@ -936,13 +939,13 @@
                         updateProgressDisplay(rendition.currentLocation());
                     }
 
-                    // 書籍屬性動態簡轉繁與資料庫更新 (v3.16)
+                    // 書籍屬性動態簡轉繁與資料庫更新 (v3.18：移除對標題等短字串的特徵字限制)
                     book.loaded.metadata.then(meta => {
                         let title = meta.title;
                         let creator = meta.creator;
                         if (s2tConverter) {
-                            if (title && simpRegex.test(title)) title = s2tConverter(title);
-                            if (creator && simpRegex.test(creator)) creator = s2tConverter(creator);
+                            if (title) title = s2tConverter(title);
+                            if (creator) creator = s2tConverter(creator);
                         }
                         
                         const displayTitle = title ? (creator ? `${title} by ${creator}` : title) : '未知書名';
