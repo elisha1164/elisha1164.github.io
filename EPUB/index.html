@@ -9,6 +9,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/opencc-js@1.0.5/dist/umd/cn2tw.js"></script>
     
     <style>
         body {
@@ -332,9 +333,10 @@
 
     <div id="print-area"></div>
     
-    <div class="version-tag">v3.14</div>
+    <div class="version-tag">v3.15</div>
 
     <script>
+        // v3.15 (導入 opencc-js，結合特徵字極速掃描與 30% 漢字閥值，實現智能簡轉繁與 TTS 語音引擎動態配置)
         // v3.14 (新增：視聽分離功能，嚴格脫鉤模式與「返回朗讀位置」按鈕，背景載入下一章語音佇列不干擾畫面)
         // v3.13 (新增：根據章節漢字比例自動切換中/英語音引擎，支援 30% 閥值判定與英文優選邏輯)
         // v3.12 (開放首頁下拉重新整理，閱讀階段鎖定；關閉書本時強制重新整理以徹底釋放記憶體)
@@ -478,6 +480,13 @@
         let currentAudioHref = null; // 當前語音朗讀的 href (供 TOC 比對)
         let wakeLock = null;
         let currentChapterIsChinese = true; 
+        
+        // 簡轉繁特徵字與轉換器 (v3.15 導入)
+        const simpRegex = /[这那们个么会对过发机当成]/;
+        let s2tConverter = null;
+        try {
+            if (typeof OpenCC !== 'undefined') s2tConverter = OpenCC.Converter({ from: 'cn', to: 'tw' });
+        } catch(e) { console.warn("OpenCC 初始化失敗", e); }
 
         const DEFAULT_TITLE = "純前端 EPUB 閱讀與列印工具";
 
@@ -672,6 +681,23 @@
                 book.ready.then(() => {
                     rendition = book.renderTo("viewer", { width: "100%", height: "100%", spread: "none" });
                     
+                    // 註冊內容渲染 Hook：實時掃描特徵字與簡轉繁 (v3.15)
+                    rendition.hooks.content.register(contents => {
+                        const body = contents.document.body;
+                        if (!body) return;
+                        const fullText = body.textContent || "";
+                        if (simpRegex.test(fullText) && s2tConverter) {
+                            const walk = (node) => {
+                                if (node.nodeType === 3) {
+                                    if (node.nodeValue.trim()) node.nodeValue = s2tConverter(node.nodeValue);
+                                } else if (node.nodeType === 1 && !['SCRIPT', 'STYLE'].includes(node.tagName.toUpperCase())) {
+                                    Array.from(node.childNodes).forEach(walk);
+                                }
+                            };
+                            walk(body);
+                        }
+                    });
+
                     book.locations.generate(600).then(() => {
                         locationsGenerated = true;
                         if (rendition && rendition.currentLocation()) {
@@ -705,12 +731,19 @@
                         tocItems.forEach((item) => {
                             let targetPath = item.href.split('#')[0];
                             try { targetPath = decodeURIComponent(targetPath); } catch(e){}
-                            if (!tocMap[targetPath]) tocMap[targetPath] = item.label.trim();
+                            
+                            // 目錄標題簡轉繁防呆
+                            let labelText = item.label.trim();
+                            if (simpRegex.test(labelText) && s2tConverter) {
+                                labelText = s2tConverter(labelText);
+                            }
+
+                            if (!tocMap[targetPath]) tocMap[targetPath] = labelText;
 
                             const li = document.createElement('li'); const a = document.createElement('a');
                             a.href = "#"; 
                             a.setAttribute('data-href', item.href); // 寫入供 🔊 標示比對用
-                            a.textContent = item.label;
+                            a.textContent = labelText;
                             a.onclick = (e) => { 
                                 e.preventDefault(); 
                                 rendition.display(item.href); 
@@ -728,9 +761,16 @@
                         updateProgressDisplay(rendition.currentLocation());
                     }
 
+                    // 書籍屬性動態簡轉繁
                     book.loaded.metadata.then(meta => {
-                        if (meta.title && meta.creator) document.title = `${meta.title} by ${meta.creator}`;
-                        else if (meta.title) document.title = meta.title;
+                        let title = meta.title;
+                        let creator = meta.creator;
+                        if (s2tConverter) {
+                            if (title && simpRegex.test(title)) title = s2tConverter(title);
+                            if (creator && simpRegex.test(creator)) creator = s2tConverter(creator);
+                        }
+                        if (title && creator) document.title = `${title} by ${creator}`;
+                        else if (title) document.title = title;
                     });
 
                 }).catch((err) => { clearTimeout(loadingTimeout); showLoading(false); alert("電子書開啟失敗 ❌"); });
@@ -830,9 +870,18 @@
             };
             walk(body);
 
-            // === 語言判定：合併章節內文字，計算漢字比例 (30% 閥值) ===
-            const fullChapterText = newQueue.map(i => i.text).join('');
+            // === 語言判定：合併章節內文字，極速特徵字掃描 (S2T) ➔ 漢字比例 (TTS) ===
+            let fullChapterText = newQueue.map(i => i.text).join('');
             if (fullChapterText.length > 0) {
+                // 1. 特徵字極速驗證：決定是否觸發實時簡轉繁
+                if (simpRegex.test(fullChapterText) && s2tConverter) {
+                    fullChapterText = s2tConverter(fullChapterText); // 同步更新大字串以供後續比例精準計算
+                    newQueue.forEach(item => {
+                        item.text = s2tConverter(item.text); // 將佇列字串轉繁，讓 TTS 使用完美台灣口音
+                    });
+                }
+                
+                // 2. 30% 漢字比例驗證：決定 TTS 引擎配對
                 const hanziMatches = fullChapterText.match(/[\u4e00-\u9fa5]/g);
                 const hanziCount = hanziMatches ? hanziMatches.length : 0;
                 currentChapterIsChinese = (hanziCount / fullChapterText.length) >= 0.3;
@@ -1078,6 +1127,18 @@
                         }
 
                         if (!body) continue;
+
+                        // 處理列印檔的簡轉繁防呆
+                        if (simpRegex.test(body.textContent || "") && s2tConverter) {
+                            const walkPrint = (node) => {
+                                if (node.nodeType === 3) {
+                                    if (node.nodeValue.trim()) node.nodeValue = s2tConverter(node.nodeValue);
+                                } else if (node.nodeType === 1 && !['SCRIPT', 'STYLE'].includes(node.tagName.toUpperCase())) {
+                                    Array.from(node.childNodes).forEach(walkPrint);
+                                }
+                            };
+                            walkPrint(body);
+                        }
 
                         const links = body.querySelectorAll('a[href]');
                         for (let a of links) {
