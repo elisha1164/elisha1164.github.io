@@ -27,19 +27,48 @@
            階段一：書本載入階段 (Welcome Screen)
            ========================================== */
         #welcome-screen {
-            display: flex; justify-content: center; align-items: center;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
             height: 100vh; height: 100dvh; width: 100vw;
             background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
             position: absolute; top: 0; left: 0; z-index: 100;
             transition: opacity 0.4s ease, visibility 0.4s ease;
         }
+        
+        /* 固定尺寸卡片與內部滾動 (v3.24) */
         .welcome-card {
-            background: #fff; padding: 40px; border-radius: 16px;
-            box-shadow: 0 15px 35px rgba(0,0,0,0.05); max-width: 400px; width: 90%; text-align: center;
-            max-height: 90vh; overflow-y: auto;
+            background: #fff; padding: 30px; border-radius: 16px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.05); 
+            width: 450px; height: 500px;
+            max-width: 90vw; max-height: 85vh;
+            display: flex; flex-direction: column; text-align: center; box-sizing: border-box;
         }
-        .welcome-card h1 { margin-top: 0; color: #0056b3; font-size: 24px; margin-bottom: 30px; }
-        .input-group { margin-bottom: 20px; text-align: left; }
+        .welcome-card h1 { margin-top: 0; color: #0056b3; font-size: 22px; margin-bottom: 20px; flex-shrink: 0; }
+        
+        /* 分段控制項 Segmented Control (v3.24) */
+        .segmented-control {
+            display: flex; background-color: #f1f3f5; border-radius: 8px; padding: 4px; margin-bottom: 20px; flex-shrink: 0;
+        }
+        .segment-btn {
+            flex: 1; padding: 8px 0; text-align: center; font-size: 14px; font-weight: bold; color: #666;
+            background: transparent; border: none; border-radius: 6px; cursor: pointer; transition: all 0.2s ease;
+        }
+        .segment-btn.active {
+            background-color: #fff; color: #0056b3; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        /* 內部內容區塊 */
+        .card-content {
+            flex: 1; overflow-y: auto; padding-right: 5px; text-align: left;
+        }
+        .card-content::-webkit-scrollbar { width: 6px; }
+        .card-content::-webkit-scrollbar-track { background: transparent; }
+        .card-content::-webkit-scrollbar-thumb { background: #ddd; border-radius: 3px; }
+        
+        .tab-pane { display: none; animation: fadeIn 0.3s ease; }
+        .tab-pane.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        .input-group { margin-bottom: 20px; }
         .input-group label { display: block; font-weight: bold; margin-bottom: 8px; color: #555; }
         .input-group input[type="file"], .input-group input[type="text"] {
             width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 14px; background: #fafafa;
@@ -50,9 +79,6 @@
             cursor: pointer; font-size: 14px; font-weight: bold; transition: background 0.2s; white-space: nowrap;
         }
         .btn-primary:hover { background-color: #004494; }
-        .divider { margin: 25px 0; position: relative; text-align: center; }
-        .divider::before { content: ""; position: absolute; top: 50%; left: 0; right: 0; border-top: 1px solid #ddd; z-index: 1; }
-        .divider span { background: #fff; padding: 0 15px; color: #aaa; font-size: 14px; position: relative; z-index: 2; }
 
         /* 推薦書庫按鈕與 Modal 樣式 (v3.22) */
         .glass-btn {
@@ -79,9 +105,8 @@
         .recommend-close-btn { background: none; border: none; font-size: 20px; color: #888; cursor: pointer; padding: 0; }
         .recommend-close-btn:hover { color: #d9534f; }
 
-        /* 最近閱讀區塊 (v3.19 調整為 input-group 樣式) */
-        #recent-reads-container { text-align: left; }
-        .recent-list { display: flex; flex-direction: column; gap: 10px; max-height: 220px; overflow-y: auto; padding-right: 5px; }
+        /* 最近閱讀區塊 */
+        .recent-list { display: flex; flex-direction: column; gap: 10px; }
         .recent-item { display: flex; align-items: center; justify-content: space-between; background: #fafafa; padding: 12px 15px; border-radius: 8px; border: 1px solid #ddd; transition: background 0.2s; }
         .recent-item:hover { background: #f0f7ff; border-color: #cce5ff; }
         .recent-item-info { flex: 1; min-width: 0; cursor: pointer; display: flex; flex-direction: column; }
@@ -89,18 +114,12 @@
         .recent-meta { font-size: 12px; color: #888; }
         .recent-delete-btn { background: none; border: none; font-size: 16px; color: #aaa; cursor: pointer; padding: 5px; transition: color 0.2s; }
         .recent-delete-btn:hover { color: #d9534f; }
-        .recent-list::-webkit-scrollbar { width: 6px; }
-        .recent-list::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 3px; }
-        .recent-list::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
-        .recent-list::-webkit-scrollbar-thumb:hover { background: #aaa; }
 
-        /* 首頁 Footer (v3.23) */
+        /* 首頁 Footer 移至卡片外 (v3.24) */
         .laozhang-footer {
-            margin-top: 2rem;
+            margin-top: 1.5rem;
             text-align: center;
             font-size: 12px;
-            padding: 1.5rem 1rem 1rem;
-            border-top: 1px solid #e7e5e4;
             color: #a8a29e;
         }
         .laozhang-footer-link {
@@ -339,31 +358,48 @@
         <button id="btn-recommendations" class="glass-btn">💡 取得好書</button>
         <div class="welcome-card">
             <h1>📖 老張 EPUB 閱讀器</h1>
-            <div class="input-group"><label for="file-input">📂 上傳本機檔案</label><input type="file" id="file-input" accept=".epub"></div>
-            <div class="divider"><span>或</span></div>
-            <div class="input-group">
-                <label for="url-input">🌐 透過網址載入</label>
-                <div class="url-row"><input type="text" id="url-input" placeholder="輸入 EPUB 網址 (需支援 CORS)"><button id="load-url-btn" class="btn-primary">載入</button></div>
-            </div>
             
-            <div id="recent-reads-container" style="display: none;">
-                <div class="divider"><span>或</span></div>
-                <div class="input-group">
-                    <label>📚 最近閱讀</label>
+            <!-- v3.24: 分段控制項頁籤 -->
+            <div class="segmented-control" id="welcome-tabs">
+                <button class="segment-btn" id="btn-tab-recent" onclick="switchTab('recent')" style="display: none;">最近閱讀</button>
+                <button class="segment-btn active" id="btn-tab-local" onclick="switchTab('local')">本機載入</button>
+                <button class="segment-btn" id="btn-tab-url" onclick="switchTab('url')">網址載入</button>
+            </div>
+
+            <!-- v3.24: 頁籤內容區塊 (內部滾動) -->
+            <div class="card-content">
+                <!-- 最近閱讀 -->
+                <div class="tab-pane" id="pane-recent">
                     <div class="recent-list" id="recent-reads-list"></div>
                 </div>
+
+                <!-- 本機載入 -->
+                <div class="tab-pane active" id="pane-local">
+                    <div class="input-group">
+                        <label for="file-input">📂 本機檔案載入</label>
+                        <input type="file" id="file-input" accept=".epub">
+                    </div>
+                </div>
+
+                <!-- 網址載入 -->
+                <div class="tab-pane" id="pane-url">
+                    <div class="input-group">
+                        <label for="url-input">🌐 透過網址載入</label>
+                        <div class="url-row"><input type="text" id="url-input" placeholder="輸入 EPUB 網址 (需支援 CORS)"><button id="load-url-btn" class="btn-primary">載入</button></div>
+                    </div>
+                </div>
             </div>
-            
-            <!-- 老張工具間 Footer (v3.23 新增) -->
-            <footer class="laozhang-footer">
-                <a href="../index.html" target="_blank" class="laozhang-footer-link">
-                    <svg class="laozhang-footer-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
-                    </svg>
-                    老張工具間
-                </a>
-            </footer>
         </div>
+            
+        <!-- 老張工具間 Footer (移至卡片外方 v3.24) -->
+        <footer class="laozhang-footer">
+            <a href="../index.html" target="_blank" class="laozhang-footer-link">
+                <svg class="laozhang-footer-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
+                </svg>
+                老張工具間
+            </a>
+        </footer>
     </div>
 
     <div id="reader-ui">
@@ -433,9 +469,10 @@
 
     <div id="print-area"></div>
     
-    <div class="version-tag">v3.23</div>
+    <div class="version-tag">v3.24</div>
 
     <script>
+        // v3.24 (重構：首頁載入階段改用固定尺寸卡片與 Segmented Control 頁籤設計，Footer 移至卡片外)
         // v3.23 (新增：在首頁載入階段底部加入「老張工具間」連結 Footer，並轉換 Tailwind 為原生 CSS 樣式)
         // v3.22 (新增：首頁右上角「取得好書」推薦書庫功能，採用毛玻璃按鈕與獨立維護的推薦清單)
         // v3.21 (新增：支援寬螢幕自動雙頁顯示 (spread: auto)，提升大螢幕閱讀體驗)
@@ -480,6 +517,16 @@
             });
         }
         checkInAppBrowser();
+
+        // ==========================================
+        // 首頁頁籤切換邏輯 (v3.24)
+        // ==========================================
+        function switchTab(tabId) {
+            document.querySelectorAll('.segment-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
+            document.getElementById(`btn-tab-${tabId}`).classList.add('active');
+            document.getElementById(`pane-${tabId}`).classList.add('active');
+        }
 
         // ==========================================
         // 推薦書庫清單 (v3.22) - 易於維護的 JS 物件陣列
@@ -709,16 +756,17 @@
         }
 
         async function renderRecentReads() {
-            const container = document.getElementById('recent-reads-container');
+            const tabBtn = document.getElementById('btn-tab-recent');
             const list = document.getElementById('recent-reads-list');
             const allBooks = await getAllBooksFromDB();
 
             if (allBooks.length === 0) {
-                container.style.display = 'none';
+                tabBtn.style.display = 'none';
+                if (tabBtn.classList.contains('active')) switchTab('local');
                 return;
             }
 
-            container.style.display = 'block';
+            tabBtn.style.display = 'block';
             list.innerHTML = '';
 
             allBooks.forEach(bookRecord => {
@@ -1393,7 +1441,7 @@
                 showLoading(false);
                 showModal({
                     title: '⚠️ 無法直接載入此網址',
-                    desc: '目標網站無法直接載入。<br><br>請依以下步驟操作：<br>1. 點擊下方按鈕手動下載 EPUB 檔案。<br>2. 回到本頁面，透過「📂 上傳本機檔案」開啟。',
+                    desc: '目標網站無法直接載入。<br><br>請依以下步驟操作：<br>1. 點擊下方按鈕手動下載 EPUB 檔案。<br>2. 回到本頁面，透過「📂 本機檔案載入」開啟。',
                     actionText: '⬇️ 手動下載',
                     onAction: () => {
                         const link = document.createElement('a'); link.href = url; link.target = '_blank';
@@ -1602,6 +1650,17 @@
             document.getElementById('tts-rate-select').value = currentTtsRate.toFixed(1);
 
             if (document.getElementById('iab-warning-overlay').style.display === 'flex') return;
+            
+            // v3.24: 頁籤動態預設邏輯 (檢查 DB 決定初始顯示的頁籤)
+            const initBooks = await getAllBooksFromDB();
+            if (initBooks.length > 0) {
+                switchTab('recent');
+            } else {
+                switchTab('local');
+            }
+            // 同步渲染最近閱讀清單
+            await renderRecentReads();
+
             const params = new URLSearchParams(window.location.search);
             const srcUrl = params.get('src');
             
@@ -1616,11 +1675,7 @@
                         currentBookId = targetId; 
                         showLoading(true, '正在恢復上次的閱讀進度...');
                         initBook(savedRecord.data, savedRecord.location);
-                    } else {
-                        renderRecentReads();
                     }
-                } else {
-                    renderRecentReads();
                 }
             }
         });
