@@ -469,9 +469,10 @@
 
     <div id="print-area"></div>
     
-    <div class="version-tag">v3.24</div>
+    <div class="version-tag">v3.25</div>
 
     <script>
+        // v3.25 (UX微調：手動下載 EPUB 後自動切換至本機載入頁籤加強引導)
         // v3.24 (重構：首頁載入階段改用固定尺寸卡片與 Segmented Control 頁籤設計，Footer 移至卡片外)
         // v3.23 (新增：在首頁載入階段底部加入「老張工具間」連結 Footer，並轉換 Tailwind 為原生 CSS 樣式)
         // v3.22 (新增：首頁右上角「取得好書」推薦書庫功能，採用毛玻璃按鈕與獨立維護的推薦清單)
@@ -1447,6 +1448,7 @@
                         const link = document.createElement('a'); link.href = url; link.target = '_blank';
                         link.download = url.split('/').pop() || 'download.epub'; 
                         document.body.appendChild(link); link.click(); document.body.removeChild(link);
+                        switchTab('local');
                     }
                 });
             }
