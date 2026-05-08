@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!-- 
-  版本號：v1.41
+  版本號：v1.42
   修改主旨：
   1. UI 極簡化：移除書卷按鈕的向下箭頭與「從」、「到」文字。
   2. 排版優化：調整 Kebab Menu 的邊距與內距以消滅不必要的空白，進一步節省頂部導航列空間。
@@ -13,6 +13,7 @@
   9. 儲存機制優化：配置專屬 IndexedDB (`RCUV`) 並為所有鍵值加上 `RCUV_` 前綴以避免同網域衝突。新增記憶「中英縮寫」與「中英對照」的使用者偏好。
   10. 靜默背景更新 (SWR)：實作 HTTP HEAD 請求檢查 `Last-Modified` 時間戳記。在不干擾使用者當下閱讀的前提下，若發現伺服器有新版資料，會於背景自動下載並更新本地 IndexedDB，達成下次開啟自動升級的效果。
   11. 閱讀進度記憶：實作「網址優先 > 本地紀錄 > 預設創世記第一章」的三階段優先級讀取邏輯。
+  12. 循環播放：新增朗讀循環播放功能，可在朗讀中透過按鈕切換，預設為關閉且僅隨網頁生命週期記憶。
 -->
 <html lang="zh-TW">
 <head>
@@ -146,6 +147,9 @@
                     </button>
                     <button id="btn-stop" class="hidden p-2 rounded-full bg-red-100 hover:bg-red-200 text-red-700 shadow-sm transition transform active:scale-95" title="停止">
                         <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clip-rule="evenodd"></path></svg>
+                    </button>
+                    <button id="btn-loop" class="hidden p-2 rounded-full text-stone-500 hover:bg-stone-100 hover:text-stone-800 shadow-sm transition transform active:scale-95" title="循環播放：關閉">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M17 2l4 4-4 4"></path><path d="M3 11v-1a4 4 0 0 1 4-4h14"></path><path d="M7 22l-4-4 4-4"></path><path d="M21 13v1a4 4 0 0 1-4 4H3"></path></svg>
                     </button>
 
                     <!-- 分隔線 -->
@@ -333,7 +337,7 @@
     </div>
 
     <!-- 右下角版本號標示 (用於確認佈署狀態) -->
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.41</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.42</div>
 
     <script>
         // ==========================================
@@ -348,6 +352,7 @@
         let esvData = null;
         let isDataReady = false;
         let isBilingual = false; // 中英對照狀態切換
+        let isLooping = false;   // 循環播放狀態
         
         // 語音引擎相關變數
         const synth = window.speechSynthesis;
@@ -471,6 +476,7 @@
             btnPause: document.getElementById('btn-pause'),
             btnResume: document.getElementById('btn-resume'),
             btnStop: document.getElementById('btn-stop'),
+            btnLoop: document.getElementById('btn-loop'),
             btnExportPpt: document.getElementById('btn-export-ppt'),
             btnBilingual: document.getElementById('btn-bilingual'),
             btnSettings: document.getElementById('btn-settings'),
@@ -1370,17 +1376,20 @@
                 els.btnPause.classList.remove('hidden');
                 els.btnResume.classList.add('hidden');
                 els.btnStop.classList.remove('hidden');
+                els.btnLoop.classList.remove('hidden');
             } else if (state === 'paused') {
                 els.btnPlay.classList.add('hidden');
                 els.btnPause.classList.add('hidden');
                 els.btnResume.classList.remove('hidden');
                 els.btnStop.classList.remove('hidden');
+                els.btnLoop.classList.remove('hidden');
             } else {
                 // stop
                 els.btnPlay.classList.remove('hidden');
                 els.btnPause.classList.add('hidden');
                 els.btnResume.classList.add('hidden');
                 els.btnStop.classList.add('hidden');
+                els.btnLoop.classList.add('hidden');
             }
         }
 
@@ -1457,8 +1466,12 @@
             if (!isPlaying || isPaused) return;
             
             if (currentChunkIdx >= playQueue.length) {
-                stopTTS(); // 播完了
-                return;
+                if (isLooping && playQueue.length > 0) {
+                    currentChunkIdx = 0; // 重置索引，進行循環
+                } else {
+                    stopTTS(); // 播完了
+                    return;
+                }
             }
 
             const chunkObj = playQueue[currentChunkIdx];
@@ -1535,6 +1548,18 @@
         els.btnPause.addEventListener('click', pauseTTS);
         els.btnResume.addEventListener('click', resumeTTS);
         els.btnStop.addEventListener('click', stopTTS);
+        els.btnLoop.addEventListener('click', () => {
+            isLooping = !isLooping;
+            if (isLooping) {
+                els.btnLoop.classList.remove('text-stone-500', 'hover:bg-stone-100', 'hover:text-stone-800');
+                els.btnLoop.classList.add('bg-amber-100', 'text-amber-700', 'hover:bg-amber-200');
+                els.btnLoop.title = "循環播放：開啟";
+            } else {
+                els.btnLoop.classList.remove('bg-amber-100', 'text-amber-700', 'hover:bg-amber-200');
+                els.btnLoop.classList.add('text-stone-500', 'hover:bg-stone-100', 'hover:text-stone-800');
+                els.btnLoop.title = "循環播放：關閉";
+            }
+        });
 
         // 可見度切換時防禦休眠
         document.addEventListener('visibilitychange', () => {
