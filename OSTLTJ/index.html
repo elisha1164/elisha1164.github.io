@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v1.46 實作打勾後 1 秒智慧跳轉功能，並新增輔助影片防呆機制 (一鍵朗讀不自動打勾) -->
 <!-- v1.45 移除 og:url 與 og:image 標籤，避免硬編碼絕對路徑影響未來搬遷 -->
 <!-- v1.44 新增 Open Graph (OG) 標籤，優化社群平台網址分享預覽效果 -->
 <!-- v1.43 移除設定選單中缺乏自然使用場景之「設為今日」按鈕，避免誤觸 -->
@@ -1282,9 +1283,28 @@
                 readProgress[currentDay] = e.target.checked;
                 localStorage.setItem('gemini_read_progress', JSON.stringify(readProgress));
                 updateHeaderVisuals(currentDay, e.target.checked);
+                
+                // 清除之前的跳轉計時器（防連續點擊）
+                if (window._smartRouteTimer) clearTimeout(window._smartRouteTimer);
+
                 if (e.target.checked) {
                     checkAndShowCongrats(); 
                     checkAndShowInstallPrompt();
+
+                    // 新增 1 秒智慧跳轉邏輯
+                    let completedCount = 0;
+                    for (let i = 1; i <= 358; i++) {
+                        if (readProgress[i]) completedCount++;
+                    }
+                    if (completedCount < 358) {
+                        window._smartRouteTimer = setTimeout(() => {
+                            const nextDay = getSmartTargetDay();
+                            // 若目標天數不是現在這天，才執行跳轉（若已在綠色目標頁則安穩停泊）
+                            if (nextDay !== currentDay) {
+                                changeDay(nextDay);
+                            }
+                        }, 1000);
+                    }
                 }
             });
 
@@ -1471,6 +1491,27 @@
             });
         }
 
+        // 新增獨立的智慧載入定位函數，供初始載入與打勾跳轉共用
+        function getSmartTargetDay() {
+            let firstUnreadDay = 358;
+            for (let i = 1; i <= 358; i++) { 
+                if (!readProgress[i]) { 
+                    firstUnreadDay = i; 
+                    break; 
+                } 
+            }
+            
+            let targetLoadDay = firstUnreadDay;
+            const savedStartDate = localStorage.getItem('gemini_start_date');
+            if (savedStartDate) {
+                const actualTodayIndex = calculateCurrentDay(savedStartDate, restDays);
+                if (actualTodayIndex !== null && firstUnreadDay > actualTodayIndex) {
+                    targetLoadDay = Math.max(1, firstUnreadDay - 1);
+                }
+            }
+            return targetLoadDay;
+        }
+
         async function loadCSVs() {
             dom.statusText.textContent = "正在從伺服器下載資料...";
             dom.statusText.classList.remove('hidden'); 
@@ -1546,19 +1587,8 @@
                 dom.statusText.classList.add('hidden');
                 dom.readingSection.classList.remove('opacity-50', 'pointer-events-none');
                 
-                let firstUnreadDay = 358;
-                for (let i = 1; i <= 358; i++) { if (!readProgress[i]) { firstUnreadDay = i; break; } }
-                
-                let targetLoadDay = firstUnreadDay;
-                const savedStartDate = localStorage.getItem('gemini_start_date');
-                if (savedStartDate) {
-                    const actualTodayIndex = calculateCurrentDay(savedStartDate, restDays);
-                    if (actualTodayIndex !== null && firstUnreadDay > actualTodayIndex) {
-                        targetLoadDay = Math.max(1, firstUnreadDay - 1);
-                    }
-                }
-                
-                changeDay(targetLoadDay);
+                // 執行智慧載入定位邏輯
+                changeDay(getSmartTargetDay());
 
                 // 🔥 觸發條件改為啟動設定精靈：需同時滿足「未看過導覽」且「非透過 PWA 推廣參數進來」 🔥
                 if (!localStorage.getItem('tour_completed') && !isPwaPromptActive) {
@@ -2031,13 +2061,13 @@
             if (!isPlayingAll) return; 
             
             if (playAllQueue.length === 0) {
-                if (!dom.readProgressCheckbox.checked) {
+                const vData = videoData[currentDay];
+                const hasVideo = vData && (vData.chLink || vData.enLink);
+
+                if (!hasVideo && !dom.readProgressCheckbox.checked) {
                     dom.readProgressCheckbox.checked = true;
-                    readProgress[currentDay] = true;
-                    localStorage.setItem('gemini_read_progress', JSON.stringify(readProgress));
-                    updateHeaderVisuals(currentDay, true);
-                    checkAndShowCongrats(); 
-                    checkAndShowInstallPrompt(); // 🔥 在自動打勾時觸發安裝提醒
+                    // 觸發 Checkbox 的 change 事件，交由事件監聽器執行打勾存檔與 1 秒跳轉邏輯
+                    dom.readProgressCheckbox.dispatchEvent(new Event('change'));
                 }
                 handleStop(); 
                 return;
@@ -2128,6 +2158,6 @@
 
         window.addEventListener('DOMContentLoaded', init);
     </script>
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.45</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.46</div>
 </body>
 </html>
