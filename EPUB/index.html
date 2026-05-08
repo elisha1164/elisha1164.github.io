@@ -54,6 +54,31 @@
         .divider::before { content: ""; position: absolute; top: 50%; left: 0; right: 0; border-top: 1px solid #ddd; z-index: 1; }
         .divider span { background: #fff; padding: 0 15px; color: #aaa; font-size: 14px; position: relative; z-index: 2; }
 
+        /* 推薦書庫按鈕與 Modal 樣式 (v3.22) */
+        .glass-btn {
+            position: absolute; top: 20px; right: 20px;
+            background: rgba(255, 255, 255, 0.6); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.4); box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            border-radius: 20px; padding: 10px 18px; font-size: 15px; font-weight: bold; color: #0056b3;
+            cursor: pointer; transition: all 0.3s ease; z-index: 101;
+        }
+        .glass-btn:hover { background: rgba(255, 255, 255, 0.9); transform: translateY(-2px); box-shadow: 0 6px 15px rgba(0,0,0,0.1); }
+        .recommend-list { display: flex; flex-direction: column; gap: 12px; margin-top: 15px; text-align: left; }
+        .recommend-card {
+            display: flex; align-items: center; padding: 12px 15px; border-radius: 10px;
+            border: 1px solid #eaeaea; background: #fff; text-decoration: none; color: #333;
+            transition: all 0.2s ease;
+        }
+        .recommend-card:hover { background: #f4f9ff; border-color: #b8daff; box-shadow: 0 4px 8px rgba(0,86,179,0.08); transform: translateY(-1px); }
+        .recommend-icon { width: 50px; height: 50px; object-fit: contain; border-radius: 8px; margin-right: 15px; flex-shrink: 0; background: #fff; }
+        .recommend-text { display: flex; flex-direction: column; }
+        .recommend-title { font-size: 16px; font-weight: bold; color: #222; }
+        .recommend-url { font-size: 12px; color: #888; margin-top: 4px; word-break: break-all; }
+        .recommend-close-wrap { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 15px; margin-bottom: 10px; }
+        .recommend-close-wrap h3 { margin: 0; color: #0056b3; font-size: 20px; }
+        .recommend-close-btn { background: none; border: none; font-size: 20px; color: #888; cursor: pointer; padding: 0; }
+        .recommend-close-btn:hover { color: #d9534f; }
+
         /* 最近閱讀區塊 (v3.19 調整為 input-group 樣式) */
         #recent-reads-container { text-align: left; }
         .recent-list { display: flex; flex-direction: column; gap: 10px; max-height: 220px; overflow-y: auto; padding-right: 5px; }
@@ -261,7 +286,7 @@
 
         @media print {
             html, body { height: auto !important; display: block !important; overflow: visible !important; background: #fff !important; }
-            #welcome-screen, #reader-ui, #toc-tab, #toc-sidebar, #toc-overlay, #loading-overlay, .modal-overlay, .version-tag, #iab-warning-overlay, #glowing-progress-bar, #btn-return-audio { display: none !important; }
+            #welcome-screen, #reader-ui, #toc-tab, #toc-sidebar, #toc-overlay, #loading-overlay, .modal-overlay, .version-tag, #iab-warning-overlay, #glowing-progress-bar, #btn-return-audio, .glass-btn, #recommend-modal { display: none !important; }
             #print-area { display: block !important; position: relative; width: 100%; font-size: 12pt; line-height: 1.6; color: #000; }
             a { text-decoration: none; color: inherit; } a[href]:after { content: none !important; }
             #print-area img, #print-area svg, #print-area image { max-width: 100% !important; max-height: 980px !important; height: auto !important; width: auto !important; break-inside: avoid; page-break-inside: avoid; display: block; margin: 0 auto; }
@@ -283,6 +308,7 @@
     </div>
 
     <div id="welcome-screen">
+        <button id="btn-recommendations" class="glass-btn">💡 取得好書</button>
         <div class="welcome-card">
             <h1>📖 老張 EPUB 閱讀器</h1>
             <div class="input-group"><label for="file-input">📂 上傳本機檔案</label><input type="file" id="file-input" accept=".epub"></div>
@@ -356,11 +382,23 @@
         </div>
     </div>
 
+    <!-- 推薦書庫專屬 Modal (v3.22) -->
+    <div id="recommend-modal" class="modal-overlay">
+        <div class="modal-box">
+            <div class="recommend-close-wrap">
+                <h3>📚 老張推荐書庫</h3>
+                <button id="close-recommend-btn" class="recommend-close-btn">✕</button>
+            </div>
+            <div id="recommend-list" class="recommend-list"></div>
+        </div>
+    </div>
+
     <div id="print-area"></div>
     
-    <div class="version-tag">v3.21</div>
+    <div class="version-tag">v3.22</div>
 
     <script>
+        // v3.22 (新增：首頁右上角「取得好書」推薦書庫功能，採用毛玻璃按鈕與獨立維護的推薦清單)
         // v3.21 (新增：支援寬螢幕自動雙頁顯示 (spread: auto)，提升大螢幕閱讀體驗)
         // v3.20 (修正：將 localStorage 鍵值改為 EPUB_ttsRate 以避免同網域其他專案干擾)
         // v3.19 (UI微調：移除關閉警告、重構首頁三選一佈局、過濾 .epub 副檔名、改名為老張閱讀器，並修復 TTS 語速設定記憶問題)
@@ -403,6 +441,70 @@
             });
         }
         checkInAppBrowser();
+
+        // ==========================================
+        // 推薦書庫清單 (v3.22) - 易於維護的 JS 物件陣列
+        // ==========================================
+        const recommendedBooks = [
+            {
+                name: "9Marks 九標誌",
+                icon: "https://www.9marks.org/wp-content/uploads/2024/10/cropped-IX-Icon-192x192.png",
+                url: "https://cn.9marks.org/books"
+            },
+            {
+                name: "TGC 福音聯盟",
+                icon: "https://www.tgcchinese.org/images/android-chrome-192x192.png",
+                url: "https://www.tgcchinese.org/books"
+            },
+            {
+                name: "BFM 忠信福音事工",
+                icon: "https://www.befaithful.net/themes/custom/zxbook/logo.png",
+                url: "https://www.befaithful.net/book?resource_type%5B13%5D=13"
+            }
+        ];
+
+        function initRecommendModal() {
+            const listContainer = document.getElementById('recommend-list');
+            const recommendModal = document.getElementById('recommend-modal');
+            const btnRecommendations = document.getElementById('btn-recommendations');
+            const closeRecommendBtn = document.getElementById('close-recommend-btn');
+
+            listContainer.innerHTML = '';
+            recommendedBooks.forEach(item => {
+                const a = document.createElement('a');
+                a.href = item.url;
+                a.target = '_blank';
+                a.rel = 'noopener noreferrer';
+                a.className = 'recommend-card';
+                a.onclick = () => { recommendModal.style.display = 'none'; }; // 點擊跳轉後自動關閉 Modal
+
+                const img = document.createElement('img');
+                img.src = item.icon;
+                img.className = 'recommend-icon';
+                img.alt = item.name;
+
+                const textDiv = document.createElement('div');
+                textDiv.className = 'recommend-text';
+                
+                const title = document.createElement('span');
+                title.className = 'recommend-title';
+                title.textContent = item.name;
+                
+                const urlText = document.createElement('span');
+                urlText.className = 'recommend-url';
+                try { urlText.textContent = new URL(item.url).hostname; } catch(e) { urlText.textContent = item.url; }
+
+                textDiv.appendChild(title);
+                textDiv.appendChild(urlText);
+                a.appendChild(img);
+                a.appendChild(textDiv);
+                listContainer.appendChild(a);
+            });
+
+            btnRecommendations.addEventListener('click', () => { recommendModal.style.display = 'flex'; });
+            closeRecommendBtn.addEventListener('click', () => { recommendModal.style.display = 'none'; });
+            recommendModal.addEventListener('click', (e) => { if(e.target === recommendModal) recommendModal.style.display = 'none'; });
+        }
 
         // ==========================================
         // IndexedDB LRU 書櫃與快取機制
@@ -1455,6 +1557,8 @@
         });
 
         window.addEventListener('DOMContentLoaded', async () => {
+            initRecommendModal(); // v3.22 載入推薦書庫事件
+
             // 將儲存的語速偏好同步回介面的下拉選單
             document.getElementById('tts-rate-select').value = currentTtsRate.toFixed(1);
 

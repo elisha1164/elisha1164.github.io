@@ -43,7 +43,7 @@
     "subtitle": "主線故事一把抓",
     "tagline": "「透過 45 個關鍵問答，建構宏大故事線」",
     "description": "萃取自 David Helm 的《The Big Picture Bible Verses》，並轉化為簡單明瞭的數位問答閃卡。正面顯示引導式的核心提問，翻到背面就是精準解答的經文。總共 45 個精心設計的問答，搭配朗讀功能，幫助你在反覆翻卡操練中，清楚追溯並建構出整本聖經「指向耶穌」的宏大故事線。",
-    "link": "BPBV.html",
+    "link": "BPFD/BPBV.html",
     "buttonIcon": "book-key",
     "buttonText": "點此翻開問答卡，建立真理根基"
   },
@@ -70,5 +70,17 @@
     "link": "RCUV/",
     "buttonIcon": "book-open",
     "buttonText": "點此開啟和合本 2010"
+  },
+  {
+    "id": "app7",
+    "tags": ["工具", "語音"],
+    "icon": "library",
+    "title": "老張 EPUB 閱讀器",
+    "subtitle": "私房有聲書櫃",
+    "tagline": "「您的專屬數位書櫃與有聲書僮」",
+    "description": "一款支援本機檔案與雲端網址載入的跨平台 EPUB 閱讀器。內建「智能簡轉繁」、「視聽分離語音朗讀」及「自動暫存進度」功能。無須安裝 APP，打開網頁即可享受純粹、流暢的沉浸式閱讀與聽書體驗。",
+    "link": "EPUB/",
+    "buttonIcon": "book-open",
+    "buttonText": "點此開啟閱讀器"
   }
 ]
