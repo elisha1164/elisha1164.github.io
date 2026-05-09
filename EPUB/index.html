@@ -5,7 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>老張 EPUB 閱讀器</title>
     
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%230056b3' d='M12 21.33V6.2C10.6 5.4 9 5 7.5 5 5 5 2 6 2 6v15s3-1 5.5-1c2 0 4 .67 4.5 1.33z'/><path fill='%23ffffff' stroke='%230056b3' stroke-width='1.5' stroke-linejoin='round' d='M12 21.33V6.2C13.4 5.4 15 5 16.5 5 19 5 22 6 22 6v15s-3-1-5.5-1c-2 0-4 .67-4.5 1.33z'/></svg>" type="image/svg+xml">
+    <!-- Open Graph Meta -->
+    <meta property="og:title" content="老張 EPUB 閱讀器">
+    <meta property="og:description" content="您的專屬數位書櫃與有聲書僮，內建「智能簡轉繁」、「視聽分離語音朗讀」及「自動暫存進度」功能。">
+    <meta property="og:type" content="website">
+    
+    <!-- PWA Meta -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="老張 EPUB 閱讀器">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
 
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"></script>
@@ -469,9 +480,11 @@
 
     <div id="print-area"></div>
     
-    <div class="version-tag">v3.25</div>
+    <div class="version-tag">v3.27</div>
 
     <script>
+        // v3.27 (修正：移除 SVG favicon，統一使用 PWA 指定的 icon)
+        // v3.26 (新增：加入 Open Graph 與 PWA Meta Tags，支援加入主畫面與社群分享預覽)
         // v3.25 (UX微調：手動下載 EPUB 後自動切換至本機載入頁籤加強引導)
         // v3.24 (重構：首頁載入階段改用固定尺寸卡片與 Segmented Control 頁籤設計，Footer 移至卡片外)
         // v3.23 (新增：在首頁載入階段底部加入「老張工具間」連結 Footer，並轉換 Tailwind 為原生 CSS 樣式)
