@@ -91,13 +91,19 @@
         }
         .btn-primary:hover { background-color: #004494; }
 
+        /* 右上角動作按鈕容器 (v3.28) */
+        .top-right-actions {
+            position: absolute; top: 20px; right: 20px;
+            display: flex; flex-direction: column; gap: 10px; align-items: flex-end;
+            z-index: 101;
+        }
+
         /* 推薦書庫按鈕與 Modal 樣式 (v3.22) */
         .glass-btn {
-            position: absolute; top: 20px; right: 20px;
             background: rgba(255, 255, 255, 0.6); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
             border: 1px solid rgba(255, 255, 255, 0.4); box-shadow: 0 4px 12px rgba(0,0,0,0.08);
             border-radius: 20px; padding: 10px 18px; font-size: 15px; font-weight: bold; color: #0056b3;
-            cursor: pointer; transition: all 0.3s ease; z-index: 101;
+            cursor: pointer; transition: all 0.3s ease;
         }
         .glass-btn:hover { background: rgba(255, 255, 255, 0.9); transform: translateY(-2px); box-shadow: 0 6px 15px rgba(0,0,0,0.1); }
         .recommend-list { display: flex; flex-direction: column; gap: 12px; margin-top: 15px; text-align: left; }
@@ -344,7 +350,7 @@
 
         @media print {
             html, body { height: auto !important; display: block !important; overflow: visible !important; background: #fff !important; }
-            #welcome-screen, #reader-ui, #toc-tab, #toc-sidebar, #toc-overlay, #loading-overlay, .modal-overlay, .version-tag, #iab-warning-overlay, #glowing-progress-bar, #btn-return-audio, .glass-btn, #recommend-modal { display: none !important; }
+            #welcome-screen, #reader-ui, #toc-tab, #toc-sidebar, #toc-overlay, #loading-overlay, .modal-overlay, .version-tag, #iab-warning-overlay, #glowing-progress-bar, #btn-return-audio, .top-right-actions, #recommend-modal { display: none !important; }
             #print-area { display: block !important; position: relative; width: 100%; font-size: 12pt; line-height: 1.6; color: #000; }
             a { text-decoration: none; color: inherit; } a[href]:after { content: none !important; }
             #print-area img, #print-area svg, #print-area image { max-width: 100% !important; max-height: 980px !important; height: auto !important; width: auto !important; break-inside: avoid; page-break-inside: avoid; display: block; margin: 0 auto; }
@@ -366,7 +372,12 @@
     </div>
 
     <div id="welcome-screen">
-        <button id="btn-recommendations" class="glass-btn">💡 取得好書</button>
+        <!-- 右上角動作按鈕容器 (v3.28 支援 PWA 安裝按鈕堆疊) -->
+        <div class="top-right-actions">
+            <button id="btn-recommendations" class="glass-btn">💡 取得好書</button>
+            <button id="btn-pwa-install" class="glass-btn" style="display: none;">📱 加到桌面</button>
+        </div>
+
         <div class="welcome-card">
             <h1>📖 老張 EPUB 閱讀器</h1>
             
@@ -480,9 +491,10 @@
 
     <div id="print-area"></div>
     
-    <div class="version-tag">v3.27</div>
+    <div class="version-tag">v3.28</div>
 
     <script>
+        // v3.28 (新增：加到桌面 PWA 智慧安裝提示，支援 Android 原生 Prompt 與 iOS 圖文引導)
         // v3.27 (修正：移除 SVG favicon，統一使用 PWA 指定的 icon)
         // v3.26 (新增：加入 Open Graph 與 PWA Meta Tags，支援加入主畫面與社群分享預覽)
         // v3.25 (UX微調：手動下載 EPUB 後自動切換至本機載入頁籤加強引導)
@@ -604,6 +616,67 @@
             btnRecommendations.addEventListener('click', () => { recommendModal.style.display = 'flex'; });
             closeRecommendBtn.addEventListener('click', () => { recommendModal.style.display = 'none'; });
             recommendModal.addEventListener('click', (e) => { if(e.target === recommendModal) recommendModal.style.display = 'none'; });
+        }
+
+        // ==========================================
+        // PWA 安裝邏輯 (v3.28)
+        // ==========================================
+        function initPWAInstall() {
+            let deferredPrompt;
+            const btnPwaInstall = document.getElementById('btn-pwa-install');
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone || (window.navigator.standalone === true);
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+            // 1. 若已經安裝 (Standalone) 則完全隱藏
+            if (isStandalone) {
+                btnPwaInstall.style.display = 'none';
+                return;
+            }
+
+            // 2. iOS Safari 無法使用 beforeinstallprompt，所以直接顯示按鈕並套用教學 Modal
+            if (isIOS) {
+                btnPwaInstall.style.display = 'block';
+            }
+
+            // 3. Android / Chrome 攔截原生安裝事件
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault(); // 阻止瀏覽器自動跳出 mini-infobar
+                deferredPrompt = e;
+                btnPwaInstall.style.display = 'block'; // 確保攔截到事件後才顯示按鈕
+            });
+
+            // 4. 監聽安裝完成事件，隱藏按鈕
+            window.addEventListener('appinstalled', () => {
+                btnPwaInstall.style.display = 'none';
+                deferredPrompt = null;
+            });
+
+            // 5. 點擊處理
+            btnPwaInstall.addEventListener('click', async () => {
+                if (deferredPrompt) {
+                    // 原生 Android / Chrome 提示
+                    deferredPrompt.prompt();
+                    const { outcome } = await deferredPrompt.userChoice;
+                    if (outcome === 'accepted') {
+                        btnPwaInstall.style.display = 'none';
+                    }
+                    deferredPrompt = null;
+                } else if (isIOS) {
+                    // iOS 專屬圖文教學 Modal
+                    showModal({
+                        title: '📱 加入主畫面',
+                        desc: '請點擊瀏覽器下方工具列的 <b>[分享]</b> 圖示 <svg style="width:18px;height:18px;display:inline-block;vertical-align:middle;color:#0056b3;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg><br><br>然後向下滑動選擇 <b>「加入主畫面 ➕」</b>。<br><br><span style="font-size: 13px; color: #888;">這能讓您獲得全螢幕、更順暢的離線閱讀體驗！</span>',
+                        actionText: '我知道了'
+                    });
+                } else {
+                    // 未支援瀏覽器的防呆提示
+                    showModal({
+                        title: '📱 安裝應用程式',
+                        desc: '您的瀏覽器目前不支援一鍵安裝。<br><br>請嘗試從瀏覽器的右上角選單 (⋮ 或 ⋯) 中尋找並點擊 <b>「安裝應用程式」</b> 或 <b>「加到主畫面」</b> 項目。',
+                        actionText: '我知道了'
+                    });
+                }
+            });
         }
 
         // ==========================================
@@ -1660,6 +1733,7 @@
 
         window.addEventListener('DOMContentLoaded', async () => {
             initRecommendModal(); // v3.22 載入推薦書庫事件
+            initPWAInstall();     // v3.28 載入 PWA 安裝邏輯
 
             // 將儲存的語速偏好同步回介面的下拉選單
             document.getElementById('tts-rate-select').value = currentTtsRate.toFixed(1);
