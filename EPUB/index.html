@@ -491,9 +491,10 @@
 
     <div id="print-area"></div>
     
-    <div class="version-tag">v3.29</div>
+    <div class="version-tag">v3.30</div>
 
     <script>
+        // v3.30 (優化：網址載入失敗時，智慧解析並顯示目標 EPUB 檔名，提升錯誤引導體驗)
         // v3.29 (重構：升級 TTS 語音佇列演算法，採用區塊級提取與智能雙層斷句，徹底解決粗體卡頓與長字串崩潰問題)
         // v3.28 (新增：加到桌面 PWA 智慧安裝提示，支援 Android 原生 Prompt 與 iOS 圖文引導)
         // v3.27 (修正：移除 SVG favicon，統一使用 PWA 指定的 icon)
@@ -1568,24 +1569,37 @@
         // ==========================================
         async function loadBookFromUrl(url) {
             showLoading(true, '正在下載電子書...');
+            
+            // v3.30 新增：智能解析網址檔名，含防呆與過濾參數
+            let fileName = 'EPUB 檔案';
+            try {
+                const urlObj = new URL(url);
+                const extracted = urlObj.pathname.split('/').pop();
+                if (extracted) {
+                    fileName = decodeURIComponent(extracted);
+                }
+            } catch (e) {
+                fileName = url.split('/').pop() || 'EPUB 檔案';
+                try { fileName = decodeURIComponent(fileName).split('?')[0]; } catch(e2){}
+            }
+
             try {
                 const response = await fetch(url);
                 if (!response.ok) throw new Error(`伺服器回應錯誤: ${response.status}`);
                 const arrayBuffer = await response.arrayBuffer();
                 const id = url;
-                let titleName = url.split('/').pop() || url;
-                try { titleName = decodeURIComponent(titleName).replace(/\.epub$/i, ''); } catch(e){ titleName = titleName.replace(/\.epub$/i, ''); }
+                let titleName = fileName.replace(/\.epub$/i, ''); // v3.30：複用已解析過濾的檔名
                 await saveBookToDB(id, arrayBuffer, titleName);
                 initBook(arrayBuffer);
             } catch (error) {
                 showLoading(false);
                 showModal({
-                    title: '⚠️ 無法直接載入此網址',
-                    desc: '目標網站無法直接載入。<br><br>請依以下步驟操作：<br>1. 點擊下方按鈕手動下載 EPUB 檔案。<br>2. 回到本頁面，透過「📂 本機檔案載入」開啟。',
+                    title: '⚠️ 網址自動載入失敗',
+                    desc: `無法直接載入 <b>${fileName}</b>。<br><br>請依以下步驟操作：<br>1. 點擊下方按鈕手動下載 <b>${fileName}</b>。<br>2. 回到本頁面，透過「📂 本機檔案載入」開啟。`,
                     actionText: '⬇️ 手動下載',
                     onAction: () => {
                         const link = document.createElement('a'); link.href = url; link.target = '_blank';
-                        link.download = url.split('/').pop() || 'download.epub'; 
+                        link.download = fileName !== 'EPUB 檔案' ? fileName : 'download.epub'; 
                         document.body.appendChild(link); link.click(); document.body.removeChild(link);
                         switchTab('local');
                     }
