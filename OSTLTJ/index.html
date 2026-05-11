@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v1.47 實作「重置系統」還原預設值功能 (Factory Reset)，並區分恭喜視窗的進度重啟邏輯 -->
 <!-- v1.46 實作打勾後 1 秒智慧跳轉功能，並新增輔助影片防呆機制 (一鍵朗讀不自動打勾) -->
 <!-- v1.45 移除 og:url 與 og:image 標籤，避免硬編碼絕對路徑影響未來搬遷 -->
 <!-- v1.44 新增 Open Graph (OG) 標籤，優化社群平台網址分享預覽效果 -->
@@ -163,7 +164,7 @@
                     <div class="border-t border-stone-100 my-1"></div>
                     <button id="resetMenuBtn" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition flex items-center">
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                        進度重置
+                        重置系統
                     </button>
                 </div>
             </div>
@@ -420,9 +421,9 @@
     <!-- 重置確認彈出框 (Modal) -->
     <div id="resetConfirmModal" class="fixed inset-0 bg-stone-900/40 hidden flex items-center justify-center z-50 transition-opacity backdrop-blur-sm">
         <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4">
-            <h4 class="font-bold text-stone-800 text-lg mb-3">⚠️ 確認重置進度</h4>
+            <h4 class="font-bold text-stone-800 text-lg mb-3">⚠️ 確認重置系統</h4>
             <p class="text-stone-600 text-sm mb-6 leading-relaxed">
-                進度即將重置（回到 第 1 天 並清空已讀紀錄），語音偏好將會保留。<br><br>若未來希望復原，請先匯出設定。
+                即將清除您的所有進度、放假日設定與語音偏好，將系統徹底恢復至剛安裝時的初始狀態。<br><br>強烈建議您先匯出備份，未來若改變心意仍可匯入復原。
             </p>
             <div class="flex flex-col gap-2">
                 <button id="exportAndResetBtn" class="w-full bg-stone-800 text-white py-2 rounded-lg hover:bg-stone-700 transition font-medium text-sm shadow-sm">
@@ -1038,6 +1039,21 @@
             dom.resetConfirmModal.classList.add('hidden');
         }
 
+        function performFactoryReset() {
+            const keysToRemove = [
+                'gemini_read_progress',
+                'gemini_start_date',
+                'gemini_rest_days',
+                'tts_rate',
+                'tts_voice_name',
+                'tour_completed',
+                'install_prompt_shown',
+                'congrats_shown'
+            ];
+            keysToRemove.forEach(key => localStorage.removeItem(key));
+            window.location.reload();
+        }
+
         function performReset(startTomorrow = false) {
             readProgress = {};
             localStorage.setItem('gemini_read_progress', JSON.stringify(readProgress));
@@ -1344,8 +1360,8 @@
 
             dom.resetMenuBtn.addEventListener('click', e => { e.stopPropagation(); dom.settingsMenu.classList.add('hidden'); dom.resetConfirmModal.classList.remove('hidden'); });
             dom.cancelResetBtn.addEventListener('click', closeResetModal);
-            dom.confirmResetBtn.addEventListener('click', () => { performReset(); closeResetModal(); });
-            dom.exportAndResetBtn.addEventListener('click', () => { handleExport(); setTimeout(() => { performReset(); closeResetModal(); }, 500); });
+            dom.confirmResetBtn.addEventListener('click', () => { performFactoryReset(); closeResetModal(); });
+            dom.exportAndResetBtn.addEventListener('click', () => { handleExport(); setTimeout(() => { performFactoryReset(); closeResetModal(); }, 500); });
 
             dom.feedbackBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -2158,6 +2174,6 @@
 
         window.addEventListener('DOMContentLoaded', init);
     </script>
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.46</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.47</div>
 </body>
 </html>
