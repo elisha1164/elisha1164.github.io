@@ -1,4 +1,6 @@
 <!DOCTYPE html>
+<!-- v1.49 修正 v1.48 意外刪除的輔助影片雙語切換按鈕事件 (Regression Bug) -->
+<!-- v1.48 新增英譯本 ESV 對照功能，支援雙語經文顯示且不干擾 TTS 朗讀 -->
 <!-- v1.47 實作「重置系統」還原預設值功能 (Factory Reset)，並區分恭喜視窗的進度重啟邏輯 -->
 <!-- v1.46 實作打勾後 1 秒智慧跳轉功能，並新增輔助影片防呆機制 (一鍵朗讀不自動打勾) -->
 <!-- v1.45 移除 og:url 與 og:image 標籤，避免硬編碼絕對路徑影響未來搬遷 -->
@@ -292,9 +294,12 @@
             <!-- 內容顯示卡片 (經文內容) -->
             <div class="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden flex flex-col" id="tour-scripture">
                 <div class="bg-stone-50 border-b border-stone-200 p-5 flex justify-between items-center">
-                    <h4 class="font-bold text-stone-700 flex items-center text-lg tracking-wide">
-                        📖 今日經文
-                    </h4>
+                    <div class="flex items-center gap-2">
+                        <h4 class="font-bold text-stone-700 flex items-center text-lg tracking-wide">
+                            📖 今日經文
+                        </h4>
+                        <button id="toggleEsvBtn" class="bg-stone-200 text-stone-600 hover:bg-stone-300 rounded px-2 py-0.5 text-xs font-bold transition shadow-sm" title="英譯本 ESV 對照">英</button>
+                    </div>
                     <!-- 經文專屬朗讀按鈕 -->
                     <div class="flex gap-2">
                         <button id="playScriptureBtn" class="bg-stone-800 text-white hover:bg-stone-700 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center shadow-sm">
@@ -606,6 +611,7 @@
         // --- 變數與狀態 ---
         let bibleData = {}; 
         let rcuvIndex = {}; 
+        let esvIndex = {};
         let videoData = {}; 
         
         let currentDay = 1;
@@ -618,6 +624,7 @@
 
         let isPlayingAll = false;
         let playAllQueue = [];
+        let isEsvVisible = false;
 
         // 新增：PWA 網址推廣參數狀態標記
         let isPwaPromptActive = false;
@@ -729,6 +736,7 @@
             pauseReflectionBtn: document.getElementById('pauseReflectionBtn'),
             stopReflectionBtn: document.getElementById('stopReflectionBtn'),
             toggleOriginalBtn: document.getElementById('toggleOriginalBtn'),
+            toggleEsvBtn: document.getElementById('toggleEsvBtn'),
             settingsBtn: document.getElementById('settingsBtn'),
             settingsMenu: document.getElementById('settingsMenu'),
             exportBtn: document.getElementById('exportBtn'),
@@ -1295,6 +1303,21 @@
                 updateVideoDisplay(videoData[currentDay], activeVideoLang);
             });
 
+            dom.toggleEsvBtn.addEventListener('click', () => {
+                isEsvVisible = !isEsvVisible;
+                if (isEsvVisible) {
+                    dom.toggleEsvBtn.classList.remove('bg-stone-200', 'text-stone-600', 'hover:bg-stone-300');
+                    dom.toggleEsvBtn.classList.add('bg-stone-700', 'text-white', 'hover:bg-stone-600');
+                } else {
+                    dom.toggleEsvBtn.classList.add('bg-stone-200', 'text-stone-600', 'hover:bg-stone-300');
+                    dom.toggleEsvBtn.classList.remove('bg-stone-700', 'text-white', 'hover:bg-stone-600');
+                }
+                document.querySelectorAll('.esv-verse').forEach(el => {
+                    if (isEsvVisible) el.classList.remove('hidden');
+                    else el.classList.add('hidden');
+                });
+            });
+
             dom.readProgressCheckbox.addEventListener('change', e => {
                 readProgress[currentDay] = e.target.checked;
                 localStorage.setItem('gemini_read_progress', JSON.stringify(readProgress));
@@ -1552,9 +1575,9 @@
 
             try {
                 // 🔥 移除 bible_reading_plan.csv 讀取，徹底瘦身 🔥
-                const [metaStr, transStr, rcuvJsonData, videoStr] = await Promise.all([
+                const [metaStr, transStr, rcuvJsonData, videoStr, esvJsonData] = await Promise.all([
                     fetchCsv('./bible_metadata.csv'),
-                    fetchCsv('./bible_reading_plan_translated.csv'), fetchJson('../rcuv.json'), fetchCsv('./bible_reading_plan_videos.csv')
+                    fetchCsv('./bible_reading_plan_translated.csv'), fetchJson('../rcuv.json'), fetchCsv('./bible_reading_plan_videos.csv'), fetchJson('../esv2016.json')
                 ]);
                 if (!metaStr || !transStr) throw new Error("主要檔案讀取失敗 (可能缺少 bible_reading_plan_translated.csv)");
 
@@ -1562,6 +1585,7 @@
                 const [meta, trans] = [Papa.parse(metaStr, parseOpts).data, Papa.parse(transStr, parseOpts).data];
                 
                 rcuvIndex = rcuvJsonData || {};
+                esvIndex = esvJsonData || {};
 
                 videoData = {};
                 if (videoStr) {
@@ -1755,11 +1779,18 @@
                             const safeFootnote = p1.replace(/['"&<>]/g, c => ({'\'':'&#39;','"':'&quot;','&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
                             return `<span class="inline-flex items-center justify-center cursor-pointer text-xl ml-1 opacity-80 hover:opacity-100 hover:scale-110 transition-transform" onclick="showFootnoteModal('註：${safeFootnote}')" title="點擊查看註釋">📝</span>`;
                         });
+                        
+                        let esvText = '';
+                        if (esvIndex[row.b] && esvIndex[row.b][row.c] && esvIndex[row.b][row.c][row.v]) {
+                            esvText = esvIndex[row.b][row.c][row.v];
+                        }
+                        
                         if (row.b !== curBook || row.c !== curChap) {
                             htmlChunks.push(`<h5 class="text-2xl font-bold text-stone-800 ${isFirst ? 'mb-4' : 'mt-10 mb-4'} border-b border-stone-200 pb-2">${row.b} 第${row.c}${row.b === '詩篇' ? '篇' : '章'}</h5>`);
                             curBook = row.b; curChap = row.c; isFirst = false;
                         }
-                        htmlChunks.push(`<div class="mb-3 flex items-start leading-relaxed"><strong class="text-stone-400 font-bold mr-3 text-base w-6 text-right shrink-0 select-none pt-[2px]">${row.v}</strong><span class="text-stone-800 text-lg">${formattedText}</span></div>`);
+                        const esvDisplay = esvText ? `<span class="esv-verse text-stone-500 text-[15px] mt-1 font-serif ${isEsvVisible ? '' : 'hidden'}">${esvText}</span>` : '';
+                        htmlChunks.push(`<div class="mb-3 flex items-start leading-relaxed"><strong class="text-stone-400 font-bold mr-3 text-base w-6 text-right shrink-0 select-none pt-[2px]">${row.v}</strong><div class="flex flex-col"><span class="text-stone-800 text-lg">${formattedText}</span>${esvDisplay}</div></div>`);
                     });
                 } else htmlChunks.push('<p class="text-stone-400">找不到符合今日進度的經文。</p>');
             } else htmlChunks.push('<p class="text-red-400">無法載入 rcuv.json 檔案，請確認檔案存在</p>');
@@ -2174,6 +2205,6 @@
 
         window.addEventListener('DOMContentLoaded', init);
     </script>
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.47</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.49</div>
 </body>
 </html>
