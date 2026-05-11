@@ -3,12 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>純前端 EPUB 閱讀與列印工具</title>
+    <title>老張 EPUB 閱讀器</title>
     
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%230056b3' d='M12 21.33V6.2C10.6 5.4 9 5 7.5 5 5 5 2 6 2 6v15s3-1 5.5-1c2 0 4 .67 4.5 1.33z'/><path fill='%23ffffff' stroke='%230056b3' stroke-width='1.5' stroke-linejoin='round' d='M12 21.33V6.2C13.4 5.4 15 5 16.5 5 19 5 22 6 22 6v15s-3-1-5.5-1c-2 0-4 .67-4.5 1.33z'/></svg>" type="image/svg+xml">
+    <!-- Open Graph Meta -->
+    <meta property="og:title" content="老張 EPUB 閱讀器">
+    <meta property="og:description" content="您的專屬數位書櫃與有聲書僮，內建「智能簡轉繁」、「視聽分離語音朗讀」及「自動暫存進度」功能。">
+    <meta property="og:type" content="website">
+    
+    <!-- PWA Meta -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="老張 EPUB 閱讀器">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
 
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"></script>
+    <!-- v3.18 修正：改用 full.js 確保 OpenCC 核心正確載入 -->
+    <script src="https://cdn.jsdelivr.net/npm/opencc-js@1.0.5/dist/umd/full.js"></script>
     
     <style>
         body {
@@ -25,18 +38,48 @@
            階段一：書本載入階段 (Welcome Screen)
            ========================================== */
         #welcome-screen {
-            display: flex; justify-content: center; align-items: center;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
             height: 100vh; height: 100dvh; width: 100vw;
             background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
             position: absolute; top: 0; left: 0; z-index: 100;
             transition: opacity 0.4s ease, visibility 0.4s ease;
         }
+        
+        /* 固定尺寸卡片與內部滾動 (v3.24) */
         .welcome-card {
-            background: #fff; padding: 40px; border-radius: 16px;
-            box-shadow: 0 15px 35px rgba(0,0,0,0.05); max-width: 400px; width: 90%; text-align: center;
+            background: #fff; padding: 30px; border-radius: 16px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.05); 
+            width: 450px; height: 500px;
+            max-width: 90vw; max-height: 85vh;
+            display: flex; flex-direction: column; text-align: center; box-sizing: border-box;
         }
-        .welcome-card h1 { margin-top: 0; color: #0056b3; font-size: 24px; margin-bottom: 30px; }
-        .input-group { margin-bottom: 20px; text-align: left; }
+        .welcome-card h1 { margin-top: 0; color: #0056b3; font-size: 22px; margin-bottom: 20px; flex-shrink: 0; }
+        
+        /* 分段控制項 Segmented Control (v3.24) */
+        .segmented-control {
+            display: flex; background-color: #f1f3f5; border-radius: 8px; padding: 4px; margin-bottom: 20px; flex-shrink: 0;
+        }
+        .segment-btn {
+            flex: 1; padding: 8px 0; text-align: center; font-size: 14px; font-weight: bold; color: #666;
+            background: transparent; border: none; border-radius: 6px; cursor: pointer; transition: all 0.2s ease;
+        }
+        .segment-btn.active {
+            background-color: #fff; color: #0056b3; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        /* 內部內容區塊 */
+        .card-content {
+            flex: 1; overflow-y: auto; padding-right: 5px; text-align: left;
+        }
+        .card-content::-webkit-scrollbar { width: 6px; }
+        .card-content::-webkit-scrollbar-track { background: transparent; }
+        .card-content::-webkit-scrollbar-thumb { background: #ddd; border-radius: 3px; }
+        
+        .tab-pane { display: none; animation: fadeIn 0.3s ease; }
+        .tab-pane.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        .input-group { margin-bottom: 20px; }
         .input-group label { display: block; font-weight: bold; margin-bottom: 8px; color: #555; }
         .input-group input[type="file"], .input-group input[type="text"] {
             width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 14px; background: #fafafa;
@@ -47,9 +90,73 @@
             cursor: pointer; font-size: 14px; font-weight: bold; transition: background 0.2s; white-space: nowrap;
         }
         .btn-primary:hover { background-color: #004494; }
-        .divider { margin: 25px 0; position: relative; text-align: center; }
-        .divider::before { content: ""; position: absolute; top: 50%; left: 0; right: 0; border-top: 1px solid #ddd; z-index: 1; }
-        .divider span { background: #fff; padding: 0 15px; color: #aaa; font-size: 14px; position: relative; z-index: 2; }
+
+        /* 右上角動作按鈕容器 (v3.28) */
+        .top-right-actions {
+            position: absolute; top: 20px; right: 20px;
+            display: flex; flex-direction: column; gap: 10px; align-items: flex-end;
+            z-index: 101;
+        }
+
+        /* 推薦書庫按鈕與 Modal 樣式 (v3.22) */
+        .glass-btn {
+            background: rgba(255, 255, 255, 0.6); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.4); box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            border-radius: 20px; padding: 10px 18px; font-size: 15px; font-weight: bold; color: #0056b3;
+            cursor: pointer; transition: all 0.3s ease;
+        }
+        .glass-btn:hover { background: rgba(255, 255, 255, 0.9); transform: translateY(-2px); box-shadow: 0 6px 15px rgba(0,0,0,0.1); }
+        .recommend-list { display: flex; flex-direction: column; gap: 12px; margin-top: 15px; text-align: left; }
+        .recommend-card {
+            display: flex; align-items: center; padding: 12px 15px; border-radius: 10px;
+            border: 1px solid #eaeaea; background: #fff; text-decoration: none; color: #333;
+            transition: all 0.2s ease;
+        }
+        .recommend-card:hover { background: #f4f9ff; border-color: #b8daff; box-shadow: 0 4px 8px rgba(0,86,179,0.08); transform: translateY(-1px); }
+        .recommend-icon { width: 50px; height: 50px; object-fit: contain; border-radius: 8px; margin-right: 15px; flex-shrink: 0; background: #fff; }
+        .recommend-text { display: flex; flex-direction: column; }
+        .recommend-title { font-size: 16px; font-weight: bold; color: #222; }
+        .recommend-url { font-size: 12px; color: #888; margin-top: 4px; word-break: break-all; }
+        .recommend-close-wrap { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 15px; margin-bottom: 10px; }
+        .recommend-close-wrap h3 { margin: 0; color: #0056b3; font-size: 20px; }
+        .recommend-close-btn { background: none; border: none; font-size: 20px; color: #888; cursor: pointer; padding: 0; }
+        .recommend-close-btn:hover { color: #d9534f; }
+
+        /* 最近閱讀區塊 */
+        .recent-list { display: flex; flex-direction: column; gap: 10px; }
+        .recent-item { display: flex; align-items: center; justify-content: space-between; background: #fafafa; padding: 12px 15px; border-radius: 8px; border: 1px solid #ddd; transition: background 0.2s; }
+        .recent-item:hover { background: #f0f7ff; border-color: #cce5ff; }
+        .recent-item-info { flex: 1; min-width: 0; cursor: pointer; display: flex; flex-direction: column; }
+        .recent-title { font-weight: bold; font-size: 14px; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; }
+        .recent-meta { font-size: 12px; color: #888; }
+        .recent-delete-btn { background: none; border: none; font-size: 16px; color: #aaa; cursor: pointer; padding: 5px; transition: color 0.2s; }
+        .recent-delete-btn:hover { color: #d9534f; }
+
+        /* 首頁 Footer 移至卡片外 (v3.24) */
+        .laozhang-footer {
+            margin-top: 1.5rem;
+            text-align: center;
+            font-size: 12px;
+            color: #a8a29e;
+        }
+        .laozhang-footer-link {
+            display: inline-flex;
+            align-items: center;
+            color: #78716c;
+            text-decoration: none;
+            background-color: rgba(231, 229, 228, 0.5);
+            padding: 0.375rem 0.75rem;
+            border-radius: 9999px;
+            transition: color 0.15s, background-color 0.15s;
+        }
+        .laozhang-footer-link:hover {
+            color: #44403c;
+        }
+        .laozhang-footer-icon {
+            width: 12px;
+            height: 12px;
+            margin-right: 4px;
+        }
 
         /* ==========================================
            階段二：閱讀階段 (Reader UI)
@@ -66,7 +173,7 @@
 
         /* 極簡頂部工具列 */
         #header-container {
-            background-color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.05); z-index: 10; display: flex; flex-direction: column; flex-shrink: 0;
+            background-color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.05); z-index: 10; display: flex; flex-direction: column; flex-shrink: 0; position: relative;
         }
         #toolbar {
             padding: 10px 15px; display: flex; gap: 8px; align-items: center;
@@ -106,6 +213,32 @@
         #btn-tts { color: #0056b3; width: 40px; }
         #btn-tts.playing { background: #e0f0ff; border-color: #b3d7ff; color: #004494; animation: pulse 2s infinite; }
         @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(0, 86, 179, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(0, 86, 179, 0); } 100% { box-shadow: 0 0 0 0 rgba(0, 86, 179, 0); } }
+
+        /* 返回朗讀位置浮動按鈕 */
+        #btn-return-audio {
+            position: absolute;
+            top: 60px; /* 在 toolbar 之下 */
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(217, 83, 79, 0.95);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+            z-index: 100;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+            display: none;
+            align-items: center;
+            gap: 8px;
+            backdrop-filter: blur(4px);
+            transition: background 0.2s;
+            animation: bounceIn 0.3s ease;
+        }
+        #btn-return-audio:hover { background: rgba(201, 48, 44, 1); }
+        @keyframes bounceIn { 0% { transform: translate(-50%, -10px); opacity: 0; } 100% { transform: translate(-50%, 0); opacity: 1; } }
 
         /* 閱讀器主體 */
         #main-container {
@@ -217,7 +350,7 @@
 
         @media print {
             html, body { height: auto !important; display: block !important; overflow: visible !important; background: #fff !important; }
-            #welcome-screen, #reader-ui, #toc-tab, #toc-sidebar, #toc-overlay, #loading-overlay, .modal-overlay, .version-tag, #iab-warning-overlay, #glowing-progress-bar { display: none !important; }
+            #welcome-screen, #reader-ui, #toc-tab, #toc-sidebar, #toc-overlay, #loading-overlay, .modal-overlay, .version-tag, #iab-warning-overlay, #glowing-progress-bar, #btn-return-audio, .top-right-actions, #recommend-modal { display: none !important; }
             #print-area { display: block !important; position: relative; width: 100%; font-size: 12pt; line-height: 1.6; color: #000; }
             a { text-decoration: none; color: inherit; } a[href]:after { content: none !important; }
             #print-area img, #print-area svg, #print-area image { max-width: 100% !important; max-height: 980px !important; height: auto !important; width: auto !important; break-inside: avoid; page-break-inside: avoid; display: block; margin: 0 auto; }
@@ -239,15 +372,56 @@
     </div>
 
     <div id="welcome-screen">
+        <!-- 右上角動作按鈕容器 (v3.28 支援 PWA 安裝按鈕堆疊) -->
+        <div class="top-right-actions">
+            <button id="btn-recommendations" class="glass-btn">💡 取得好書</button>
+            <button id="btn-pwa-install" class="glass-btn" style="display: none;">📱 加到桌面</button>
+        </div>
+
         <div class="welcome-card">
-            <h1>📖 EPUB 閱讀器</h1>
-            <div class="input-group"><label for="file-input">📂 上傳本機檔案</label><input type="file" id="file-input" accept=".epub"></div>
-            <div class="divider"><span>或</span></div>
-            <div class="input-group">
-                <label for="url-input">🌐 透過網址載入</label>
-                <div class="url-row"><input type="text" id="url-input" placeholder="輸入 EPUB 網址 (需支援 CORS)"><button id="load-url-btn" class="btn-primary">載入</button></div>
+            <h1>📖 老張 EPUB 閱讀器</h1>
+            
+            <!-- v3.24: 分段控制項頁籤 -->
+            <div class="segmented-control" id="welcome-tabs">
+                <button class="segment-btn" id="btn-tab-recent" onclick="switchTab('recent')" style="display: none;">最近閱讀</button>
+                <button class="segment-btn active" id="btn-tab-local" onclick="switchTab('local')">本機載入</button>
+                <button class="segment-btn" id="btn-tab-url" onclick="switchTab('url')">網址載入</button>
+            </div>
+
+            <!-- v3.24: 頁籤內容區塊 (內部滾動) -->
+            <div class="card-content">
+                <!-- 最近閱讀 -->
+                <div class="tab-pane" id="pane-recent">
+                    <div class="recent-list" id="recent-reads-list"></div>
+                </div>
+
+                <!-- 本機載入 -->
+                <div class="tab-pane active" id="pane-local">
+                    <div class="input-group">
+                        <label for="file-input">📂 本機檔案載入</label>
+                        <input type="file" id="file-input" accept=".epub">
+                    </div>
+                </div>
+
+                <!-- 網址載入 -->
+                <div class="tab-pane" id="pane-url">
+                    <div class="input-group">
+                        <label for="url-input">🌐 透過網址載入</label>
+                        <div class="url-row"><input type="text" id="url-input" placeholder="輸入 EPUB 網址 (需支援 CORS)"><button id="load-url-btn" class="btn-primary">載入</button></div>
+                    </div>
+                </div>
             </div>
         </div>
+            
+        <!-- 老張工具間 Footer (移至卡片外方 v3.24) -->
+        <footer class="laozhang-footer">
+            <a href="../index.html" target="_blank" class="laozhang-footer-link">
+                <svg class="laozhang-footer-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
+                </svg>
+                老張工具間
+            </a>
+        </footer>
     </div>
 
     <div id="reader-ui">
@@ -258,10 +432,11 @@
                 <button id="btn-tts" class="tool-btn" title="朗讀本頁 (自動翻頁)">▶</button>
                 <button id="btn-settings" class="tool-btn" title="設定">⚙️</button>
             </div>
+            <button id="btn-return-audio">🎧 返回朗讀位置</button>
             <div id="settings-panel">
                 <select id="tts-rate-select" class="tool-btn" title="語音速度">
                     <option value="0.8">0.8x</option>
-                    <option value="1.0" selected>1.0x</option>
+                    <option value="1.0">1.0x</option>
                     <option value="1.2">1.2x</option>
                     <option value="1.5">1.5x</option>
                     <option value="2.0">2.0x</option>
@@ -303,11 +478,37 @@
         </div>
     </div>
 
+    <!-- 推薦書庫專屬 Modal (v3.22) -->
+    <div id="recommend-modal" class="modal-overlay">
+        <div class="modal-box">
+            <div class="recommend-close-wrap">
+                <h3>📚 老張推荐書庫</h3>
+                <button id="close-recommend-btn" class="recommend-close-btn">✕</button>
+            </div>
+            <div id="recommend-list" class="recommend-list"></div>
+        </div>
+    </div>
+
     <div id="print-area"></div>
     
-    <div class="version-tag">v3.13</div>
+    <div class="version-tag">v3.28</div>
 
     <script>
+        // v3.28 (新增：加到桌面 PWA 智慧安裝提示，支援 Android 原生 Prompt 與 iOS 圖文引導)
+        // v3.27 (修正：移除 SVG favicon，統一使用 PWA 指定的 icon)
+        // v3.26 (新增：加入 Open Graph 與 PWA Meta Tags，支援加入主畫面與社群分享預覽)
+        // v3.25 (UX微調：手動下載 EPUB 後自動切換至本機載入頁籤加強引導)
+        // v3.24 (重構：首頁載入階段改用固定尺寸卡片與 Segmented Control 頁籤設計，Footer 移至卡片外)
+        // v3.23 (新增：在首頁載入階段底部加入「老張工具間」連結 Footer，並轉換 Tailwind 為原生 CSS 樣式)
+        // v3.22 (新增：首頁右上角「取得好書」推薦書庫功能，採用毛玻璃按鈕與獨立維護的推薦清單)
+        // v3.21 (新增：支援寬螢幕自動雙頁顯示 (spread: auto)，提升大螢幕閱讀體驗)
+        // v3.20 (修正：將 localStorage 鍵值改為 EPUB_ttsRate 以避免同網域其他專案干擾)
+        // v3.19 (UI微調：移除關閉警告、重構首頁三選一佈局、過濾 .epub 副檔名、改名為老張閱讀器，並修復 TTS 語速設定記憶問題)
+        // v3.18 (修復：改用 full.js 確保 OpenCC 初始化，並移除對標題等短字串的特徵字限制，確保完美簡轉繁)
+        // v3.17 (修改：最近閱讀區塊改為顯示閱讀進度百分比而非時間，並將進度存入 IndexedDB)
+        // v3.16 (新增：書櫃與最近閱讀功能，採用指標與 LRU 快取淘汰機制，安全管理儲存配額)
+        // v3.15 (導入 opencc-js，結合特徵字極速掃描與 30% 漢字閥值，實現智能簡轉繁與 TTS 語音引擎動態配置)
+        // v3.14 (新增：視聽分離功能，嚴格脫鉤模式與「返回朗讀位置」按鈕，背景載入下一章語音佇列不干擾畫面)
         // v3.13 (新增：根據章節漢字比例自動切換中/英語音引擎，支援 30% 閥值判定與英文優選邏輯)
         // v3.12 (開放首頁下拉重新整理，閱讀階段鎖定；關閉書本時強制重新整理以徹底釋放記憶體)
         // v3.11 (導入 IndexedDB 建立自動暫存與恢復機制，解決系統清除記憶體導致的重載問題)
@@ -344,13 +545,149 @@
         checkInAppBrowser();
 
         // ==========================================
-        // IndexedDB 自動暫存與恢復機制
+        // 首頁頁籤切換邏輯 (v3.24)
+        // ==========================================
+        function switchTab(tabId) {
+            document.querySelectorAll('.segment-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
+            document.getElementById(`btn-tab-${tabId}`).classList.add('active');
+            document.getElementById(`pane-${tabId}`).classList.add('active');
+        }
+
+        // ==========================================
+        // 推薦書庫清單 (v3.22) - 易於維護的 JS 物件陣列
+        // ==========================================
+        const recommendedBooks = [
+            {
+                name: "9Marks 九標誌",
+                icon: "https://www.9marks.org/wp-content/uploads/2024/10/cropped-IX-Icon-192x192.png",
+                url: "https://cn.9marks.org/books"
+            },
+            {
+                name: "TGC 福音聯盟",
+                icon: "https://www.tgcchinese.org/images/android-chrome-192x192.png",
+                url: "https://www.tgcchinese.org/books"
+            },
+            {
+                name: "BFM 忠信福音事工",
+                icon: "https://www.befaithful.net/themes/custom/zxbook/logo.png",
+                url: "https://www.befaithful.net/book?resource_type%5B13%5D=13"
+            }
+        ];
+
+        function initRecommendModal() {
+            const listContainer = document.getElementById('recommend-list');
+            const recommendModal = document.getElementById('recommend-modal');
+            const btnRecommendations = document.getElementById('btn-recommendations');
+            const closeRecommendBtn = document.getElementById('close-recommend-btn');
+
+            listContainer.innerHTML = '';
+            recommendedBooks.forEach(item => {
+                const a = document.createElement('a');
+                a.href = item.url;
+                a.target = '_blank';
+                a.rel = 'noopener noreferrer';
+                a.className = 'recommend-card';
+                a.onclick = () => { recommendModal.style.display = 'none'; }; // 點擊跳轉後自動關閉 Modal
+
+                const img = document.createElement('img');
+                img.src = item.icon;
+                img.className = 'recommend-icon';
+                img.alt = item.name;
+
+                const textDiv = document.createElement('div');
+                textDiv.className = 'recommend-text';
+                
+                const title = document.createElement('span');
+                title.className = 'recommend-title';
+                title.textContent = item.name;
+                
+                const urlText = document.createElement('span');
+                urlText.className = 'recommend-url';
+                try { urlText.textContent = new URL(item.url).hostname; } catch(e) { urlText.textContent = item.url; }
+
+                textDiv.appendChild(title);
+                textDiv.appendChild(urlText);
+                a.appendChild(img);
+                a.appendChild(textDiv);
+                listContainer.appendChild(a);
+            });
+
+            btnRecommendations.addEventListener('click', () => { recommendModal.style.display = 'flex'; });
+            closeRecommendBtn.addEventListener('click', () => { recommendModal.style.display = 'none'; });
+            recommendModal.addEventListener('click', (e) => { if(e.target === recommendModal) recommendModal.style.display = 'none'; });
+        }
+
+        // ==========================================
+        // PWA 安裝邏輯 (v3.28)
+        // ==========================================
+        function initPWAInstall() {
+            let deferredPrompt;
+            const btnPwaInstall = document.getElementById('btn-pwa-install');
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone || (window.navigator.standalone === true);
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+            // 1. 若已經安裝 (Standalone) 則完全隱藏
+            if (isStandalone) {
+                btnPwaInstall.style.display = 'none';
+                return;
+            }
+
+            // 2. iOS Safari 無法使用 beforeinstallprompt，所以直接顯示按鈕並套用教學 Modal
+            if (isIOS) {
+                btnPwaInstall.style.display = 'block';
+            }
+
+            // 3. Android / Chrome 攔截原生安裝事件
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault(); // 阻止瀏覽器自動跳出 mini-infobar
+                deferredPrompt = e;
+                btnPwaInstall.style.display = 'block'; // 確保攔截到事件後才顯示按鈕
+            });
+
+            // 4. 監聽安裝完成事件，隱藏按鈕
+            window.addEventListener('appinstalled', () => {
+                btnPwaInstall.style.display = 'none';
+                deferredPrompt = null;
+            });
+
+            // 5. 點擊處理
+            btnPwaInstall.addEventListener('click', async () => {
+                if (deferredPrompt) {
+                    // 原生 Android / Chrome 提示
+                    deferredPrompt.prompt();
+                    const { outcome } = await deferredPrompt.userChoice;
+                    if (outcome === 'accepted') {
+                        btnPwaInstall.style.display = 'none';
+                    }
+                    deferredPrompt = null;
+                } else if (isIOS) {
+                    // iOS 專屬圖文教學 Modal
+                    showModal({
+                        title: '📱 加入主畫面',
+                        desc: '請點擊瀏覽器下方工具列的 <b>[分享]</b> 圖示 <svg style="width:18px;height:18px;display:inline-block;vertical-align:middle;color:#0056b3;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg><br><br>然後向下滑動選擇 <b>「加入主畫面 ➕」</b>。<br><br><span style="font-size: 13px; color: #888;">這能讓您獲得全螢幕、更順暢的離線閱讀體驗！</span>',
+                        actionText: '我知道了'
+                    });
+                } else {
+                    // 未支援瀏覽器的防呆提示
+                    showModal({
+                        title: '📱 安裝應用程式',
+                        desc: '您的瀏覽器目前不支援一鍵安裝。<br><br>請嘗試從瀏覽器的右上角選單 (⋮ 或 ⋯) 中尋找並點擊 <b>「安裝應用程式」</b> 或 <b>「加到主畫面」</b> 項目。',
+                        actionText: '我知道了'
+                    });
+                }
+            });
+        }
+
+        // ==========================================
+        // IndexedDB LRU 書櫃與快取機制
         // ==========================================
         const DB_NAME = 'EpubReaderDB';
         const DB_VERSION = 1;
         const STORE_NAME = 'BookStore';
+        let currentBookId = null;
 
-        function initDB() {
+        async function initDB() {
             return new Promise((resolve, reject) => {
                 const request = indexedDB.open(DB_NAME, DB_VERSION);
                 request.onerror = (event) => reject(event.target.error);
@@ -364,69 +701,205 @@
             });
         }
 
-        async function saveBookToDB(arrayBuffer) {
-            try {
-                const db = await initDB();
-                const tx = db.transaction(STORE_NAME, 'readwrite');
-                const store = tx.objectStore(STORE_NAME);
-                store.put({
-                    id: 'current_book',
-                    data: arrayBuffer,
-                    location: null,
-                    timestamp: Date.now()
-                });
-                return new Promise((resolve, reject) => {
-                    tx.oncomplete = () => resolve();
-                    tx.onerror = (e) => reject(e.target.error);
-                });
-            } catch (error) {
-                console.warn("儲存至資料庫失敗 (可能容量不足):", error);
+        async function putBookToDB(record) {
+            let db = await initDB();
+            while (true) {
+                try {
+                    await new Promise((resolve, reject) => {
+                        const tx = db.transaction(STORE_NAME, 'readwrite');
+                        const store = tx.objectStore(STORE_NAME);
+                        store.put(record);
+                        tx.oncomplete = () => resolve();
+                        tx.onerror = (e) => reject(e.target.error);
+                    });
+                    break;
+                } catch (e) {
+                    if (e.name === 'QuotaExceededError') {
+                        const allBooks = await getAllBooksFromDB();
+                        if (allBooks.length === 0) throw new Error("儲存空間不足。");
+                        const oldest = allBooks[allBooks.length - 1]; 
+                        await deleteBookFromDB(oldest.id);
+                        console.warn(`空間不足，已自動刪除最舊紀錄: ${oldest.title || oldest.id}`);
+                    } else {
+                        throw e;
+                    }
+                }
             }
         }
 
-        async function saveLocationToDB(cfi) {
+        async function saveBookToDB(id, arrayBuffer, title) {
+            currentBookId = id;
+            const existing = await loadBookDataFromDB(id);
+            const record = {
+                id: id,
+                data: arrayBuffer,
+                location: existing ? existing.location : null,
+                percentage: existing ? existing.percentage : null,
+                timestamp: Date.now(),
+                title: title || id
+            };
+            await putBookToDB(record);
+            await setCurrentPointer(id);
+        }
+
+        async function updateBookTitleInDB(id, title) {
+            const record = await loadBookDataFromDB(id);
+            if (record) {
+                record.title = title;
+                await putBookToDB(record);
+            }
+        }
+
+        async function saveLocationToDB(cfi, percentageStr = null) {
+            if (!currentBookId) return;
             try {
-                const db = await initDB();
+                const record = await loadBookDataFromDB(currentBookId);
+                if (record) {
+                    record.location = cfi;
+                    if (percentageStr !== null) record.percentage = percentageStr;
+                    record.timestamp = Date.now(); 
+                    await putBookToDB(record);
+                }
+            } catch (e) { console.warn("儲存進度失敗", e); }
+        }
+
+        async function setCurrentPointer(targetId) {
+            const db = await initDB();
+            return new Promise((resolve, reject) => {
                 const tx = db.transaction(STORE_NAME, 'readwrite');
                 const store = tx.objectStore(STORE_NAME);
-                const request = store.get('current_book');
-                request.onsuccess = (event) => {
-                    const record = event.target.result;
-                    if (record) {
-                        record.location = cfi;
-                        store.put(record);
+                store.put({ id: 'current_book', targetId: targetId });
+                tx.oncomplete = () => resolve();
+                tx.onerror = (e) => reject(e.target.error);
+            });
+        }
+
+        async function getCurrentPointer() {
+            const db = await initDB();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(STORE_NAME, 'readwrite');
+                const store = tx.objectStore(STORE_NAME);
+                const req = store.get('current_book');
+                req.onsuccess = (e) => {
+                    const res = e.target.result;
+                    if (!res) resolve(null);
+                    else if (res.targetId) resolve(res.targetId);
+                    else {
+                        // 舊版資料遷移：刪除不相容的舊版 current_book
+                        store.delete('current_book');
+                        resolve(null);
                     }
                 };
-            } catch (error) {
-                console.warn("儲存閱讀進度失敗:", error);
-            }
+                req.onerror = (e) => reject(e.target.error);
+            });
         }
 
-        async function clearDB() {
-            try {
-                const db = await initDB();
+        async function clearCurrentPointer() {
+            const db = await initDB();
+            return new Promise((resolve, reject) => {
                 const tx = db.transaction(STORE_NAME, 'readwrite');
                 const store = tx.objectStore(STORE_NAME);
                 store.delete('current_book');
-            } catch (error) {
-                console.warn("清除資料庫失敗:", error);
-            }
+                tx.oncomplete = () => resolve();
+                tx.onerror = (e) => reject(e.target.error);
+            });
         }
 
-        async function loadBookFromDB() {
-            try {
-                const db = await initDB();
+        async function loadBookDataFromDB(id) {
+            const db = await initDB();
+            return new Promise((resolve, reject) => {
                 const tx = db.transaction(STORE_NAME, 'readonly');
                 const store = tx.objectStore(STORE_NAME);
-                const request = store.get('current_book');
-                return new Promise((resolve, reject) => {
-                    request.onsuccess = (event) => resolve(event.target.result);
-                    request.onerror = (e) => reject(e.target.error);
-                });
-            } catch (error) {
-                console.warn("讀取資料庫失敗:", error);
-                return null;
+                const req = store.get(id);
+                req.onsuccess = (e) => resolve(e.target.result);
+                req.onerror = (e) => reject(e.target.error);
+            });
+        }
+
+        async function getAllBooksFromDB() {
+            const db = await initDB();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(STORE_NAME, 'readonly');
+                const store = tx.objectStore(STORE_NAME);
+                const req = store.getAll();
+                req.onsuccess = (e) => {
+                    const books = e.target.result.filter(b => b.id !== 'current_book');
+                    books.sort((a, b) => b.timestamp - a.timestamp); // 最新在前
+                    resolve(books);
+                };
+                req.onerror = (e) => reject(e.target.error);
+            });
+        }
+
+        async function deleteBookFromDB(id) {
+            const db = await initDB();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(STORE_NAME, 'readwrite');
+                const store = tx.objectStore(STORE_NAME);
+                store.delete(id);
+                tx.oncomplete = () => resolve();
+                tx.onerror = (e) => reject(e.target.error);
+            });
+        }
+
+        async function renderRecentReads() {
+            const tabBtn = document.getElementById('btn-tab-recent');
+            const list = document.getElementById('recent-reads-list');
+            const allBooks = await getAllBooksFromDB();
+
+            if (allBooks.length === 0) {
+                tabBtn.style.display = 'none';
+                if (tabBtn.classList.contains('active')) switchTab('local');
+                return;
             }
+
+            tabBtn.style.display = 'block';
+            list.innerHTML = '';
+
+            allBooks.forEach(bookRecord => {
+                const item = document.createElement('div');
+                item.className = 'recent-item';
+
+                const info = document.createElement('div');
+                info.className = 'recent-item-info';
+                info.onclick = async () => {
+                    showLoading(true, '正在載入書本...');
+                    currentBookId = bookRecord.id;
+                    bookRecord.timestamp = Date.now(); 
+                    await putBookToDB(bookRecord);
+                    await setCurrentPointer(bookRecord.id);
+                    initBook(bookRecord.data, bookRecord.location);
+                };
+
+                const title = document.createElement('div');
+                title.className = 'recent-title';
+                // 過濾掉可能殘留的 .epub 副檔名
+                title.textContent = (bookRecord.title || '未知書名').replace(/\.epub$/i, '');
+                
+                const meta = document.createElement('div');
+                meta.className = 'recent-meta';
+                const progressStr = bookRecord.percentage ? bookRecord.percentage : (bookRecord.location ? '計算中...' : '未開始');
+                meta.textContent = `閱讀進度: ${progressStr}`;
+
+                info.appendChild(title);
+                info.appendChild(meta);
+
+                const delBtn = document.createElement('button');
+                delBtn.className = 'recent-delete-btn';
+                delBtn.title = "移除此紀錄";
+                delBtn.innerHTML = '🗑️';
+                delBtn.onclick = async (e) => {
+                    e.stopPropagation();
+                    if (confirm(`確定要移除「${(bookRecord.title || '這本書').replace(/\.epub$/i, '')}」的紀錄與檔案嗎？`)) {
+                        await deleteBookFromDB(bookRecord.id);
+                        renderRecentReads();
+                    }
+                };
+
+                item.appendChild(info);
+                item.appendChild(delBtn);
+                list.appendChild(item);
+            });
         }
 
         // ==========================================
@@ -437,16 +910,31 @@
         let loadingTimeout = null; 
         let currentFontSize = 100;
         let currentLineHeight = 1.6;
-        let currentTtsRate = 1.0;
+        
+        // 讀取本地儲存的語速偏好，若無則預設 1.0
+        let currentTtsRate = parseFloat(localStorage.getItem('EPUB_ttsRate')) || 1.0;
 
-        // TTS 狀態與防休眠
+        // TTS 狀態與視聽分離追蹤
         let isPlayingTTS = false;
         let isAutoTurning = false;
+        let isSyncMode = true; // 預設跟隨模式
         let ttsQueue = [];
         let currentSpeechIndex = 0;
+        let currentAudioCfi = null; // 當前語音朗讀的確切坐標
+        let currentAudioSpineIndex = -1; // 當前語音朗讀的章節索引
+        let currentAudioHref = null; // 當前語音朗讀的 href (供 TOC 比對)
         let wakeLock = null;
-        let currentChapterIsChinese = true; // 預設為中文，依賴後續動態判定
-        const DEFAULT_TITLE = "純前端 EPUB 閱讀與列印工具";
+        let currentChapterIsChinese = true; 
+        
+        // 簡轉繁特徵字與轉換器 
+        const simpRegex = /[这那们个么会对过发机当成来两还与里为说实从种现]/;
+        let s2tConverter = null;
+        try {
+            if (typeof OpenCC !== 'undefined') s2tConverter = OpenCC.Converter({ from: 'cn', to: 'tw' });
+            else console.warn("OpenCC 未載入，請確認網路連線。");
+        } catch(e) { console.warn("OpenCC 初始化失敗", e); }
+
+        const DEFAULT_TITLE = "老張 EPUB 閱讀器";
 
         // 進度追蹤狀態
         let locationsGenerated = false;
@@ -467,6 +955,7 @@
         const closeTocBtn = document.getElementById('close-toc-btn');
         const tocContent = document.getElementById('toc-content');
         const btnTts = document.getElementById('btn-tts');
+        const btnReturnAudio = document.getElementById('btn-return-audio');
         const progressDisplay = document.getElementById('reading-progress');
         const glowingProgressBar = document.getElementById('glowing-progress-bar');
         
@@ -490,18 +979,69 @@
         }
         modalCancelBtn.addEventListener('click', () => customModal.style.display = 'none');
 
+        // ==========================================
+        // 視聽分離 (Decoupled Reading/Listening) 邏輯
+        // ==========================================
+        function detachAudioSync() {
+            if (!isSyncMode) return;
+            isSyncMode = false;
+            updateReturnAudioBtn();
+        }
+
+        function updateReturnAudioBtn() {
+            if (isPlayingTTS && !isSyncMode) {
+                btnReturnAudio.style.display = 'flex';
+            } else {
+                btnReturnAudio.style.display = 'none';
+            }
+        }
+
+        btnReturnAudio.addEventListener('click', () => {
+            isSyncMode = true;
+            updateReturnAudioBtn();
+            if (currentAudioCfi && rendition) {
+                isAutoTurning = true;
+                rendition.display(currentAudioCfi).then(() => {
+                    setTimeout(() => isAutoTurning = false, 400); // 等待 relocated 觸發後解除保護
+                });
+            }
+        });
+
+        function updateTocAudioIcon() {
+            // 清除舊圖示
+            document.querySelectorAll('.toc-audio-icon').forEach(el => el.remove());
+            if (!isPlayingTTS || !currentAudioHref) return;
+            
+            // 尋找並標示當前朗讀章節
+            const links = document.querySelectorAll('#toc-content a');
+            links.forEach(a => {
+                let href = a.getAttribute('data-href');
+                if (href) {
+                    let cleanHref = href.split('#')[0];
+                    try { cleanHref = decodeURIComponent(cleanHref); } catch(e){}
+                    if (cleanHref === currentAudioHref) {
+                        let icon = document.createElement('span');
+                        icon.className = 'toc-audio-icon';
+                        icon.textContent = ' 🔊';
+                        icon.style.color = '#d9534f';
+                        icon.style.marginLeft = '6px';
+                        a.appendChild(icon);
+                    }
+                }
+            });
+        }
+
         function openToc() { tocSidebar.classList.add('open'); tocOverlay.classList.add('open'); }
         function closeToc() { tocSidebar.classList.remove('open'); tocOverlay.classList.remove('open'); }
         tocTab.addEventListener('click', openToc); closeTocBtn.addEventListener('click', closeToc); tocOverlay.addEventListener('click', closeToc);
 
+        // 移除多餘的離開確認警告，因為資料已安全存入最近閱讀中
         document.getElementById('btn-close').addEventListener('click', async () => {
-            if (confirm("確定要關閉目前的書本，返回首頁嗎？\n(未列印的內容將會遺失)")) {
-                stopTTS(); 
-                await clearDB(); // 確保資料庫清除完成
-                const newUrl = new URL(window.location); 
-                newUrl.searchParams.delete('src'); 
-                window.location.replace(newUrl.toString()); // 強制重新整理並返回乾淨的首頁
-            }
+            stopTTS(); 
+            await clearCurrentPointer(); 
+            const newUrl = new URL(window.location); 
+            newUrl.searchParams.delete('src'); 
+            window.location.replace(newUrl.toString()); 
         });
 
         function applyStyles() {
@@ -513,7 +1053,12 @@
         }
 
         btnSettings.addEventListener('click', () => { settingsPanel.classList.toggle('open'); });
-        ttsRateSelect.addEventListener('change', (e) => { currentTtsRate = parseFloat(e.target.value); });
+        
+        // 寫入使用者的語速偏好至 localStorage，以利跨頁面保留設定
+        ttsRateSelect.addEventListener('change', (e) => { 
+            currentTtsRate = parseFloat(e.target.value); 
+            localStorage.setItem('EPUB_ttsRate', currentTtsRate);
+        });
 
         document.getElementById('btn-font-dec').addEventListener('click', () => { currentFontSize = Math.max(80, currentFontSize - 10); applyStyles(); });
         document.getElementById('btn-font-inc').addEventListener('click', () => { currentFontSize = Math.min(200, currentFontSize + 10); applyStyles(); });
@@ -584,24 +1129,56 @@
             try {
                 book = ePub(bookData);
                 book.ready.then(() => {
-                    rendition = book.renderTo("viewer", { width: "100%", height: "100%", spread: "none" });
+                    rendition = book.renderTo("viewer", { width: "100%", height: "100%", spread: "auto", minSpreadWidth: 800 });
                     
+                    // 註冊內容渲染 Hook：實時掃描特徵字與簡轉繁
+                    rendition.hooks.content.register(contents => {
+                        const body = contents.document.body;
+                        if (!body) return;
+                        const fullText = body.textContent || "";
+                        if (simpRegex.test(fullText) && s2tConverter) {
+                            const walk = (node) => {
+                                if (node.nodeType === 3) {
+                                    if (node.nodeValue.trim()) node.nodeValue = s2tConverter(node.nodeValue);
+                                } else if (node.nodeType === 1 && !['SCRIPT', 'STYLE'].includes(node.tagName.toUpperCase())) {
+                                    Array.from(node.childNodes).forEach(walk);
+                                }
+                            };
+                            walk(body);
+                        }
+                    });
+
                     book.locations.generate(600).then(() => {
                         locationsGenerated = true;
                         if (rendition && rendition.currentLocation()) {
-                            updateProgressDisplay(rendition.currentLocation());
+                            const loc = rendition.currentLocation();
+                            updateProgressDisplay(loc);
+                            
+                            // 產生 locations 後，補存進度百分比
+                            const percentage = book.locations.percentageFromCfi(loc.start.cfi);
+                            let p = Math.round(percentage * 100);
+                            if (p >= 100 && !loc.atEnd) p = 99;
+                            else if (loc.atEnd) p = 100;
+                            saveLocationToDB(loc.start.cfi, p + "%");
                         }
                     });
 
                     rendition.on('relocated', (location) => {
                         updateProgressDisplay(location);
-                        saveLocationToDB(location.start.cfi); // 翻頁時非同步儲存最新座標
+                        
+                        let pStr = null;
+                        if (locationsGenerated && book.locations) {
+                            const percentage = book.locations.percentageFromCfi(location.start.cfi);
+                            let p = Math.round(percentage * 100);
+                            if (p >= 100 && !location.atEnd) p = 99;
+                            else if (location.atEnd) p = 100;
+                            pStr = p + "%";
+                        }
+                        saveLocationToDB(location.start.cfi, pStr);
+                        
+                        // 視聽分離防呆：若非系統自動翻頁，即為使用者主動導航，觸發脫鉤模式
                         if (isPlayingTTS && !isAutoTurning) {
-                            window.speechSynthesis.cancel();
-                            setTimeout(async () => {
-                                await buildSpeechQueueFromCurrentChapter();
-                                playNextChunk();
-                            }, 350); 
+                            detachAudioSync();
                         }
                     });
 
@@ -621,11 +1198,24 @@
                         tocItems.forEach((item) => {
                             let targetPath = item.href.split('#')[0];
                             try { targetPath = decodeURIComponent(targetPath); } catch(e){}
-                            if (!tocMap[targetPath]) tocMap[targetPath] = item.label.trim();
+                            
+                            // 目錄標題簡轉繁 (無差別轉換，不依賴特徵字)
+                            let labelText = item.label.trim();
+                            if (s2tConverter) {
+                                labelText = s2tConverter(labelText);
+                            }
+
+                            if (!tocMap[targetPath]) tocMap[targetPath] = labelText;
 
                             const li = document.createElement('li'); const a = document.createElement('a');
-                            a.href = "#"; a.textContent = item.label;
-                            a.onclick = (e) => { e.preventDefault(); rendition.display(item.href); closeToc(); };
+                            a.href = "#"; 
+                            a.setAttribute('data-href', item.href); // 寫入供 🔊 標示比對用
+                            a.textContent = labelText;
+                            a.onclick = (e) => { 
+                                e.preventDefault(); 
+                                rendition.display(item.href); 
+                                closeToc(); 
+                            };
                             li.appendChild(a);
                             if (item.subitems && item.subitems.length > 0) generateToc(item.subitems, li);
                             ul.appendChild(li);
@@ -638,9 +1228,21 @@
                         updateProgressDisplay(rendition.currentLocation());
                     }
 
+                    // 書籍屬性動態簡轉繁與資料庫更新 (無差別轉換，不依賴特徵字)
                     book.loaded.metadata.then(meta => {
-                        if (meta.title && meta.creator) document.title = `${meta.title} by ${meta.creator}`;
-                        else if (meta.title) document.title = meta.title;
+                        let title = meta.title;
+                        let creator = meta.creator;
+                        if (s2tConverter) {
+                            if (title) title = s2tConverter(title);
+                            if (creator) creator = s2tConverter(creator);
+                        }
+                        
+                        const displayTitle = title ? (creator ? `${title} by ${creator}` : title) : '未知書名';
+                        document.title = displayTitle;
+                        
+                        if (currentBookId) {
+                            updateBookTitleInDB(currentBookId, displayTitle);
+                        }
                     });
 
                 }).catch((err) => { clearTimeout(loadingTimeout); showLoading(false); alert("電子書開啟失敗 ❌"); });
@@ -693,14 +1295,20 @@
             return voice;
         }
 
-        async function buildSpeechQueueFromCurrentChapter() {
-            const loc = rendition.currentLocation();
-            if (!loc) return;
-
-            // v3.2 修復：直接獲取當前已渲染的 DOM，不再背景重新載入避免錯誤與資源浪費
-            const contents = rendition.getContents()[0];
-            if (!contents) return;
-            const body = contents.document.body;
+        // 背景載入 Spine 以支援脫鉤模式的佇列生成
+        async function buildSpeechQueue(spineIndex) {
+            const item = book.spine.get(spineIndex);
+            if (!item) return false;
+            
+            await item.load(book.load.bind(book)); // 背景提取該章節骨架資料
+            let doc = item.document;
+            if (!doc && book.archive) {
+                try { doc = await book.archive.getXml(item.href); } catch(e){}
+            }
+            if (!doc) return false;
+            
+            let body = doc.querySelector('body');
+            if (!body) return false;
             
             let newQueue = [];
             const walk = (node) => {
@@ -713,13 +1321,11 @@
                             if (cleanS) {
                                 let cfi = "";
                                 try {
-                                    cfi = contents.cfiFromNode(node);
+                                    // 直接利用 epub.js 內部機制將未渲染的 Node 轉換為合法 CFI
+                                    cfi = new ePub.CFI(node, item.cfiBase).toString();
                                 } catch(e) {
-                                    try {
-                                        cfi = contents.cfiFromNode(node.parentElement);
-                                    } catch(e2) {}
+                                    try { cfi = new ePub.CFI(node.parentElement, item.cfiBase).toString(); } catch(e2) {}
                                 }
-
                                 if (cfi) {
                                     newQueue.push({ 
                                         text: cleanS, 
@@ -736,9 +1342,18 @@
             };
             walk(body);
 
-            // === 語言判定：合併章節內文字，計算漢字比例 (30% 閥值) ===
-            const fullChapterText = newQueue.map(item => item.text).join('');
+            // === 語言判定：合併章節內文字，極速特徵字掃描 (S2T) ➔ 漢字比例 (TTS) ===
+            let fullChapterText = newQueue.map(i => i.text).join('');
             if (fullChapterText.length > 0) {
+                // 1. 特徵字極速驗證：決定是否觸發實時簡轉繁
+                if (simpRegex.test(fullChapterText) && s2tConverter) {
+                    fullChapterText = s2tConverter(fullChapterText); // 同步更新大字串以供後續比例精準計算
+                    newQueue.forEach(item => {
+                        item.text = s2tConverter(item.text); // 將佇列字串轉繁，讓 TTS 使用完美台灣口音
+                    });
+                }
+                
+                // 2. 30% 漢字比例驗證：決定 TTS 引擎配對
                 const hanziMatches = fullChapterText.match(/[\u4e00-\u9fa5]/g);
                 const hanziCount = hanziMatches ? hanziMatches.length : 0;
                 currentChapterIsChinese = (hanziCount / fullChapterText.length) >= 0.3;
@@ -746,52 +1361,71 @@
                 currentChapterIsChinese = true; // 預設防呆
             }
 
-            const currentCfi = loc.start.cfi;
-            const endCfi = loc.end.cfi;
-            let startIndex = 0;
-            try {
-                const cfiHelper = new ePub.CFI();
-                let firstVisibleIndex = newQueue.findIndex(item => {
-                    try {
-                        return cfiHelper.compare(item.cfi, currentCfi) >= 0;
-                    } catch(e) {
-                        return false; 
-                    }
-                });
-
-                if (firstVisibleIndex !== -1) {
-                    let firstNewParagraphIndex = -1;
-                    for (let i = firstVisibleIndex; i < newQueue.length; i++) {
-                        try {
-                            if (cfiHelper.compare(newQueue[i].cfi, endCfi) > 0) break;
-                            if (newQueue[i].isNewParagraph) {
-                                firstNewParagraphIndex = i;
-                                break;
-                            }
-                        } catch(e) { break; }
-                    }
-                    startIndex = firstNewParagraphIndex !== -1 ? firstNewParagraphIndex : firstVisibleIndex;
-                }
-            } catch(e) {
-                // 如果 ePub.CFI 無法呼叫的 fallback 保護
-                startIndex = newQueue.findIndex(item => item.cfi >= currentCfi);
-            }
-            
             ttsQueue = newQueue;
-            currentSpeechIndex = startIndex < 0 ? 0 : startIndex;
+            currentSpeechIndex = 0;
+            currentAudioSpineIndex = spineIndex;
+            
+            let cleanHref = item.href.split('#')[0];
+            try { cleanHref = decodeURIComponent(cleanHref); } catch(e){}
+            currentAudioHref = cleanHref;
+            
+            updateTocAudioIcon(); // 更新目錄音符標示
+            
+            return true;
         }
 
         async function startTTS() {
             isPlayingTTS = true;
+            isSyncMode = true; // 重新播放必定還原為跟隨模式
+            updateReturnAudioBtn();
+            
             btnTts.textContent = '⏹';
             btnTts.classList.add('playing');
             await requestWakeLock();
-            await buildSpeechQueueFromCurrentChapter();
+            
+            const loc = rendition.currentLocation();
+            if (loc) {
+                // 從目前畫面所在章節為基準建立佇列
+                const spineItem = book.spine.get(loc.start.cfi);
+                await buildSpeechQueue(spineItem.index);
+                
+                // 比對畫面可見範圍，找到精準的第一句話
+                const currentCfi = loc.start.cfi;
+                const endCfi = loc.end.cfi;
+                let startIndex = 0;
+                try {
+                    const cfiHelper = new ePub.CFI();
+                    let firstVisibleIndex = ttsQueue.findIndex(item => cfiHelper.compare(item.cfi, currentCfi) >= 0);
+                    if (firstVisibleIndex !== -1) {
+                        let firstNewParagraphIndex = -1;
+                        for (let i = firstVisibleIndex; i < ttsQueue.length; i++) {
+                            if (cfiHelper.compare(ttsQueue[i].cfi, endCfi) > 0) break;
+                            if (ttsQueue[i].isNewParagraph) {
+                                firstNewParagraphIndex = i;
+                                break;
+                            }
+                        }
+                        startIndex = firstNewParagraphIndex !== -1 ? firstNewParagraphIndex : firstVisibleIndex;
+                    }
+                } catch(e) {
+                    startIndex = ttsQueue.findIndex(item => item.cfi >= currentCfi);
+                }
+                currentSpeechIndex = Math.max(0, startIndex);
+            } else {
+                await buildSpeechQueue(0);
+                currentSpeechIndex = 0;
+            }
+            
             playNextChunk();
         }
 
         function stopTTS() {
             isPlayingTTS = false;
+            isSyncMode = true;
+            currentAudioCfi = null;
+            currentAudioHref = null;
+            updateReturnAudioBtn();
+            updateTocAudioIcon();
             window.speechSynthesis.cancel();
             releaseWakeLock();
             btnTts.textContent = '▶';
@@ -803,39 +1437,46 @@
             if (!isPlayingTTS) return;
             
             if (currentSpeechIndex >= ttsQueue.length) {
-                isAutoTurning = true;
-                rendition.next().then(() => {
-                    setTimeout(async () => {
-                        isAutoTurning = false;
-                        if (isPlayingTTS) {
-                            await buildSpeechQueueFromCurrentChapter();
-                            playNextChunk();
-                        }
-                    }, 600);
-                });
+                isAutoTurning = true; // 保護換章節期間不受 relocated 影響
+                const nextIndex = currentAudioSpineIndex + 1;
+                if (book.spine && nextIndex < book.spine.length) {
+                    // 背景解析下一章並直接連貫語音，完全不需等待前端畫面翻頁
+                    const success = await buildSpeechQueue(nextIndex);
+                    if (success && ttsQueue.length > 0) {
+                        playNextChunk();
+                    } else {
+                        stopTTS();
+                    }
+                } else {
+                    stopTTS(); // 全書念完
+                }
+                setTimeout(() => isAutoTurning = false, 600);
                 return;
             }
             
             const item = ttsQueue[currentSpeechIndex];
-            const loc = rendition.currentLocation();
+            currentAudioCfi = item.cfi;
             
-            if (loc) {
-                let isOutside = false;
-                try {
-                    const cfiHelper = new ePub.CFI();
-                    if (cfiHelper.compare(item.cfi, loc.end.cfi) > 0 || cfiHelper.compare(item.cfi, loc.start.cfi) < 0) {
-                        isOutside = true;
+            // 跟隨模式下，偵測是否需要畫面自動跟進
+            if (isSyncMode) {
+                const loc = rendition.currentLocation();
+                if (loc) {
+                    let isOutside = false;
+                    try {
+                        const cfiHelper = new ePub.CFI();
+                        if (cfiHelper.compare(item.cfi, loc.end.cfi) > 0 || cfiHelper.compare(item.cfi, loc.start.cfi) < 0) {
+                            isOutside = true;
+                        }
+                    } catch(e) {
+                        if (item.cfi > loc.end.cfi || item.cfi < loc.start.cfi) isOutside = true;
                     }
-                } catch(e) {
-                    if (item.cfi > loc.end.cfi || item.cfi < loc.start.cfi) isOutside = true;
-                }
 
-                if (isOutside) {
-                    isAutoTurning = true;
-                    await rendition.display(item.cfi);
-                    // 延長 isAutoTurning 的保護時間，確保 display 觸發的 relocated 事件被完全攔截核銷
-                    await new Promise(r => setTimeout(r, 400));
-                    isAutoTurning = false;
+                    if (isOutside) {
+                        isAutoTurning = true;
+                        await rendition.display(item.cfi);
+                        await new Promise(r => setTimeout(r, 400));
+                        isAutoTurning = false;
+                    }
                 }
             }
 
@@ -878,18 +1519,22 @@
                 const response = await fetch(url);
                 if (!response.ok) throw new Error(`伺服器回應錯誤: ${response.status}`);
                 const arrayBuffer = await response.arrayBuffer();
-                await saveBookToDB(arrayBuffer);
+                const id = url;
+                let titleName = url.split('/').pop() || url;
+                try { titleName = decodeURIComponent(titleName).replace(/\.epub$/i, ''); } catch(e){ titleName = titleName.replace(/\.epub$/i, ''); }
+                await saveBookToDB(id, arrayBuffer, titleName);
                 initBook(arrayBuffer);
             } catch (error) {
                 showLoading(false);
                 showModal({
                     title: '⚠️ 無法直接載入此網址',
-                    desc: '目標網站無法直接載入。<br><br>請依以下步驟操作：<br>1. 點擊下方按鈕手動下載 EPUB 檔案。<br>2. 回到本頁面，透過「📂 上傳本機檔案」開啟。',
+                    desc: '目標網站無法直接載入。<br><br>請依以下步驟操作：<br>1. 點擊下方按鈕手動下載 EPUB 檔案。<br>2. 回到本頁面，透過「📂 本機檔案載入」開啟。',
                     actionText: '⬇️ 手動下載',
                     onAction: () => {
                         const link = document.createElement('a'); link.href = url; link.target = '_blank';
                         link.download = url.split('/').pop() || 'download.epub'; 
                         document.body.appendChild(link); link.click(); document.body.removeChild(link);
+                        switchTab('local');
                     }
                 });
             }
@@ -909,7 +1554,9 @@
                 const reader = new FileReader();
                 reader.onload = async (event) => {
                     showLoading(true, '正在處理並暫存電子書...');
-                    await saveBookToDB(event.target.result);
+                    const id = file.name + '_' + file.size;
+                    // 過濾掉本機檔案的 .epub 副檔名
+                    await saveBookToDB(id, event.target.result, file.name.replace(/\.epub$/i, ''));
                     initBook(event.target.result); 
                 };
                 reader.readAsArrayBuffer(file);
@@ -958,6 +1605,18 @@
                         }
 
                         if (!body) continue;
+
+                        // 處理列印檔的簡轉繁防呆
+                        if (simpRegex.test(body.textContent || "") && s2tConverter) {
+                            const walkPrint = (node) => {
+                                if (node.nodeType === 3) {
+                                    if (node.nodeValue.trim()) node.nodeValue = s2tConverter(node.nodeValue);
+                                } else if (node.nodeType === 1 && !['SCRIPT', 'STYLE'].includes(node.tagName.toUpperCase())) {
+                                    Array.from(node.childNodes).forEach(walkPrint);
+                                }
+                            };
+                            walkPrint(body);
+                        }
 
                         const links = body.querySelectorAll('a[href]');
                         for (let a of links) {
@@ -1073,7 +1732,24 @@
         });
 
         window.addEventListener('DOMContentLoaded', async () => {
+            initRecommendModal(); // v3.22 載入推薦書庫事件
+            initPWAInstall();     // v3.28 載入 PWA 安裝邏輯
+
+            // 將儲存的語速偏好同步回介面的下拉選單
+            document.getElementById('tts-rate-select').value = currentTtsRate.toFixed(1);
+
             if (document.getElementById('iab-warning-overlay').style.display === 'flex') return;
+            
+            // v3.24: 頁籤動態預設邏輯 (檢查 DB 決定初始顯示的頁籤)
+            const initBooks = await getAllBooksFromDB();
+            if (initBooks.length > 0) {
+                switchTab('recent');
+            } else {
+                switchTab('local');
+            }
+            // 同步渲染最近閱讀清單
+            await renderRecentReads();
+
             const params = new URLSearchParams(window.location.search);
             const srcUrl = params.get('src');
             
@@ -1081,11 +1757,14 @@
                 urlInput.value = srcUrl; 
                 loadBookFromUrl(srcUrl); 
             } else {
-                // 若無網址載入需求，檢查 IndexedDB 是否有上次被系統強制關閉的暫存進度
-                const savedRecord = await loadBookFromDB();
-                if (savedRecord && savedRecord.data) {
-                    showLoading(true, '正在恢復上次的閱讀進度...');
-                    initBook(savedRecord.data, savedRecord.location);
+                const targetId = await getCurrentPointer();
+                if (targetId) {
+                    const savedRecord = await loadBookDataFromDB(targetId);
+                    if (savedRecord && savedRecord.data) {
+                        currentBookId = targetId; 
+                        showLoading(true, '正在恢復上次的閱讀進度...');
+                        initBook(savedRecord.data, savedRecord.location);
+                    }
                 }
             }
         });

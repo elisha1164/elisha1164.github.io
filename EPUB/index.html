@@ -491,9 +491,10 @@
 
     <div id="print-area"></div>
     
-    <div class="version-tag">v3.28</div>
+    <div class="version-tag">v3.29</div>
 
     <script>
+        // v3.29 (重構：升級 TTS 語音佇列演算法，採用區塊級提取與智能雙層斷句，徹底解決粗體卡頓與長字串崩潰問題)
         // v3.28 (新增：加到桌面 PWA 智慧安裝提示，支援 Android 原生 Prompt 與 iOS 圖文引導)
         // v3.27 (修正：移除 SVG favicon，統一使用 PWA 指定的 icon)
         // v3.26 (新增：加入 Open Graph 與 PWA Meta Tags，支援加入主畫面與社群分享預覽)
@@ -1250,7 +1251,7 @@
         }
 
         // ==========================================
-        // 朗讀 (TTS) 與 防休眠 (Wake Lock) 核心機制
+        // 朗讀 (TTS) 與 防休眠 (Wake Lock) 核心機制 (v3.29 升級版)
         // ==========================================
         async function requestWakeLock() {
             try {
@@ -1295,7 +1296,7 @@
             return voice;
         }
 
-        // 背景載入 Spine 以支援脫鉤模式的佇列生成
+        // v3.29 重構：背景載入 Spine 以支援脫鉤模式的佇列生成
         async function buildSpeechQueue(spineIndex) {
             const item = book.spine.get(spineIndex);
             if (!item) return false;
@@ -1311,33 +1312,97 @@
             if (!body) return false;
             
             let newQueue = [];
-            const walk = (node) => {
-                if (node.nodeType === 3) { 
-                    let text = node.textContent.trim();
-                    if (text.length > 0) {
-                        const sentences = text.match(/[^。！？.!?\n]+[。！？.!?\n]*/g) || [text];
-                        sentences.forEach(s => {
-                            let cleanS = s.trim();
-                            if (cleanS) {
-                                let cfi = "";
-                                try {
-                                    // 直接利用 epub.js 內部機制將未渲染的 Node 轉換為合法 CFI
-                                    cfi = new ePub.CFI(node, item.cfiBase).toString();
-                                } catch(e) {
-                                    try { cfi = new ePub.CFI(node.parentElement, item.cfiBase).toString(); } catch(e2) {}
-                                }
-                                if (cfi) {
-                                    newQueue.push({ 
-                                        text: cleanS, 
-                                        cfi: cfi, 
-                                        isNewParagraph: /^(P|DIV|H[1-6]|LI)$/i.test(node.parentElement.tagName) 
-                                    });
-                                }
+            
+            // 定義需要提取文字的區塊級元素標籤
+            const blockTags = new Set(['P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'BLOCKQUOTE', 'TD', 'TH', 'SECTION', 'ARTICLE']);
+            
+            // v3.29: 將過長字串進行智能雙層切割並推入佇列
+            const chunkAndPush = (text, cfi) => {
+                // 第一層：核心標點符號與防孤立引號綁定
+                let parts = text.split(/([。！？.!?…]+[」』”']*)/);
+                let sentences = [];
+                for (let i = 0; i < parts.length; i += 2) {
+                    let s = (parts[i] || "") + (parts[i+1] || "");
+                    s = s.trim();
+                    if (s) sentences.push(s);
+                }
+
+                let currentChunk = "";
+                sentences.forEach(s => {
+                    if (s.length > 250) {
+                        // 第二層：極端長句防護，使用分號與冒號切割
+                        let subParts = s.split(/([；;：:]+[」』”']*)/);
+                        let subSentences = [];
+                        for (let j = 0; j < subParts.length; j += 2) {
+                            let sub = (subParts[j] || "") + (subParts[j+1] || "");
+                            sub = sub.trim();
+                            if (sub) subSentences.push(sub);
+                        }
+                        subSentences.forEach(sub => {
+                            if (currentChunk.length + sub.length > 250 && currentChunk.length > 0) {
+                                newQueue.push({ text: currentChunk, cfi: cfi });
+                                currentChunk = sub;
+                            } else {
+                                currentChunk += sub;
                             }
                         });
+                    } else {
+                        if (currentChunk.length + s.length > 250 && currentChunk.length > 0) {
+                            newQueue.push({ text: currentChunk, cfi: cfi });
+                            currentChunk = s;
+                        } else {
+                            currentChunk += s;
+                        }
                     }
-                } else if (node.nodeType === 1 && !['SCRIPT', 'STYLE', 'SVG', 'IMG'].includes(node.tagName.toUpperCase())) {
+                });
+                if (currentChunk) {
+                    newQueue.push({ text: currentChunk, cfi: cfi });
+                }
+            };
+
+            // v3.29: 區塊級巡覽 DOM Tree
+            const walk = (node) => {
+                if (node.nodeType === 1) { // 元素節點
+                    const tag = node.tagName.toUpperCase();
+                    if (['SCRIPT', 'STYLE', 'SVG', 'IMG'].includes(tag)) return;
+
+                    // 檢查是否含有區塊級子元素，若有則繼續往下挖，避免重複提取
+                    let hasBlockChild = false;
+                    for (let child of node.children) {
+                        if (blockTags.has(child.tagName.toUpperCase())) {
+                            hasBlockChild = true;
+                            break;
+                        }
+                    }
+
+                    if (blockTags.has(tag) && !hasBlockChild) {
+                        // 找到最底層的區塊元素 (如 <p>)，整塊提取其文字以無視內部的 <b> 或 <span>
+                        let text = node.textContent.trim();
+                        if (text.length > 0) {
+                            let cfi = "";
+                            try { cfi = new ePub.CFI(node, item.cfiBase).toString(); } catch(e) {}
+                            // 若節點無法產生 CFI，嘗試向上找尋父節點
+                            if (!cfi && node.parentElement) {
+                                try { cfi = new ePub.CFI(node.parentElement, item.cfiBase).toString(); } catch(e2) {}
+                            }
+                            if (cfi) {
+                                chunkAndPush(text, cfi);
+                            }
+                        }
+                        return; // 已經整塊提取完畢，停止進入其子節點
+                    }
                     Array.from(node.childNodes).forEach(walk);
+                    
+                } else if (node.nodeType === 3) { // 孤立的文字節點 (不在區塊標籤內的文字)
+                    let text = node.textContent.trim();
+                    if (text.length > 0) {
+                        let cfi = "";
+                        try { cfi = new ePub.CFI(node, item.cfiBase).toString(); } catch(e) {}
+                        if (!cfi && node.parentElement) { 
+                            try { cfi = new ePub.CFI(node.parentElement, item.cfiBase).toString(); } catch(e2) {} 
+                        }
+                        if (cfi) chunkAndPush(text, cfi);
+                    }
                 }
             };
             walk(body);
@@ -1389,24 +1454,12 @@
                 const spineItem = book.spine.get(loc.start.cfi);
                 await buildSpeechQueue(spineItem.index);
                 
-                // 比對畫面可見範圍，找到精準的第一句話
+                // 比對畫面可見範圍，找到精準的第一句話 (因演算法升級，CFI 必定對齊段落開頭)
                 const currentCfi = loc.start.cfi;
-                const endCfi = loc.end.cfi;
                 let startIndex = 0;
                 try {
                     const cfiHelper = new ePub.CFI();
-                    let firstVisibleIndex = ttsQueue.findIndex(item => cfiHelper.compare(item.cfi, currentCfi) >= 0);
-                    if (firstVisibleIndex !== -1) {
-                        let firstNewParagraphIndex = -1;
-                        for (let i = firstVisibleIndex; i < ttsQueue.length; i++) {
-                            if (cfiHelper.compare(ttsQueue[i].cfi, endCfi) > 0) break;
-                            if (ttsQueue[i].isNewParagraph) {
-                                firstNewParagraphIndex = i;
-                                break;
-                            }
-                        }
-                        startIndex = firstNewParagraphIndex !== -1 ? firstNewParagraphIndex : firstVisibleIndex;
-                    }
+                    startIndex = ttsQueue.findIndex(item => cfiHelper.compare(item.cfi, currentCfi) >= 0);
                 } catch(e) {
                     startIndex = ttsQueue.findIndex(item => item.cfi >= currentCfi);
                 }
@@ -1487,10 +1540,10 @@
             
             window.__currentUtterance = utterance;
             
+            // v3.29 移除人工 baseDelay，完全交由語音引擎原生的標點判定控制停頓節奏
             utterance.onend = () => { 
                 currentSpeechIndex++; 
-                const baseDelay = (ttsQueue[currentSpeechIndex] && ttsQueue[currentSpeechIndex].isNewParagraph) ? 500 : 50;
-                setTimeout(playNextChunk, baseDelay / currentTtsRate); 
+                playNextChunk(); 
             };
             utterance.onerror = (e) => { 
                 console.warn("TTS Error", e); 
