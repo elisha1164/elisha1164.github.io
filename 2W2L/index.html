@@ -85,6 +85,14 @@
             opacity: 1;
         }
 
+        /* 移除純 CSS 的強制橫向阻擋，改由 JS 加上特定 class 才啟用 */
+        .is-mobile-device.is-landscape .landscape-warning {
+            display: flex !important;
+        }
+        .is-mobile-device.is-landscape #app-content {
+            display: none !important;
+        }
+
         /* iOS Install Modal */
         #ios-install-modal {
             display: none;
@@ -210,6 +218,35 @@
 
     <script>
         
+        // --- Device and Orientation Detection Logic ---
+        
+        // 1. Detect if the user is on a mobile device (includes tablets)
+        const isMobileDevice = () => {
+            return (typeof window.orientation !== "undefined") || (navigator.userAgent.indexOf('IEMobile') !== -1) || (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
+        };
+
+        // 2. Apply a class to the body if it's a mobile device
+        if (isMobileDevice()) {
+            document.body.classList.add('is-mobile-device');
+        }
+
+        // 3. Monitor orientation changes to toggle the landscape warning class
+        const checkOrientation = () => {
+            if (window.innerWidth > window.innerHeight) {
+                document.body.classList.add('is-landscape');
+            } else {
+                document.body.classList.remove('is-landscape');
+            }
+        };
+
+        // Check on initial load
+        checkOrientation();
+
+        // Check whenever the window resizes or orientation changes
+        window.addEventListener('resize', checkOrientation);
+        window.addEventListener('orientationchange', checkOrientation);
+
+
         // Fix for mobile 100vh issue (especially iOS Safari)
         const appHeight = () => {
             const doc = document.documentElement
