@@ -1,3 +1,7 @@
+<!-- 
+版本號：v1.2
+修改主旨：修復電腦版被誤判為橫向而遭阻擋的問題；導入深色模式；更新頁面標籤為數字 1-6。
+-->
 <!DOCTYPE html>
 <html lang="zh-Hant-TW">
 <head>
@@ -85,11 +89,11 @@
             opacity: 1;
         }
 
-        /* 移除純 CSS 的強制橫向阻擋，改由 JS 加上特定 class 才啟用 */
-        .is-mobile-device.is-landscape .landscape-warning {
+        /* 只有在 body 同時具有 is-mobile-device 和 is-landscape 時，才顯示警告並隱藏內容 */
+        body.is-mobile-device.is-landscape .landscape-warning {
             display: flex !important;
         }
-        .is-mobile-device.is-landscape #app-content {
+        body.is-mobile-device.is-landscape #app-content {
             display: none !important;
         }
 
@@ -221,20 +225,28 @@
         // --- Device and Orientation Detection Logic ---
         
         // 1. Detect if the user is on a mobile device (includes tablets)
+        // 增加觸控螢幕判斷，更準確識別行動裝置
         const isMobileDevice = () => {
-            return (typeof window.orientation !== "undefined") || (navigator.userAgent.indexOf('IEMobile') !== -1) || (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
+            return (typeof window.orientation !== "undefined") || 
+                   (navigator.userAgent.indexOf('IEMobile') !== -1) || 
+                   (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) ||
+                   (window.matchMedia("(any-pointer:coarse)").matches);
         };
 
-        // 2. Apply a class to the body if it's a mobile device
-        if (isMobileDevice()) {
-            document.body.classList.add('is-mobile-device');
-        }
-
-        // 3. Monitor orientation changes to toggle the landscape warning class
+        // 2. Monitor orientation changes to toggle the landscape warning class
         const checkOrientation = () => {
-            if (window.innerWidth > window.innerHeight) {
-                document.body.classList.add('is-landscape');
+            // 只有行動裝置才需要進行方向檢查
+            if (isMobileDevice()) {
+                document.body.classList.add('is-mobile-device');
+                // 使用 window.innerWidth/innerHeight 判斷，避免部分舊設備 orientation 不準確
+                if (window.innerWidth > window.innerHeight) {
+                    document.body.classList.add('is-landscape');
+                } else {
+                    document.body.classList.remove('is-landscape');
+                }
             } else {
+                // 如果不是行動裝置，確保移除這些 class，避免任何干擾
+                document.body.classList.remove('is-mobile-device');
                 document.body.classList.remove('is-landscape');
             }
         };
