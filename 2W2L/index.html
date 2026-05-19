@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>人生二路</title>
+
+    <!-- PWA Manifest & Icons -->
+    <link rel="manifest" href="./manifest.json">
+    <meta name="theme-color" content="#1e293b">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="人生二路">
+    <link rel="apple-touch-icon" href="./icon-180.png">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Swiper CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
+
+    <!-- Lottie Web Player -->
+    <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
+
+    <style>
+        :root {
+            --app-height: 100vh;
+        }
+
+        html, body {
+            height: var(--app-height);
+            width: 100vw;
+            margin: 0;
+            padding: 0;
+            overflow: hidden; /* Prevent scrolling outside swiper */
+            background-color: #f8fafc;
+            font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+            /* Force portrait feel by preventing landscape rotation if possible, though mostly handled by media queries */
+            overscroll-behavior-y: none;
+        }
+
+        /* Enforce Portrait orientation suggestion */
+        @media screen and (orientation: landscape) {
+            .landscape-warning {
+                display: flex !important;
+            }
+            #app-content {
+                display: none !important;
+            }
+        }
+
+        /* Swiper adjustments */
+        .swiper {
+            width: 100%;
+            height: 100%;
+        }
+
+        .swiper-slide {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem 1.5rem;
+            box-sizing: border-box;
+        }
+
+        /* Lottie Container */
+        .lottie-container {
+            width: 80vw;
+            max-width: 350px;
+            aspect-ratio: 1 / 1;
+            margin-bottom: 2rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Custom Pagination */
+        .swiper-pagination-bullet {
+            background: #94a3b8;
+            opacity: 0.5;
+        }
+        .swiper-pagination-bullet-active {
+            background: #334155;
+            opacity: 1;
+        }
+
+        /* iOS Install Modal */
+        #ios-install-modal {
+            display: none;
+        }
+        #ios-install-modal.show {
+            display: flex;
+        }
+    </style>
+</head>
+<body class="text-slate-800 select-none">
+
+    <div class="landscape-warning fixed inset-0 z-50 bg-slate-900 text-white flex-col items-center justify-center hidden">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+        </svg>
+        <p class="text-xl font-bold">請將手機轉為直式</p>
+        <p class="text-sm text-slate-400 mt-2">此應用程式專為直向螢幕設計</p>
+    </div>
+
+    <div id="app-content" class="w-full h-full relative">
+        <div class="swiper mySwiper">
+            <div class="swiper-wrapper">
+                
+                <!-- Slide 1 -->
+                <div class="swiper-slide">
+                    <div class="text-center mb-8">
+                        <span class="text-slate-400 font-bold text-lg tracking-widest uppercase">第一步</span>
+                        <h2 class="text-3xl font-extrabold text-slate-800 mt-2 leading-tight">神，良善的統治者及創造主</h2>
+                    </div>
+                    <div class="lottie-container drop-shadow-xl bg-white rounded-full p-4 border-4 border-slate-100">
+                        <lottie-player src="./Badge1.json" background="transparent" speed="1" style="width: 100%; height: 100%;" loop autoplay></lottie-player>
+                    </div>
+                </div>
+
+                <!-- Slide 2 -->
+                <div class="swiper-slide">
+                    <div class="text-center mb-8">
+                        <span class="text-slate-400 font-bold text-lg tracking-widest uppercase">第二步</span>
+                        <h2 class="text-3xl font-extrabold text-slate-800 mt-2 leading-tight">我們反叛了神</h2>
+                    </div>
+                    <div class="lottie-container drop-shadow-xl bg-white rounded-full p-4 border-4 border-slate-100">
+                        <lottie-player src="./Badge2.json" background="transparent" speed="1" style="width: 100%; height: 100%;" loop autoplay></lottie-player>
+                    </div>
+                </div>
+
+                <!-- Slide 3 -->
+                <div class="swiper-slide">
+                    <div class="text-center mb-8">
+                        <span class="text-slate-400 font-bold text-lg tracking-widest uppercase">第三步</span>
+                        <h2 class="text-3xl font-extrabold text-slate-800 mt-2 leading-tight">神是公義的</h2>
+                    </div>
+                    <div class="lottie-container drop-shadow-xl bg-white rounded-full p-4 border-4 border-slate-100">
+                        <lottie-player src="./Badge3.json" background="transparent" speed="1" style="width: 100%; height: 100%;" loop autoplay></lottie-player>
+                    </div>
+                </div>
+
+                <!-- Slide 4 -->
+                <div class="swiper-slide">
+                    <div class="text-center mb-8">
+                        <span class="text-slate-400 font-bold text-lg tracking-widest uppercase">第四步</span>
+                        <h2 class="text-3xl font-extrabold text-slate-800 mt-2 leading-tight">神派耶穌替我們受罰</h2>
+                    </div>
+                    <div class="lottie-container drop-shadow-xl bg-white rounded-full p-4 border-4 border-slate-100">
+                        <lottie-player src="./Badge4.json" background="transparent" speed="1" style="width: 100%; height: 100%;" loop autoplay></lottie-player>
+                    </div>
+                </div>
+
+                <!-- Slide 5 -->
+                <div class="swiper-slide">
+                    <div class="text-center mb-8">
+                        <span class="text-slate-400 font-bold text-lg tracking-widest uppercase">第五步</span>
+                        <h2 class="text-3xl font-extrabold text-slate-800 mt-2 leading-tight">耶穌，復活的統治者及拯救者</h2>
+                    </div>
+                    <div class="lottie-container drop-shadow-xl bg-white rounded-full p-4 border-4 border-slate-100">
+                        <lottie-player src="./Badge5.json" background="transparent" speed="1" style="width: 100%; height: 100%;" loop autoplay></lottie-player>
+                    </div>
+                </div>
+
+                <!-- Slide 6 -->
+                <div class="swiper-slide">
+                    <div class="text-center mb-8">
+                        <span class="text-slate-400 font-bold text-lg tracking-widest uppercase">第六步</span>
+                        <h2 class="text-3xl font-extrabold text-slate-800 mt-2 leading-tight">人生兩條路，你怎麼選？</h2>
+                    </div>
+                    <div class="lottie-container drop-shadow-xl bg-white rounded-full p-4 border-4 border-slate-100">
+                        <lottie-player src="./Badge6.json" background="transparent" speed="1" style="width: 100%; height: 100%;" loop autoplay></lottie-player>
+                    </div>
+                </div>
+
+            </div>
+            <!-- Pagination Indicator -->
+            <div class="swiper-pagination mb-4"></div>
+        </div>
+    </div>
+
+    <div id="ios-install-modal" class="fixed inset-0 z-50 bg-black/60 items-end justify-center pb-8 px-4 transition-opacity">
+        <div class="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl transform transition-transform translate-y-0 relative">
+            <button id="close-ios-modal" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+            <div class="text-center">
+                <div class="bg-slate-100 w-16 h-16 rounded-2xl mx-auto flex items-center justify-center mb-4">
+                    <img src="./icon-180.png" alt="App Icon" class="w-12 h-12 rounded-xl" onerror="this.src='https://placehold.co/180x180/1e293b/ffffff?text=2W'">
+                </div>
+                <h3 class="text-xl font-bold text-slate-800 mb-2">安裝到主畫面</h3>
+                <p class="text-sm text-slate-500 mb-6">將「人生二路」加入主畫面，以獲得全螢幕的最佳體驗。</p>
+                <div class="flex flex-col items-center justify-center space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                    <div class="flex items-center text-sm text-slate-700">
+                        1. 點擊下方工具列的 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mx-1 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg> 分享按鈕
+                    </div>
+                    <div class="flex items-center text-sm text-slate-700">
+                        2. 選擇「加入主畫面」 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mx-1 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Swiper JS -->
+    <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+
+    <script>
+        
+        // Fix for mobile 100vh issue (especially iOS Safari)
+        const appHeight = () => {
+            const doc = document.documentElement
+            doc.style.setProperty('--app-height', `${window.innerHeight}px`)
+        }
+        window.addEventListener('resize', appHeight)
+        appHeight()
+
+        // Initialize Swiper
+        const swiper = new Swiper(".mySwiper", {
+            direction: "horizontal", // Swipe left/right
+            loop: false,             // Do not loop
+            resistanceRatio: 0.85,   // Bouncy resistance at edges
+            pagination: {
+                el: ".swiper-pagination",
+                clickable: true,
+            },
+        });
+
+        
+        // Register Service Worker (Required for Android PWA prompt)
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                // We create a dummy service worker script string to blob to register it
+                // In a real scenario, you'd have a separate sw.js file.
+                const swCode = `
+                    self.addEventListener('install', (e) => { self.skipWaiting(); });
+                    self.addEventListener('activate', (e) => { e.waitUntil(clients.claim()); });
+                    self.addEventListener('fetch', (e) => { 
+                        // simple passthrough
+                    });
+                `;
+                const blob = new Blob([swCode], {type: 'application/javascript'});
+                const swUrl = URL.createObjectURL(blob);
+
+                navigator.serviceWorker.register(swUrl)
+                    .then(registration => {
+                        console.log('ServiceWorker registration successful');
+                    })
+                    .catch(err => {
+                        console.log('ServiceWorker registration failed: ', err);
+                    });
+            });
+        }
+
+        // Handle Android Install Prompt
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            // Prevent the mini-infobar from appearing on mobile
+            e.preventDefault();
+            // Stash the event so it can be triggered later.
+            deferredPrompt = e;
+            
+            // Note: Since this is an automatic intent, we'll try to trigger it automatically 
+            // after a short delay, or you could bind it to a UI button.
+            // For this design, we will just let Android handle the default prompt if we call prompt()
+            setTimeout(() => {
+                if(deferredPrompt) {
+                     deferredPrompt.prompt();
+                     deferredPrompt.userChoice.then((choiceResult) => {
+                         if (choiceResult.outcome === 'accepted') {
+                             console.log('User accepted the A2HS prompt');
+                         }
+                         deferredPrompt = null;
+                     });
+                }
+            }, 3000); // Try prompting after 3 seconds
+        });
+
+        // Detect iOS (Safari) to show manual install modal
+        const isIos = () => {
+            const userAgent = window.navigator.userAgent.toLowerCase();
+            return /iphone|ipad|ipod/.test( userAgent );
+        }
+        
+        // Detect if the app is already in standalone mode (installed)
+        const isInStandaloneMode = () => {
+            return ('standalone' in window.navigator) && (window.navigator.standalone);
+        }
+
+        // Show iOS Modal if needed
+        if (isIos() && !isInStandaloneMode()) {
+            // Show modal after a slight delay to ensure everything loaded
+            setTimeout(() => {
+                const iosModal = document.getElementById('ios-install-modal');
+                if(iosModal) {
+                    iosModal.classList.add('show');
+                }
+            }, 2000);
+        }
+
+        // Close iOS Modal logic
+        const closeBtn = document.getElementById('close-ios-modal');
+        if(closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                document.getElementById('ios-install-modal').classList.remove('show');
+            });
+        }
+    </script>
+</body>
+</html>
