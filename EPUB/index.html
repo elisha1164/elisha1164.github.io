@@ -274,7 +274,7 @@
            滑出式側邊目錄 (Off-canvas TOC)
            ========================================== */
         #toc-tab {
-            position: fixed; left: 0; top: 50%; transform: translateY(-50%);
+            position: fixed; left: 0; top: 80px; /* v3.31 調整：從垂直置中改至左上，避開上一頁與關閉鈕 */
             background: rgba(0, 86, 179, 0.6); color: white;
             padding: 15px 8px; border-radius: 0 8px 8px 0; cursor: pointer; z-index: 20;
             font-size: 18px; box-shadow: 2px 0 5px rgba(0,0,0,0.1); transition: all 0.3s;
@@ -329,6 +329,20 @@
         .modal-actions button { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; transition: background 0.2s; }
         .btn-cancel { background: #e0e0e0; color: #333; } .btn-cancel:hover { background: #ccc; }
         .btn-download { background: #0056b3; color: #fff; } .btn-download:hover { background: #004494; }
+
+        /* TTS 語音資訊 Tooltip (v3.31) */
+        .tts-info-wrapper { position: relative; display: flex; align-items: center; }
+        .tts-tooltip {
+            position: absolute; top: 100%; right: 0; margin-top: 8px;
+            background: rgba(0,0,0,0.8); color: #fff; padding: 6px 12px;
+            border-radius: 6px; font-size: 13px; font-weight: normal;
+            white-space: nowrap; z-index: 1000; box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            display: none; pointer-events: none; animation: modalFadeIn 0.2s ease;
+        }
+        .tts-tooltip::before {
+            content: ''; position: absolute; bottom: 100%; right: 15px;
+            border-width: 6px; border-style: solid; border-color: transparent transparent rgba(0,0,0,0.8) transparent;
+        }
 
         #iab-warning-overlay {
             position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: #f4f4f9; color: #333;
@@ -434,6 +448,11 @@
             </div>
             <button id="btn-return-audio">🎧 返回朗讀位置</button>
             <div id="settings-panel">
+                <!-- 新增 TTS 語音資訊按鈕與 Tooltip (v3.31) -->
+                <div class="tts-info-wrapper">
+                    <button id="btn-tts-voice-info" class="tool-btn" title="目前語音資訊">🗣️</button>
+                    <div id="tts-voice-tooltip" class="tts-tooltip">語音名稱載入中...</div>
+                </div>
                 <select id="tts-rate-select" class="tool-btn" title="語音速度">
                     <option value="0.8">0.8x</option>
                     <option value="1.0">1.0x</option>
@@ -491,9 +510,10 @@
 
     <div id="print-area"></div>
     
-    <div class="version-tag">v3.30</div>
+    <div class="version-tag">v3.31</div>
 
     <script>
+        // v3.31 (新增：目錄頁籤移至左上角避開操作區；新增齒輪選單內的 TTS 語音名稱 Tooltip 顯示功能)
         // v3.30 (優化：網址載入失敗時，智慧解析並顯示目標 EPUB 檔名，提升錯誤引導體驗)
         // v3.29 (重構：升級 TTS 語音佇列演算法，採用區塊級提取與智能雙層斷句，徹底解決粗體卡頓與長字串崩潰問題)
         // v3.28 (新增：加到桌面 PWA 智慧安裝提示，支援 Android 原生 Prompt 與 iOS 圖文引導)
@@ -1060,6 +1080,26 @@
         ttsRateSelect.addEventListener('change', (e) => { 
             currentTtsRate = parseFloat(e.target.value); 
             localStorage.setItem('EPUB_ttsRate', currentTtsRate);
+        });
+
+        // TTS 語音名稱 Tooltip 顯示邏輯 (v3.31)
+        const btnVoiceInfo = document.getElementById('btn-tts-voice-info');
+        const tooltipVoice = document.getElementById('tts-voice-tooltip');
+        
+        btnVoiceInfo.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const voice = getBestVoice(currentChapterIsChinese);
+            tooltipVoice.textContent = voice ? voice.name : '系統預設語音';
+            tooltipVoice.style.display = tooltipVoice.style.display === 'block' ? 'none' : 'block';
+            
+            // 3秒後自動隱藏
+            setTimeout(() => { tooltipVoice.style.display = 'none'; }, 3000);
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!btnVoiceInfo.contains(e.target)) {
+                tooltipVoice.style.display = 'none';
+            }
         });
 
         document.getElementById('btn-font-dec').addEventListener('click', () => { currentFontSize = Math.max(80, currentFontSize - 10); applyStyles(); });
