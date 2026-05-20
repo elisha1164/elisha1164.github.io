@@ -510,9 +510,10 @@
 
     <div id="print-area"></div>
     
-    <div class="version-tag">v3.31</div>
+    <div class="version-tag">v3.32</div>
 
     <script>
+        // v3.32 (修復：針對 iOS Safari 導入 TTS 解鎖機制 (Prime the pump) 與全域變數 GC 防護，解決無聲與異常中斷問題)
         // v3.31 (新增：目錄頁籤移至左上角避開操作區；新增齒輪選單內的 TTS 語音名稱 Tooltip 顯示功能)
         // v3.30 (優化：網址載入失敗時，智慧解析並顯示目標 EPUB 檔名，提升錯誤引導體驗)
         // v3.29 (重構：升級 TTS 語音佇列演算法，採用區塊級提取與智能雙層斷句，徹底解決粗體卡頓與長字串崩潰問題)
@@ -937,6 +938,8 @@
         let currentTtsRate = parseFloat(localStorage.getItem('EPUB_ttsRate')) || 1.0;
 
         // TTS 狀態與視聽分離追蹤
+        window.__activeUtterances = []; // v3.32 新增：強制將所有 Utterance 存入全域陣列，防止 iOS Safari GC 回收
+        let isTtsPrimed = false; // v3.32 追蹤是否已經解鎖 iOS 語音引擎
         let isPlayingTTS = false;
         let isAutoTurning = false;
         let isSyncMode = true; // 預設跟隨模式
@@ -1579,7 +1582,9 @@
             if (voice) utterance.voice = voice;
             utterance.rate = currentTtsRate;
             
-            window.__currentUtterance = utterance;
+            // v3.32 GC 防護：放入全域陣列，並清理已唸完的舊物件，嚴防 Safari 回收
+            window.__activeUtterances.push(utterance);
+            if (window.__activeUtterances.length > 3) window.__activeUtterances.shift();
             
             // v3.29 移除人工 baseDelay，完全交由語音引擎原生的標點判定控制停頓節奏
             utterance.onend = () => { 
@@ -1600,6 +1605,15 @@
         }
 
         btnTts.addEventListener('click', () => {
+            // v3.32 核心修復：iOS "Prime the pump" (解鎖引擎)
+            // 必須在使用者點擊的「同步」週期內立刻執行 speak，獲取該 Session 的永久發聲權限
+            if (!isTtsPrimed && !isPlayingTTS) {
+                const primeUtterance = new SpeechSynthesisUtterance('');
+                window.__activeUtterances.push(primeUtterance);
+                window.speechSynthesis.speak(primeUtterance);
+                isTtsPrimed = true;
+            }
+
             if (isPlayingTTS) stopTTS();
             else startTTS();
         });
