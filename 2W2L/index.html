@@ -1,6 +1,6 @@
 <!-- 
-版本號：v1.6
-修改主旨：取消橫向螢幕的警告與阻擋機制，新增 Open Graph Meta Tags，並更新部分投影片標題。
+版本號：v1.8
+修改主旨：優化效能，利用 Swiper 的 slideChangeTransitionEnd 事件，只讓當前畫面的 Lottie 動畫播放，非當前畫面停止播放，並移除 HTML 中預設的 autoplay。
 -->
 <!DOCTYPE html>
 <html lang="zh-Hant-TW">
@@ -121,7 +121,7 @@
                         <h2 class="text-3xl font-extrabold text-white mt-2 leading-tight">神，良善的統治者及創造主</h2>
                     </div>
                     <div class="lottie-container">
-                        <lottie-player src="./Badge1.json" background="transparent" speed="1" style="width: 100%; height: 100%;" loop autoplay></lottie-player>
+                        <lottie-player src="./Badge1.json" background="transparent" speed="1" style="width: 100%; height: 100%;" loop></lottie-player>
                     </div>
                 </div>
 
@@ -132,7 +132,7 @@
                         <h2 class="text-3xl font-extrabold text-white mt-2 leading-tight">我們反叛了神，我們是邪惡的</h2>
                     </div>
                     <div class="lottie-container">
-                        <lottie-player src="./Badge2.json" background="transparent" speed="1" style="width: 100%; height: 100%;" loop autoplay></lottie-player>
+                        <lottie-player src="./Badge2.json" background="transparent" speed="1" style="width: 100%; height: 100%;" loop></lottie-player>
                     </div>
                 </div>
 
@@ -143,7 +143,7 @@
                         <h2 class="text-3xl font-extrabold text-white mt-2 leading-tight">神是公義的，必刑罰所有惡人</h2>
                     </div>
                     <div class="lottie-container">
-                        <lottie-player src="./Badge3.json" background="transparent" speed="1" style="width: 100%; height: 100%;" loop autoplay></lottie-player>
+                        <lottie-player src="./Badge3.json" background="transparent" speed="1" style="width: 100%; height: 100%;" loop></lottie-player>
                     </div>
                 </div>
 
@@ -154,7 +154,7 @@
                         <h2 class="text-3xl font-extrabold text-white mt-2 leading-tight">神派耶穌替我們這些惡人受罰</h2>
                     </div>
                     <div class="lottie-container">
-                        <lottie-player src="./Badge4.json" background="transparent" speed="1" style="width: 100%; height: 100%;" loop autoplay></lottie-player>
+                        <lottie-player src="./Badge4.json" background="transparent" speed="1" style="width: 100%; height: 100%;" loop></lottie-player>
                     </div>
                 </div>
 
@@ -165,7 +165,7 @@
                         <h2 class="text-3xl font-extrabold text-white mt-2 leading-tight">耶穌，復活的統治者及拯救者</h2>
                     </div>
                     <div class="lottie-container">
-                        <lottie-player src="./Badge5.json" background="transparent" speed="1" style="width: 100%; height: 100%;" loop autoplay></lottie-player>
+                        <lottie-player src="./Badge5.json" background="transparent" speed="1" style="width: 100%; height: 100%;" loop></lottie-player>
                     </div>
                 </div>
 
@@ -176,7 +176,7 @@
                         <h2 class="text-3xl font-extrabold text-white mt-2 leading-tight">人生兩條路，你怎麼選？</h2>
                     </div>
                     <div class="lottie-container">
-                        <lottie-player src="./Badge6.json" background="transparent" speed="1" style="width: 100%; height: 100%;" loop autoplay></lottie-player>
+                        <lottie-player src="./Badge6.json" background="transparent" speed="1" style="width: 100%; height: 100%;" loop></lottie-player>
                     </div>
                 </div>
 
@@ -215,6 +215,7 @@
     <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
 
     <script>
+        
         // Fix for mobile 100vh issue (especially iOS Safari)
         const appHeight = () => {
             const doc = document.documentElement
@@ -232,12 +233,45 @@
                 el: ".swiper-pagination",
                 clickable: true,
             },
+            on: {
+                // 初始化完成時，播放第一個動畫
+                init: function () {
+                    playCurrentLottie(this);
+                },
+                // 滑動過渡結束時，播放當前動畫，停止其他動畫
+                slideChangeTransitionEnd: function () {
+                    playCurrentLottie(this);
+                }
+            }
         });
+
+        // 獨立出的 Lottie 控制函數
+        function playCurrentLottie(swiperInstance) {
+            // 取得所有的 slides
+            const slides = swiperInstance.slides;
+            // 當前的 index
+            const activeIndex = swiperInstance.activeIndex;
+
+            slides.forEach((slide, index) => {
+                // 找出該 slide 內的 lottie-player
+                const lottiePlayer = slide.querySelector('lottie-player');
+                
+                if (lottiePlayer) {
+                    if (index === activeIndex) {
+                        // 如果是當前畫面，執行播放
+                        lottiePlayer.play();
+                    } else {
+                        // 如果不是當前畫面，執行停止（歸零並暫停）
+                        lottiePlayer.stop();
+                    }
+                }
+            });
+        }
 
         // Register Service Worker (Required for Android PWA prompt)
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                // 註冊同目錄下的實體 sw.js 檔案
+                // 改為註冊同目錄下的實體 sw.js 檔案
                 navigator.serviceWorker.register('./sw.js')
                     .then(registration => {
                         console.log('ServiceWorker registration successful');
@@ -248,41 +282,58 @@
             });
         }
 
-        // Handle Android Install Prompt
+        // --- PWA 安裝邏輯 (整合 Android 與 iOS) ---
+        
+        // 判斷是否為 iOS 設備
+        const isIos = () => {
+            const userAgent = window.navigator.userAgent.toLowerCase();
+            return /iphone|ipad|ipod/.test( userAgent );
+        }
+        
+        // 判斷是否已經在 PWA 模式 (已安裝) 下運行
+        const isInStandaloneMode = () => {
+            return ('standalone' in window.navigator) && (window.navigator.standalone) || window.matchMedia('(display-mode: standalone)').matches;
+        }
+
         let deferredPrompt;
         const installButton = document.getElementById('install-button');
+        const iosModal = document.getElementById('ios-install-modal');
 
+        // 1. Android 專屬：攔截原生安裝提示
         window.addEventListener('beforeinstallprompt', (e) => {
-            // 阻止 Chrome 預設的迷你安裝提示
             e.preventDefault();
-            // 儲存事件，以便稍後觸發
             deferredPrompt = e;
-            
-            // 顯示畫面上的「安裝 App」按鈕
-            if(installButton) {
+            // 顯示安裝按鈕 (防呆：確保非 iOS 才由這裡觸發)
+            if(installButton && !isIos()) {
                 installButton.classList.add('show');
             }
         });
 
-        // 綁定安裝按鈕的點擊事件
+        // 2. iOS 專屬：若為 iOS 且尚未安裝，直接將安裝按鈕顯示出來
+        if (isIos() && !isInStandaloneMode()) {
+            if(installButton) {
+                installButton.classList.add('show');
+            }
+        }
+
+        // 3. 綁定按鈕點擊事件 (根據設備執行不同行為)
         if(installButton) {
             installButton.addEventListener('click', async () => {
-                if (deferredPrompt) {
-                    // 顯示系統原生的安裝視窗
+                if (isIos()) {
+                    // iOS 行為：顯示手動安裝教學 Modal
+                    if(iosModal) iosModal.classList.add('show');
+                } else if (deferredPrompt) {
+                    // Android 行為：呼叫原生安裝視窗
                     deferredPrompt.prompt();
-                    
-                    // 等待使用者選擇（接受或拒絕）
                     const { outcome } = await deferredPrompt.userChoice;
                     console.log(`User response to the install prompt: ${outcome}`);
-                    
-                    // 無論結果如何，都將 deferredPrompt 清空，並隱藏按鈕
                     deferredPrompt = null;
                     installButton.classList.remove('show');
                 }
             });
         }
 
-        // 監聽是否安裝成功，成功後隱藏按鈕
+        // 4. 監聽是否安裝成功，成功後將按鈕隱藏
         window.addEventListener('appinstalled', () => {
             console.log('PWA was installed');
             if(installButton) {
@@ -290,33 +341,11 @@
             }
         });
 
-        // Detect iOS (Safari) to show manual install modal
-        const isIos = () => {
-            const userAgent = window.navigator.userAgent.toLowerCase();
-            return /iphone|ipad|ipod/.test( userAgent );
-        }
-        
-        // Detect if the app is already in standalone mode (installed)
-        const isInStandaloneMode = () => {
-            return ('standalone' in window.navigator) && (window.navigator.standalone);
-        }
-
-        // Show iOS Modal if needed
-        if (isIos() && !isInStandaloneMode()) {
-            // Show modal after a slight delay to ensure everything loaded
-            setTimeout(() => {
-                const iosModal = document.getElementById('ios-install-modal');
-                if(iosModal) {
-                    iosModal.classList.add('show');
-                }
-            }, 2000);
-        }
-
-        // Close iOS Modal logic
+        // iOS Modal 關閉邏輯
         const closeBtn = document.getElementById('close-ios-modal');
         if(closeBtn) {
             closeBtn.addEventListener('click', () => {
-                document.getElementById('ios-install-modal').classList.remove('show');
+                if(iosModal) iosModal.classList.remove('show');
             });
         }
     </script>
