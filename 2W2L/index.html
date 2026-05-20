@@ -121,7 +121,7 @@
                         <h2 class="text-3xl font-extrabold text-white mt-2 leading-tight">神<br>良善的統治者<br>創造萬物的主宰</h2>
                     </div>
                     <div class="lottie-container">
-                        <lottie-player src="./Badge1.json" background="transparent" speed="1" style="width: 100%; height: 100%;"></lottie-player>
+                        <lottie-player src="./Badge1.json" loop="false" background="transparent" speed="1" style="width: 100%; height: 100%;"></lottie-player>
                     </div>
                 </div>
 
@@ -132,7 +132,7 @@
                         <h2 class="text-3xl font-extrabold text-white mt-2 leading-tight">我們反叛了神<br>我們是邪惡的</h2>
                     </div>
                     <div class="lottie-container">
-                        <lottie-player src="./Badge2.json" background="transparent" speed="1" style="width: 100%; height: 100%;"></lottie-player>
+                        <lottie-player src="./Badge2.json" loop="false" background="transparent" speed="1" style="width: 100%; height: 100%;"></lottie-player>
                     </div>
                 </div>
 
@@ -143,7 +143,7 @@
                         <h2 class="text-3xl font-extrabold text-white mt-2 leading-tight">神是公義的審判者<br>必刑罰所有惡人</h2>
                     </div>
                     <div class="lottie-container">
-                        <lottie-player src="./Badge3.json" background="transparent" speed="1" style="width: 100%; height: 100%;"></lottie-player>
+                        <lottie-player src="./Badge3.json" loop="false" background="transparent" speed="1" style="width: 100%; height: 100%;"></lottie-player>
                     </div>
                 </div>
 
@@ -154,7 +154,7 @@
                         <h2 class="text-3xl font-extrabold text-white mt-2 leading-tight">神派耶穌來<br>替我們這些惡人受罰</h2>
                     </div>
                     <div class="lottie-container">
-                        <lottie-player src="./Badge4.json" background="transparent" speed="1" style="width: 100%; height: 100%;"></lottie-player>
+                        <lottie-player src="./Badge4.json" loop="false" background="transparent" speed="1" style="width: 100%; height: 100%;"></lottie-player>
                     </div>
                 </div>
 
@@ -165,7 +165,7 @@
                         <h2 class="text-3xl font-extrabold text-white mt-2 leading-tight">耶穌<br>復活的統治者<br>拯救所有信靠他的人</h2>
                     </div>
                     <div class="lottie-container">
-                        <lottie-player src="./Badge5.json" background="transparent" speed="1" style="width: 100%; height: 100%;"></lottie-player>
+                        <lottie-player src="./Badge5.json" loop="false" background="transparent" speed="1" style="width: 100%; height: 100%;"></lottie-player>
                     </div>
                 </div>
 
@@ -176,7 +176,7 @@
                         <h2 class="text-3xl font-extrabold text-white mt-2 leading-tight">人生兩條路<br>你怎麼選？</h2>
                     </div>
                     <div class="lottie-container">
-                        <lottie-player src="./Badge6.json" background="transparent" speed="1" style="width: 100%; height: 100%;"></lottie-player>
+                        <lottie-player src="./Badge6.json" loop="false" background="transparent" speed="1" style="width: 100%; height: 100%;"></lottie-player>
                     </div>
                 </div>
 
@@ -255,6 +255,7 @@
             slides.forEach((slide, index) => {
                 // 找出該 slide 內的 lottie-player
                 const lottiePlayer = slide.querySelector('lottie-player');
+                lottiePlayer.loop = false;
                 
                 if (lottiePlayer) {
                     if (index === activeIndex) {
