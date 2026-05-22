@@ -510,9 +510,10 @@
 
     <div id="print-area"></div>
     
-    <div class="version-tag">v3.32</div>
+    <div class="version-tag">v3.33</div>
 
     <script>
+        // v3.33 (優化：在 startTTS 導入回溯補償機制，當位於章節開頭附近時強制將語音指標歸零，避免略過章名)
         // v3.32 (修復：針對 iOS Safari 導入 TTS 解鎖機制 (Prime the pump) 與全域變數 GC 防護，解決無聲與異常中斷問題)
         // v3.31 (新增：目錄頁籤移至左上角避開操作區；新增齒輪選單內的 TTS 語音名稱 Tooltip 顯示功能)
         // v3.30 (優化：網址載入失敗時，智慧解析並顯示目標 EPUB 檔名，提升錯誤引導體驗)
@@ -1507,6 +1508,13 @@
                 } catch(e) {
                     startIndex = ttsQueue.findIndex(item => item.cfi >= currentCfi);
                 }
+                
+                // v3.33 新增：回溯補償（Lookback Offset）機制
+                // 若判斷當下位於章節開頭附近（容錯前3個語音區塊），無條件將指標強制作為 0，強制唸出該章節的所有頂層元素
+                if (startIndex > 0 && startIndex <= 2) {
+                    startIndex = 0;
+                }
+                
                 currentSpeechIndex = Math.max(0, startIndex);
             } else {
                 await buildSpeechQueue(0);
