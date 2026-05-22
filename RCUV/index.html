@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!-- 
-  版本號：v1.42
+  版本號：v1.43
   修改主旨：
   1. UI 極簡化：移除書卷按鈕的向下箭頭與「從」、「到」文字。
   2. 排版優化：調整 Kebab Menu 的邊距與內距以消滅不必要的空白，進一步節省頂部導航列空間。
@@ -14,6 +14,7 @@
   10. 靜默背景更新 (SWR)：實作 HTTP HEAD 請求檢查 `Last-Modified` 時間戳記。在不干擾使用者當下閱讀的前提下，若發現伺服器有新版資料，會於背景自動下載並更新本地 IndexedDB，達成下次開啟自動升級的效果。
   11. 閱讀進度記憶：實作「網址優先 > 本地紀錄 > 預設創世記第一章」的三階段優先級讀取邏輯。
   12. 循環播放：新增朗讀循環播放功能，可在朗讀中透過按鈕切換，預設為關閉且僅隨網頁生命週期記憶。
+  13. 書卷分類優化：細分「先知的書」為前先知、後先知與12小先知；細分「使徒書信」為保羅書信與其他書信，以降低視覺認知負擔。
 -->
 <html lang="zh-TW">
 <head>
@@ -337,7 +338,7 @@
     </div>
 
     <!-- 右下角版本號標示 (用於確認佈署狀態) -->
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.42</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.43</div>
 
     <script>
         // ==========================================
@@ -400,7 +401,15 @@
                 hasTooltip: true,
                 sections: [
                     { name: "摩西的律法", color: "bg-amber-100 text-amber-800 hover:bg-amber-200 border-amber-200", books: ["創世記", "出埃及記", "利未記", "民數記", "申命記"] },
-                    { name: "先知的書", color: "bg-indigo-100 text-indigo-800 hover:bg-indigo-200 border-indigo-200", books: ["約書亞記", "士師記", "撒母耳記上", "撒母耳記下", "列王紀上", "列王紀下", "以賽亞書", "耶利米書", "以西結書", "何西阿書", "約珥書", "阿摩司書", "俄巴底亞書", "約拿書", "彌迦書", "那鴻書", "哈巴谷書", "西番雅書", "哈該書", "撒迦利亞書", "瑪拉基書"] },
+                    { 
+                        name: "先知的書", 
+                        color: "bg-indigo-100 text-indigo-800 hover:bg-indigo-200 border-indigo-200", 
+                        subsections: [
+                            { subName: "前先知書", books: ["約書亞記", "士師記", "撒母耳記上", "撒母耳記下", "列王紀上", "列王紀下"] },
+                            { subName: "後先知書", books: ["以賽亞書", "耶利米書", "以西結書"] },
+                            { subName: "12小先知書", books: ["何西阿書", "約珥書", "阿摩司書", "俄巴底亞書", "約拿書", "彌迦書", "那鴻書", "哈巴谷書", "西番雅書", "哈該書", "撒迦利亞書", "瑪拉基書"] }
+                        ]
+                    },
                     { name: "詩篇 / 文集", color: "bg-rose-100 text-rose-800 hover:bg-rose-200 border-rose-200", books: ["詩篇", "箴言", "約伯記", "雅歌", "路得記", "耶利米哀歌", "傳道書", "以斯帖記", "但以理書", "以斯拉記", "尼希米記", "歷代志上", "歷代志下"] }
                 ]
             },
@@ -410,7 +419,14 @@
                 sections: [
                     { name: "四福音書", color: "bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border-emerald-200", books: ["馬太福音", "馬可福音", "路加福音", "約翰福音"] },
                     { name: "歷史書", color: "bg-sky-100 text-sky-800 hover:bg-sky-200 border-sky-200", books: ["使徒行傳"] },
-                    { name: "使徒書信", color: "bg-purple-100 text-purple-800 hover:bg-purple-200 border-purple-200", books: ["羅馬書", "哥林多前書", "哥林多後書", "加拉太書", "以弗所書", "腓立比書", "歌羅西書", "帖撒羅尼迦前書", "帖撒羅尼迦後書", "提摩太前書", "提摩太後書", "提多書", "腓利門書", "希伯來書", "雅各書", "彼得前書", "彼得後書", "約翰一書", "約翰二書", "約翰三書", "猶大書"] },
+                    { 
+                        name: "使徒書信", 
+                        color: "bg-purple-100 text-purple-800 hover:bg-purple-200 border-purple-200", 
+                        subsections: [
+                            { subName: "保羅書信", books: ["羅馬書", "哥林多前書", "哥林多後書", "加拉太書", "以弗所書", "腓立比書", "歌羅西書", "帖撒羅尼迦前書", "帖撒羅尼迦後書", "提摩太前書", "提摩太後書", "提多書", "腓利門書"] },
+                            { subName: "其他書信", books: ["希伯來書", "雅各書", "彼得前書", "彼得後書", "約翰一書", "約翰二書", "約翰三書", "猶大書"] }
+                        ]
+                    },
                     { name: "預言書", color: "bg-orange-100 text-orange-800 hover:bg-orange-200 border-orange-200", books: ["啟示錄"] }
                 ]
             }
@@ -1719,6 +1735,24 @@
         function initBookModalContent() {
             const modalBody = document.getElementById('book-modal-body');
             let html = '';
+            
+            const renderBookButtons = (booksArray, colorClass) => {
+                let btnHtml = '';
+                booksArray.forEach(book => {
+                    const enAbbrev = revBookMap[book];
+                    const chFormatted = bookAbbrevFormatCh[enAbbrev];
+                    const enFormatted = bookAbbrevFormatEn[enAbbrev];
+                    btnHtml += `<button onclick="selectBook('${book}')" class="px-3 py-1.5 border rounded-full transition shadow-sm ${colorClass} flex flex-col items-center justify-center min-w-[68px]">
+                                    <span class="normal-view text-[15px] font-bold">${book}</span>
+                                    <span class="abbrev-view flex-col items-center w-full">
+                                        <span class="text-[15px] leading-tight">${chFormatted}</span>
+                                        <span class="text-[10px] leading-tight opacity-75 font-mono mt-[2px]">${enFormatted}</span>
+                                    </span>
+                                 </button>`;
+                });
+                return btnHtml;
+            };
+
             modalBookCategories.forEach(cat => {
                 html += `<div class="mb-8 last:mb-0">`;
                 html += `
@@ -1748,22 +1782,20 @@
                 cat.sections.forEach(sec => {
                     html += `<div class="mb-5 last:mb-0">`;
                     html += `<h4 class="text-sm font-bold text-stone-500 mb-2.5 border-b border-stone-200 pb-1">${sec.name}</h4>`;
-                    html += `<div class="flex flex-wrap gap-2">`;
-                    sec.books.forEach(book => {
-                        const enAbbrev = revBookMap[book];
-                        const chFormatted = bookAbbrevFormatCh[enAbbrev];
-                        const enFormatted = bookAbbrevFormatEn[enAbbrev];
-
-                        // 使用 onclick 直接呼叫 global selectBook 函式
-                        html += `<button onclick="selectBook('${book}')" class="px-3 py-1.5 border rounded-full transition shadow-sm ${sec.color} flex flex-col items-center justify-center min-w-[68px]">
-                                    <span class="normal-view text-[15px] font-bold">${book}</span>
-                                    <span class="abbrev-view flex-col items-center w-full">
-                                        <span class="text-[15px] leading-tight">${chFormatted}</span>
-                                        <span class="text-[10px] leading-tight opacity-75 font-mono mt-[2px]">${enFormatted}</span>
-                                    </span>
-                                 </button>`;
-                    });
-                    html += `</div></div>`;
+                    
+                    if (sec.subsections) {
+                        sec.subsections.forEach(subsec => {
+                            html += `<h5 class="text-xs font-bold text-stone-400 mt-3 mb-2">${subsec.subName}</h5>`;
+                            html += `<div class="flex flex-wrap gap-2">`;
+                            html += renderBookButtons(subsec.books, sec.color);
+                            html += `</div>`;
+                        });
+                    } else {
+                        html += `<div class="flex flex-wrap gap-2">`;
+                        html += renderBookButtons(sec.books, sec.color);
+                        html += `</div>`;
+                    }
+                    html += `</div>`;
                 });
                 html += `</div>`;
             });
