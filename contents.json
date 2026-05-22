@@ -82,5 +82,17 @@
     "link": "EPUB/",
     "buttonIcon": "book-open",
     "buttonText": "點此開啟閱讀器"
+  },
+  {
+    "id": "app8",
+    "tags": ["福音", "工具"],
+    "icon": "signpost",
+    "title": "人生二路",
+    "subtitle": "互動福音小冊",
+    "tagline": "「探討人生兩條路的抉擇」",
+    "description": "一本解釋聖經福音的數位互動小冊子。透過生動的插圖，將「神、人、罪、耶穌、抉擇」的核心福音信息，以清晰直觀的視覺體驗呈現給慕道友。",
+    "link": "2W2L/",
+    "buttonIcon": "book-open",
+    "buttonText": "點此開啟小冊子"
   }
 ]
