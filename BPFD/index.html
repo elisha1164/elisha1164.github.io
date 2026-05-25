@@ -1,5 +1,5 @@
 <!-- 
-  版本號：v1.27
+  版本號：v1.28
   修改主旨：
   1. 將介面與語音朗讀中的兩處「本週問答」修改為「大故事金句」。(v1.20)
   2. 實作 Sequential Landing Orchestration：淨化網址並透過事件接力排程 PWA 推廣與設定精靈。
@@ -10,6 +10,7 @@
   7. 精準拔除 completeSetup() 中遺留的 window._pwaEntryOnComplete 判斷區塊。
   8. 修復因 toISOString() 導致的時區偏移 Bug，統一使用本地時間進行字串轉換與解析。(v1.26)
   9. 廢除 toISOString 時區 Hack，全面改用手動組裝 YYYY-MM-DD 字串；修正閱讀日變更時的錨點演算法，改採系統客觀進度 (actualTodayIndex) 與前一閱讀日反推。
+  10. 移除變更閱讀日後的 alert 提示，改為在 Modal 內動態顯示校準日期告知。
 -->
 <!DOCTYPE html>
 <html lang="zh-TW">
@@ -197,7 +198,12 @@
         <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl">
             <h3 class="text-xl font-bold text-stone-800 mb-2">設定閱讀日</h3>
             <p class="text-stone-500 mb-4 text-sm">勾選三個閱讀日。套用後，系統會自動校準開始日期，不會打亂您已完成的進度。</p>
-            <div class="grid grid-cols-2 gap-2 mb-6" id="editDaysContainer"></div>
+            <div class="grid grid-cols-2 gap-2 mb-4" id="editDaysContainer"></div>
+            
+            <div id="editCalibrationNotice" class="hidden mb-4 p-3 bg-amber-50 text-amber-800 rounded-xl text-sm border border-amber-200">
+                <i data-lucide="info" class="inline w-4 h-4 mr-1"></i> <span id="editCalibrationNoticeText"></span>
+            </div>
+
             <button id="editDaysSaveBtn" onclick="saveNewReadingDays()" class="w-full bg-amber-600 text-white py-2.5 rounded-xl font-bold disabled:bg-stone-300">儲存變更</button>
         </div>
     </div>
@@ -434,7 +440,7 @@
 
         <!-- Fixed Version Number -->
         <div class="fixed bottom-2 right-2 text-[10px] text-stone-300 font-mono select-none pointer-events-none z-0">
-            v1.27
+            v1.28
         </div>
     </div>
 
@@ -442,7 +448,7 @@
         // ==========================================
         // 1. Constants & State Variables
         // ==========================================
-        const APP_VERSION = '1.27';
+        const APP_VERSION = '1.28';
         const APP_LOAD_TIME = Date.now();
         const TOTAL_DAYS = 150;
         
@@ -1558,6 +1564,7 @@
             const cbs = Array.from(document.querySelectorAll('.edit-cb'));
             const checkedCount = cbs.filter(cb => cb.checked).length;
             const btn = document.getElementById('editDaysSaveBtn');
+            const notice = document.getElementById('editCalibrationNotice');
             
             cbs.forEach(cb => {
                 if (!cb.checked && checkedCount >= 3) {
@@ -1569,6 +1576,41 @@
                 }
             });
             btn.disabled = (checkedCount !== 3);
+
+            if (checkedCount === 3) {
+                const newDays = cbs.filter(cb => cb.checked).map(cb => parseInt(cb.value));
+                const currentStartDate = getStorage(STORE_KEYS.START_DATE);
+                
+                const actualTodayIdx = getActualTodayIndex();
+                let tempDate = new Date(getLocalTodayString().replace(/-/g, '/'));
+                tempDate.setHours(0,0,0,0);
+
+                while(!newDays.includes(tempDate.getDay())) {
+                    tempDate.setDate(tempDate.getDate() - 1);
+                }
+                
+                let backCount = actualTodayIdx - 1;
+                while(backCount > 0) {
+                    tempDate.setDate(tempDate.getDate() - 1);
+                    if(newDays.includes(tempDate.getDay())) {
+                        backCount--;
+                    }
+                }
+                
+                const newStartStr = formatDateToLocalString(tempDate);
+                
+                if (currentStartDate !== newStartStr) {
+                    if (notice) {
+                        notice.classList.remove('hidden');
+                        const opt = { year:'numeric', month: 'short', day: 'numeric' };
+                        document.getElementById('editCalibrationNoticeText').innerText = `系統將自動校準開始日期至 ${tempDate.toLocaleDateString('zh-TW', opt)}`;
+                    }
+                } else {
+                    if (notice) notice.classList.add('hidden');
+                }
+            } else {
+                if (notice) notice.classList.add('hidden');
+            }
         }
 
         function saveNewReadingDays() {
@@ -1598,7 +1640,6 @@
             setStorage(STORE_KEYS.READING_DAYS, newDays, true);
             
             closeModal('readingDaysModal');
-            alert(`為了不打亂已完成的進度，系統將自動校準開始日期至 ${newStartStr}`);
             loadAndRenderCurrentDay();
         }
 
