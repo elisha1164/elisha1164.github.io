@@ -1,5 +1,5 @@
 <!-- 
-  版本號：v1.25
+  版本號：v1.26
   修改主旨：
   1. 將介面與語音朗讀中的兩處「本週問答」修改為「大故事金句」。(v1.20)
   2. 實作 Sequential Landing Orchestration：淨化網址並透過事件接力排程 PWA 推廣與設定精靈。
@@ -8,6 +8,7 @@
   5. 移除 completeSetup() 中多餘的事件接力判斷，直接載入畫面與導覽。
   6. 於 <head> 新增 Open Graph (OG) 標籤以優化社群分享預覽。
   7. 精準拔除 completeSetup() 中遺留的 window._pwaEntryOnComplete 判斷區塊。
+  8. 修正儲存開始日期與計算閱讀日進度時，因 toISOString() 與 Date 解析所導致的時區偏移/日期提前一天 Bug。
 -->
 <!DOCTYPE html>
 <html lang="zh-TW">
@@ -432,7 +433,7 @@
 
         <!-- Fixed Version Number -->
         <div class="fixed bottom-2 right-2 text-[10px] text-stone-300 font-mono select-none pointer-events-none z-0">
-            v1.25
+            v1.26
         </div>
     </div>
 
@@ -440,7 +441,7 @@
         // ==========================================
         // 1. Constants & State Variables
         // ==========================================
-        const APP_VERSION = '1.25';
+        const APP_VERSION = '1.26';
         const APP_LOAD_TIME = Date.now();
         const TOTAL_DAYS = 150;
         
@@ -624,8 +625,8 @@
             const readingDays = getStorage(STORE_KEYS.READING_DAYS, true);
             if (!startDateStr || !readingDays) return 1;
 
-            const start = new Date(startDateStr);
-            const today = new Date(getLocalTodayString());
+            const start = new Date(startDateStr.replace(/-/g, '/'));
+            const today = new Date(getLocalTodayString().replace(/-/g, '/'));
             start.setHours(0,0,0,0);
             today.setHours(0,0,0,0);
 
@@ -647,7 +648,7 @@
             const readingDays = getStorage(STORE_KEYS.READING_DAYS, true);
             if (!startDateStr || !readingDays) return new Date();
 
-            let current = new Date(startDateStr);
+            let current = new Date(startDateStr.replace(/-/g, '/'));
             current.setHours(0,0,0,0);
             let count = 0;
 
@@ -741,7 +742,7 @@
             btn.disabled = (checkedCount !== 3);
             
             if (checkedCount === 3) {
-                const startD = new Date(document.getElementById('wizardStartDate').value);
+                const startD = new Date(document.getElementById('wizardStartDate').value.replace(/-/g, '/'));
                 const selectedDays = cbs.filter(c => c.checked).map(c => parseInt(c.value));
                 if (!selectedDays.includes(startD.getDay())) {
                     notice.classList.remove('hidden');
@@ -763,7 +764,7 @@
             const cbs = Array.from(document.querySelectorAll('.wizard-cb'));
             const selectedDays = cbs.filter(cb => cb.checked).map(cb => parseInt(cb.value));
             
-            let startDate = new Date(document.getElementById('wizardStartDate').value);
+            let startDate = new Date(document.getElementById('wizardStartDate').value.replace(/-/g, '/'));
             startDate.setHours(0,0,0,0);
 
             // Forced Calibration
@@ -771,7 +772,7 @@
                 startDate.setDate(startDate.getDate() + 1);
             }
             
-            const startStr = startDate.toISOString().split('T')[0];
+            const startStr = new Date(startDate.getTime() - (startDate.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
             
             setStorage(STORE_KEYS.START_DATE, startStr);
             setStorage(STORE_KEYS.READING_DAYS, selectedDays, true);
@@ -792,6 +793,9 @@
             return str.replace(/[\u200B-\u200D\uFEFF]/g, '');
         }
 
+        // ==========================================
+        // 7. Markdown Parser & UI Updates
+        // ==========================================
         function parseMarkdown(text) {
             if (!text) return '';
             let html = text.replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>');
@@ -1451,6 +1455,9 @@
             updatePlaybackUI();
         }
 
+        // ==========================================
+        // 8. TTS Stop & Progress Handlers
+        // ==========================================
         function handleStop() {
             speechSynthesis.cancel();
             window._speechState.activeSection = null;
@@ -1510,9 +1517,10 @@
         function updateStartDate(newDateStr) {
             if(!newDateStr) return;
             const readingDays = getStorage(STORE_KEYS.READING_DAYS, true);
-            let d = new Date(newDateStr);
+            let d = new Date(newDateStr.replace(/-/g, '/'));
+            d.setHours(0,0,0,0);
             while(!readingDays.includes(d.getDay())) { d.setDate(d.getDate() + 1); }
-            setStorage(STORE_KEYS.START_DATE, d.toISOString().split('T')[0]);
+            setStorage(STORE_KEYS.START_DATE, new Date(d.getTime() - (d.getTimezoneOffset() * 60000)).toISOString().split('T')[0]);
             loadAndRenderCurrentDay();
         }
 
@@ -1564,7 +1572,7 @@
             
             // Dynamic Anchor Reset Logic
             const oldTargetDay = currentDay;
-            let tempDate = new Date(getLocalTodayString());
+            let tempDate = new Date(getLocalTodayString().replace(/-/g, '/'));
             tempDate.setHours(0,0,0,0);
 
             // Find nearest valid date for "today"
@@ -1581,7 +1589,7 @@
                 }
             }
             
-            const newStartStr = tempDate.toISOString().split('T')[0];
+            const newStartStr = new Date(tempDate.getTime() - (tempDate.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
             setStorage(STORE_KEYS.START_DATE, newStartStr);
             setStorage(STORE_KEYS.READING_DAYS, newDays, true);
             
@@ -1679,7 +1687,8 @@
                 
                 // Calculate next valid reading day
                 const readingDays = getStorage(STORE_KEYS.READING_DAYS, true);
-                let nextD = new Date(getLocalTodayString());
+                let nextD = new Date(getLocalTodayString().replace(/-/g, '/'));
+                nextD.setHours(0,0,0,0);
                 nextD.setDate(nextD.getDate() + 1); // Start from tomorrow
                 while(!readingDays.includes(nextD.getDay())) {
                     nextD.setDate(nextD.getDate() + 1);
@@ -1698,7 +1707,7 @@
                 btn2.onclick = function() { performReset(); };
                 
                 // Attach the calculated next date to a global window variable for performReset to pick up
-                window._nextResetDate = nextD.toISOString().split('T')[0];
+                window._nextResetDate = new Date(nextD.getTime() - (nextD.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
             } else {
                 // Manual Track - Factory Reset
                 title.innerText = "確定要徹底重置系統嗎？";
