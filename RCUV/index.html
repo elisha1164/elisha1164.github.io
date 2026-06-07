@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!-- 
-  版本號：v1.43
+  版本號：v1.44
   修改主旨：
   1. UI 極簡化：移除書卷按鈕的向下箭頭與「從」、「到」文字。
   2. 排版優化：調整 Kebab Menu 的邊距與內距以消滅不必要的空白，進一步節省頂部導航列空間。
@@ -15,6 +15,7 @@
   11. 閱讀進度記憶：實作「網址優先 > 本地紀錄 > 預設創世記第一章」的三階段優先級讀取邏輯。
   12. 循環播放：新增朗讀循環播放功能，可在朗讀中透過按鈕切換，預設為關閉且僅隨網頁生命週期記憶。
   13. 書卷分類優化：細分「先知的書」為前先知、後先知與12小先知；細分「使徒書信」為保羅書信與其他書信，以降低視覺認知負擔。
+  14. 簡報匯出架構升級：導入 PPT 佔位符 (Placeholders) 機制。經文內文設為粗體、出處維持正常；使用者匯出後可直接在 PowerPoint 中透過修改母片，一鍵套用樣式變更至全檔投影片。
 -->
 <html lang="zh-TW">
 <head>
@@ -338,7 +339,7 @@
     </div>
 
     <!-- 右下角版本號標示 (用於確認佈署狀態) -->
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.43</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.44</div>
 
     <script>
         // ==========================================
@@ -1617,12 +1618,16 @@
                 let pres = new PptxClass();
                 pres.layout = 'LAYOUT_16x9';
 
-                // 建立公版母片 (Master Slide)
+                // 建立公版母片 (Master Slide)，導入佔位符 (Placeholders)
                 pres.defineSlideMaster({
                     title: "BIBLE_MASTER",
                     background: { color: "1E1E1E" },
                     objects: [
-                        { text: { text: "和合本 2010", options: { x: '5%', y: '92%', w: '90%', h: '5%', align: 'right', color: '888888', fontSize: 14, fontFace: "Microsoft JhengHei" } } }
+                        { text: { text: "和合本 2010", options: { x: '5%', y: '92%', w: '90%', h: '5%', align: 'right', color: '888888', fontSize: 14, fontFace: "Microsoft JhengHei" } } },
+                        // 定義標題佔位符 (經文出處，無粗體)
+                        { placeholder: { options: { name: 'title', type: 'title', x: '5%', y: '8%', w: '90%', h: '10%', color: 'FFFFFF', fontSize: 32, fontFace: "Microsoft JhengHei", align: 'left', valign: 'top', bold: false } } },
+                        // 定義內文佔位符 (經文內容，設定粗體)
+                        { placeholder: { options: { name: 'body', type: 'body', x: '5%', y: '22%', w: '90%', h: '70%', color: 'FFFFFF', fontSize: 44, fontFace: "Microsoft JhengHei", align: 'left', valign: 'top', bold: true } } }
                     ]
                 });
 
@@ -1646,19 +1651,9 @@
 
                             let slide = pres.addSlide({ masterName: "BIBLE_MASTER" });
                             
-                            // 加入標題 (例如: 創世記 1:1)
-                            slide.addText(`${book} ${c}:${v}`, { 
-                                x: '5%', y: '8%', w: '90%', h: '10%', 
-                                color: 'FFFFFF', fontSize: 32, fontFace: "Microsoft JhengHei", 
-                                valign: 'top', align: 'left' 
-                            });
-                            
-                            // 加入經文內文
-                            slide.addText(cleanText, { 
-                                x: '5%', y: '22%', w: '90%', h: '70%', 
-                                color: 'FFFFFF', fontSize: 44, fontFace: "Microsoft JhengHei", 
-                                valign: 'top', align: 'left' 
-                            });
+                            // 將文字注入佔位符
+                            slide.addText(`${book} ${c}:${v}`, { placeholder: 'title' });
+                            slide.addText(cleanText, { placeholder: 'body' });
                         });
                     }
                 });
