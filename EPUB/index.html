@@ -510,9 +510,10 @@
 
     <div id="print-area"></div>
     
-    <div class="version-tag">v3.33</div>
+    <div class="version-tag">v3.34</div>
 
     <script>
+        // v3.34 (優化：在列印處理中加入目錄特徵掃描，精準隱藏目錄頁的清單標號，解決 PDF 樣式遺失問題)
         // v3.33 (優化：在 startTTS 導入回溯補償機制，當位於章節開頭附近時強制將語音指標歸零，避免略過章名)
         // v3.32 (修復：針對 iOS Safari 導入 TTS 解鎖機制 (Prime the pump) 與全域變數 GC 防護，解決無聲與異常中斷問題)
         // v3.31 (新增：目錄頁籤移至左上角避開操作區；新增齒輪選單內的 TTS 語音名稱 Tooltip 顯示功能)
@@ -1734,6 +1735,23 @@
                         }
 
                         if (!body) continue;
+
+                        // v3.34 新增：目錄特徵掃描與精準隱藏 (針對列印時的標號問題)
+                        let isTocPage = false;
+                        let hrefLower = item.href.toLowerCase();
+                        
+                        if (body.querySelector('nav[epub\\:type="toc"]')) {
+                            isTocPage = true;
+                        } else if (hrefLower.includes('toc') || hrefLower.match(/(nav|contents|tableofcontents)\.(xhtml|html|xml)$/)) {
+                            isTocPage = true;
+                        } else if (body.querySelector('.toc, #toc, .table-of-contents')) {
+                            isTocPage = true;
+                        }
+
+                        if (isTocPage) {
+                            const lists = body.querySelectorAll('ol, ul');
+                            lists.forEach(list => list.style.setProperty('list-style', 'none', 'important'));
+                        }
 
                         // 處理列印檔的簡轉繁防呆
                         if (simpRegex.test(body.textContent || "") && s2tConverter) {
