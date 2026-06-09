@@ -510,9 +510,10 @@
 
     <div id="print-area"></div>
     
-    <div class="version-tag">v3.34</div>
+    <div class="version-tag">v3.35</div>
 
     <script>
+        // v3.35 (修正：精簡簡轉繁特徵字字典，剔除「那」、「成」、「里」等簡繁共用字，徹底解決繁體書被過度轉換（如「了」變「瞭」）的誤判問題)
         // v3.34 (優化：在列印處理中加入目錄特徵掃描，精準隱藏目錄頁的清單標號，解決 PDF 樣式遺失問題)
         // v3.33 (優化：在 startTTS 導入回溯補償機制，當位於章節開頭附近時強制將語音指標歸零，避免略過章名)
         // v3.32 (修復：針對 iOS Safari 導入 TTS 解鎖機制 (Prime the pump) 與全域變數 GC 防護，解決無聲與異常中斷問題)
@@ -954,7 +955,7 @@
         let currentChapterIsChinese = true; 
         
         // 簡轉繁特徵字與轉換器 
-        const simpRegex = /[这那们个么会对过发机当成来两还与里为说实从种现]/;
+        const simpRegex = /[这们个么会对过发机当来两还与为说实从种现]/;
         let s2tConverter = null;
         try {
             if (typeof OpenCC !== 'undefined') s2tConverter = OpenCC.Converter({ from: 'cn', to: 'tw' });
