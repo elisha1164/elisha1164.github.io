@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v1.51 新增「默想筆記」個人日誌功能，並實作雙層重置防護 Modal (可選擇保留或清空筆記) -->
 <!-- v1.50 縮減設定選單寬度至 w-60 (240px)，優化視覺比例並消除右側虛胖感 -->
 <!-- v1.49 修正 v1.48 意外刪除的輔助影片雙語切換按鈕事件 (Regression Bug) -->
 <!-- v1.48 新增英譯本 ESV 對照功能，支援雙語經文顯示且不干擾 TTS 朗讀 -->
@@ -348,6 +349,22 @@
                 <div id="reflectionText" class="p-6 text-stone-800 leading-relaxed text-lg whitespace-pre-wrap font-medium"></div>
             </div>
 
+            <!-- 內容顯示卡片 (默想筆記) -->
+            <div id="meditationSection" class="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden flex flex-col mt-6">
+                <div class="bg-stone-50 border-b border-stone-200 p-5 flex justify-between items-center">
+                    <h4 class="font-bold text-stone-700 flex items-center text-lg tracking-wide">
+                        ✍️ 默想筆記
+                    </h4>
+                    <!-- 儲存按鈕 -->
+                    <button id="saveNoteBtn" class="bg-stone-800 text-white hover:bg-stone-700 px-4 py-1.5 rounded-lg text-sm font-medium transition shadow-sm">
+                        儲存
+                    </button>
+                </div>
+                <div class="p-6">
+                    <textarea id="meditationNoteInput" class="w-full min-h-[120px] max-h-[500px] p-4 bg-stone-50 border border-stone-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none resize-y text-stone-800 text-lg leading-relaxed" placeholder="在這裡寫下您今天的默想、感動或禱告..."></textarea>
+                </div>
+            </div>
+
         </section>
 
         <!-- 版權聲明區 -->
@@ -439,6 +456,27 @@
                     立即重置
                 </button>
                 <button id="cancelResetBtn" class="w-full bg-stone-100 text-stone-600 py-2 rounded-lg hover:bg-stone-200 transition font-medium text-sm mt-1">
+                    取消
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 筆記保留確認彈出框 (Modal) -->
+    <div id="notesKeepConfirmModal" class="fixed inset-0 bg-stone-900/40 hidden flex items-center justify-center z-[60] transition-opacity backdrop-blur-sm">
+        <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4">
+            <h4 class="font-bold text-stone-800 text-lg mb-3">⚠️ 默想筆記處理方式</h4>
+            <p class="text-stone-600 text-sm mb-6 leading-relaxed">
+                系統即將重置。請問您要如何處置您所寫下的「默想筆記」？
+            </p>
+            <div class="flex flex-col gap-2">
+                <button id="resetKeepNotesBtn" class="w-full bg-stone-800 text-white py-2 rounded-lg hover:bg-stone-700 transition font-medium text-sm shadow-sm">
+                    保留默想筆記
+                </button>
+                <button id="resetClearAllBtn" class="w-full bg-red-100 text-red-700 py-2 rounded-lg hover:bg-red-200 transition font-medium text-sm shadow-sm">
+                    完全清空 (連同筆記一併刪除)
+                </button>
+                <button id="cancelNotesKeepBtn" class="w-full bg-stone-100 text-stone-600 py-2 rounded-lg hover:bg-stone-200 transition font-medium text-sm mt-1">
                     取消
                 </button>
             </div>
@@ -620,6 +658,7 @@
         let voices = []; 
         let readProgress = JSON.parse(localStorage.getItem('gemini_read_progress') || '{}');
         let restDays = JSON.parse(localStorage.getItem('gemini_rest_days') || '[]');
+        let meditationNotes = JSON.parse(localStorage.getItem('gemini_meditation_notes') || '{}');
         let activeVideoLang = 'ch';
         let wakeLock = null;
 
@@ -727,6 +766,9 @@
             reflectionSection: document.getElementById('reflectionSection'),
             reflectionTitle: document.getElementById('reflectionTitle'),
             reflectionText: document.getElementById('reflectionText'),
+            meditationSection: document.getElementById('meditationSection'),
+            saveNoteBtn: document.getElementById('saveNoteBtn'),
+            meditationNoteInput: document.getElementById('meditationNoteInput'),
             playBtn: document.getElementById('playBtn'),
             pauseBtn: document.getElementById('pauseBtn'),
             stopBtn: document.getElementById('stopBtn'),
@@ -761,6 +803,10 @@
             exportAndResetBtn: document.getElementById('exportAndResetBtn'),
             confirmResetBtn: document.getElementById('confirmResetBtn'),
             cancelResetBtn: document.getElementById('cancelResetBtn'),
+            notesKeepConfirmModal: document.getElementById('notesKeepConfirmModal'),
+            resetKeepNotesBtn: document.getElementById('resetKeepNotesBtn'),
+            resetClearAllBtn: document.getElementById('resetClearAllBtn'),
+            cancelNotesKeepBtn: document.getElementById('cancelNotesKeepBtn'),
             congratsModal: document.getElementById('congratsModal'),
             congratsResetBtn: document.getElementById('congratsResetBtn'),
             congratsCloseBtn: document.getElementById('congratsCloseBtn'),
@@ -986,7 +1032,8 @@
                 tts_rate: localStorage.getItem('tts_rate') || "",
                 tts_voice_name: localStorage.getItem('tts_voice_name') || "",
                 gemini_read_progress: localStorage.getItem('gemini_read_progress') || "{}",
-                gemini_rest_days: localStorage.getItem('gemini_rest_days') || "[]"
+                gemini_rest_days: localStorage.getItem('gemini_rest_days') || "[]",
+                gemini_meditation_notes: localStorage.getItem('gemini_meditation_notes') || "{}"
             };
             const blob = new Blob([JSON.stringify(dataToExport, null, 4)], { type: "application/json" });
             const url = URL.createObjectURL(blob);
@@ -1012,6 +1059,7 @@
                     if (importedData.tts_voice_name !== undefined) localStorage.setItem('tts_voice_name', importedData.tts_voice_name);
                     if (importedData.gemini_read_progress !== undefined) localStorage.setItem('gemini_read_progress', importedData.gemini_read_progress);
                     if (importedData.gemini_rest_days !== undefined) localStorage.setItem('gemini_rest_days', importedData.gemini_rest_days);
+                    if (importedData.gemini_meditation_notes !== undefined) localStorage.setItem('gemini_meditation_notes', importedData.gemini_meditation_notes);
                     alert('🎉 匯入成功！系統即將重新載入以套用您的設定與進度。');
                     localStorage.setItem('tour_completed', 'true'); // 加入此行避免匯入後又跳精靈
                     window.location.reload();
@@ -1048,7 +1096,7 @@
             dom.resetConfirmModal.classList.add('hidden');
         }
 
-        function performFactoryReset() {
+        function performFactoryReset(keepNotes) {
             const keysToRemove = [
                 'gemini_read_progress',
                 'gemini_start_date',
@@ -1059,6 +1107,9 @@
                 'install_prompt_shown',
                 'congrats_shown'
             ];
+            if (!keepNotes) {
+                keysToRemove.push('gemini_meditation_notes');
+            }
             keysToRemove.forEach(key => localStorage.removeItem(key));
             window.location.reload();
         }
@@ -1242,6 +1293,12 @@
             driverObj.drive();
         }
 
+        // 新增：重置儲存按鈕狀態的輔助函數
+        function resetSaveNoteBtnState() {
+            dom.saveNoteBtn.textContent = '儲存';
+            dom.saveNoteBtn.className = 'bg-stone-800 text-white hover:bg-stone-700 px-4 py-1.5 rounded-lg text-sm font-medium transition shadow-sm';
+        }
+
         async function init() {
             // Initialize Lucide icons
             lucide.createIcons();
@@ -1319,6 +1376,15 @@
                 });
             });
 
+            // 筆記功能事件綁定
+            dom.meditationNoteInput.addEventListener('input', resetSaveNoteBtnState);
+            dom.saveNoteBtn.addEventListener('click', () => {
+                meditationNotes[currentDay] = dom.meditationNoteInput.value;
+                localStorage.setItem('gemini_meditation_notes', JSON.stringify(meditationNotes));
+                dom.saveNoteBtn.textContent = '✅ 已儲存';
+                dom.saveNoteBtn.className = 'bg-green-100 text-green-800 hover:bg-green-200 px-4 py-1.5 rounded-lg text-sm font-medium transition shadow-sm border border-green-200';
+            });
+
             dom.readProgressCheckbox.addEventListener('change', e => {
                 readProgress[currentDay] = e.target.checked;
                 localStorage.setItem('gemini_read_progress', JSON.stringify(readProgress));
@@ -1384,8 +1450,25 @@
 
             dom.resetMenuBtn.addEventListener('click', e => { e.stopPropagation(); dom.settingsMenu.classList.add('hidden'); dom.resetConfirmModal.classList.remove('hidden'); });
             dom.cancelResetBtn.addEventListener('click', closeResetModal);
-            dom.confirmResetBtn.addEventListener('click', () => { performFactoryReset(); closeResetModal(); });
-            dom.exportAndResetBtn.addEventListener('click', () => { handleExport(); setTimeout(() => { performFactoryReset(); closeResetModal(); }, 500); });
+            
+            // 雙層重置邏輯綁定
+            dom.confirmResetBtn.addEventListener('click', () => { 
+                closeResetModal(); 
+                dom.notesKeepConfirmModal.classList.remove('hidden');
+            });
+            dom.exportAndResetBtn.addEventListener('click', () => { 
+                handleExport(); 
+                setTimeout(() => { 
+                    closeResetModal(); 
+                    dom.notesKeepConfirmModal.classList.remove('hidden');
+                }, 500); 
+            });
+            
+            dom.cancelNotesKeepBtn.addEventListener('click', () => {
+                dom.notesKeepConfirmModal.classList.add('hidden');
+            });
+            dom.resetKeepNotesBtn.addEventListener('click', () => performFactoryReset(true));
+            dom.resetClearAllBtn.addEventListener('click', () => performFactoryReset(false));
 
             dom.feedbackBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -1800,6 +1883,10 @@
             dom.prevDayBtn.disabled = (day === 1);
             dom.nextDayBtn.disabled = (day === 358);
             
+            // 🔥 載入該日默想筆記並重置按鈕狀態
+            dom.meditationNoteInput.value = meditationNotes[day] || "";
+            resetSaveNoteBtnState();
+
             // 🔥 重置所有可捲動區塊的捲動軸至頂部，並平滑捲動視窗
             dom.scriptureText.scrollTop = 0;
             dom.translatedText.scrollTop = 0;
@@ -2206,6 +2293,6 @@
 
         window.addEventListener('DOMContentLoaded', init);
     </script>
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.50</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.51</div>
 </body>
 </html>
