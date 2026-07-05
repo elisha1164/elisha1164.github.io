@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v1.52 修正主進度為詩篇時的錯誤 -->
 <!-- v1.51 新增「默想筆記」個人日誌功能，並實作雙層重置防護 Modal (可選擇保留或清空筆記) -->
 <!-- v1.50 縮減設定選單寬度至 w-60 (240px)，優化視覺比例並消除右側虛胖感 -->
 <!-- v1.49 修正 v1.48 意外刪除的輔助影片雙語切換按鈕事件 (Regression Bug) -->
@@ -1855,7 +1856,16 @@
                     });
                 }
 
-                const dayVerses = tBookClean === '詩篇' ? mainV : [...mainV, ...psalmV];
+                // 修正：無論主書卷為何，皆應合併 mainV 與 psalmV。
+                // 並透過 Set 進行去重，防止 CSV 中 Chapters 與 Psalms 重複定義相同詩篇時造成重複渲染。
+                const combinedVerses = [...mainV, ...psalmV];
+                const seenKeys = new Set();
+                const dayVerses = combinedVerses.filter(row => {
+                    const key = `${row.b}-${row.c}-${row.v}`;
+                    if (seenKeys.has(key)) return false;
+                    seenKeys.add(key);
+                    return true;
+                });
 
                 if (dayVerses.length > 0) {
                     let curBook = '', curChap = '', isFirst = true;
@@ -2294,6 +2304,6 @@
 
         window.addEventListener('DOMContentLoaded', init);
     </script>
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.51</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.52</div>
 </body>
 </html>
