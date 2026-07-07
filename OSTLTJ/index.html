@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v1.53 新增默想筆記的分享功能，支援單日純文字與多日匯出，並重構進度標題邏輯 -->
 <!-- v1.52 修復主進度為詩篇時，附屬詩篇無法顯示的問題 (Day 175 Bug)，並補回默想筆記的新手導覽步驟 -->
 <!-- v1.51 新增「默想筆記」個人日誌功能，並實作雙層重置防護 Modal (可選擇保留或清空筆記) -->
 <!-- v1.50 縮減設定選單寬度至 w-60 (240px)，優化視覺比例並消除右側虛胖感 -->
@@ -356,10 +357,16 @@
                     <h4 class="font-bold text-stone-700 flex items-center text-lg tracking-wide">
                         ✍️ 默想筆記
                     </h4>
-                    <!-- 儲存按鈕 -->
-                    <button id="saveNoteBtn" class="bg-stone-800 text-white hover:bg-stone-700 px-4 py-1.5 rounded-lg text-sm font-medium transition shadow-sm">
-                        儲存
-                    </button>
+                    <!-- 儲存與分享按鈕 -->
+                    <div class="flex gap-2">
+                        <button id="shareNoteBtn" class="bg-stone-200 text-stone-700 hover:bg-stone-300 px-3 py-1.5 rounded-lg text-sm font-medium transition shadow-sm flex items-center">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg>
+                            分享
+                        </button>
+                        <button id="saveNoteBtn" class="bg-stone-800 text-white hover:bg-stone-700 px-4 py-1.5 rounded-lg text-sm font-medium transition shadow-sm">
+                            儲存
+                        </button>
+                    </div>
                 </div>
                 <div class="p-6">
                     <textarea id="meditationNoteInput" class="w-full min-h-[120px] max-h-[500px] p-4 bg-stone-50 border border-stone-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none resize-y text-stone-800 text-lg leading-relaxed" placeholder="在這裡寫下您今天的默想、感動或禱告..."></textarea>
@@ -478,6 +485,29 @@
                     完全清空 (連同筆記一併刪除)
                 </button>
                 <button id="cancelNotesKeepBtn" class="w-full bg-stone-100 text-stone-600 py-2 rounded-lg hover:bg-stone-200 transition font-medium text-sm mt-1">
+                    取消
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 分享方式選擇彈出框 (Modal) -->
+    <div id="shareTypeModal" class="fixed inset-0 bg-stone-900/40 hidden flex items-center justify-center z-[60] transition-opacity backdrop-blur-sm">
+        <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4">
+            <h4 class="font-bold text-stone-800 text-lg mb-3 flex items-center"><span class="text-2xl mr-2">📤</span>選擇分享方式</h4>
+            <p class="text-stone-600 text-sm mb-6 leading-relaxed">
+                請選擇您要分享今天的心得，還是將所有日期的筆記匯出成文字檔。
+            </p>
+            <div class="flex flex-col gap-2">
+                <button id="shareSingleDayBtn" class="w-full bg-stone-800 text-white py-3 rounded-lg hover:bg-stone-700 transition font-medium text-sm shadow-sm flex items-center justify-center">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg>
+                    僅分享今日筆記 (純文字)
+                </button>
+                <button id="shareAllNotesBtn" class="w-full bg-amber-50 text-amber-800 border border-amber-200 py-3 rounded-lg hover:bg-amber-100 transition font-medium text-sm shadow-sm flex items-center justify-center">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    匯出所有筆記 (TXT 檔)
+                </button>
+                <button id="cancelShareTypeBtn" class="w-full bg-stone-100 text-stone-600 py-2.5 rounded-lg hover:bg-stone-200 transition font-medium text-sm mt-1">
                     取消
                 </button>
             </div>
@@ -769,6 +799,11 @@
             reflectionText: document.getElementById('reflectionText'),
             meditationSection: document.getElementById('meditationSection'),
             saveNoteBtn: document.getElementById('saveNoteBtn'),
+            shareNoteBtn: document.getElementById('shareNoteBtn'),
+            shareTypeModal: document.getElementById('shareTypeModal'),
+            shareSingleDayBtn: document.getElementById('shareSingleDayBtn'),
+            shareAllNotesBtn: document.getElementById('shareAllNotesBtn'),
+            cancelShareTypeBtn: document.getElementById('cancelShareTypeBtn'),
             meditationNoteInput: document.getElementById('meditationNoteInput'),
             playBtn: document.getElementById('playBtn'),
             pauseBtn: document.getElementById('pauseBtn'),
@@ -982,6 +1017,30 @@
                 }
             }
             return curr;
+        }
+        function getDailyProgressText(day) {
+            const data = bibleData[day];
+            if (!data) return "";
+            const formattedChapters = data.chapters ? data.chapters.replace(/-/g, " 到 ") : "";
+            const chapterUnit = (data.book === '詩篇') ? '篇' : '章';
+            let chapStr = formattedChapters ? ` ${formattedChapters} ${chapterUnit}` : "";
+            
+            if (cleanString(data.book) === '約翰二、三書') {
+                chapStr = "";
+            }
+            
+            let psalmStr = "";
+            if (data.psalms) {
+                if (data.psalms.includes(':')) {
+                    const [pChap, pVerse] = data.psalms.split(':');
+                    const formattedVerses = pVerse.replace(/-/g, " 到 ");
+                    psalmStr = `、詩篇 ${pChap} 篇 ${formattedVerses} 節`;
+                } else {
+                    const formattedPsalms = data.psalms.replace(/-/g, " 到 ");
+                    psalmStr = `、詩篇 ${formattedPsalms} 篇`;
+                }
+            }
+            return `${data.book}${chapStr}${psalmStr}`;
         }
 
         function updateHeaderVisuals(day, isRead) {
@@ -1386,6 +1445,102 @@
                 dom.saveNoteBtn.textContent = '✅ 已儲存';
                 dom.saveNoteBtn.className = 'bg-green-100 text-green-800 hover:bg-green-200 px-4 py-1.5 rounded-lg text-sm font-medium transition shadow-sm border border-green-200';
             });
+            // 筆記分享相關事件綁定
+            dom.shareNoteBtn.addEventListener('click', () => {
+                // 自動存檔
+                const noteValue = dom.meditationNoteInput.value.trim();
+                if (noteValue) {
+                    meditationNotes[currentDay] = noteValue;
+                    localStorage.setItem('gemini_meditation_notes', JSON.stringify(meditationNotes));
+                    dom.saveNoteBtn.textContent = '✅ 已儲存';
+                    dom.saveNoteBtn.className = 'bg-green-100 text-green-800 hover:bg-green-200 px-4 py-1.5 rounded-lg text-sm font-medium transition shadow-sm border border-green-200';
+                } else {
+                    delete meditationNotes[currentDay];
+                    localStorage.setItem('gemini_meditation_notes', JSON.stringify(meditationNotes));
+                }
+                
+                // 空筆記防呆 (檢查是否完全沒有任何歷史筆記)
+                const hasAnyNotes = Object.keys(meditationNotes).length > 0;
+                if (!hasAnyNotes) {
+                    return alert('您尚未填寫任何筆記喔！');
+                }
+                
+                dom.shareTypeModal.classList.remove('hidden');
+            });
+
+            dom.cancelShareTypeBtn.addEventListener('click', () => {
+                dom.shareTypeModal.classList.add('hidden');
+            });
+
+            dom.shareSingleDayBtn.addEventListener('click', async () => {
+                const noteValue = dom.meditationNoteInput.value.trim();
+                if (!noteValue) {
+                    return alert('您今天尚未填寫筆記喔！');
+                }
+                const progress = getDailyProgressText(currentDay);
+                const shareText = `第${currentDay}天\n進度：${progress}\n默想筆記：\n${noteValue}`;
+                
+                if (navigator.share) {
+                    try {
+                        await navigator.share({ text: shareText });
+                        dom.shareTypeModal.classList.add('hidden');
+                    } catch (err) {
+                        if (err.name !== 'AbortError') fallbackCopy(shareText);
+                    }
+                } else {
+                    fallbackCopy(shareText);
+                }
+            });
+
+            dom.shareAllNotesBtn.addEventListener('click', async () => {
+                let allNotesText = "";
+                const keys = Object.keys(meditationNotes).map(Number).sort((a,b)=>a-b);
+                for (const d of keys) {
+                    const n = meditationNotes[d].trim();
+                    if (n) {
+                        allNotesText += `第${d}天\n進度：${getDailyProgressText(d)}\n默想筆記：\n${n}\n\n----------------------------------------\n\n`;
+                    }
+                }
+                
+                const blob = new Blob([allNotesText], { type: 'text/plain' });
+                const file = new File([blob], 'Meditation_Notes.txt', { type: 'text/plain' });
+                
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    try {
+                        await navigator.share({
+                            files: [file],
+                            title: '我的默想筆記',
+                            text: '這是我這陣子的讀經默想筆記'
+                        });
+                        dom.shareTypeModal.classList.add('hidden');
+                    } catch (err) {
+                        if (err.name !== 'AbortError') fallbackDownload(blob, 'Meditation_Notes.txt');
+                    }
+                } else {
+                    fallbackDownload(blob, 'Meditation_Notes.txt');
+                }
+            });
+
+            function fallbackCopy(text) {
+                navigator.clipboard.writeText(text).then(() => {
+                    alert('已複製到剪貼簿');
+                    dom.shareTypeModal.classList.add('hidden');
+                }).catch(e => {
+                    alert('複製失敗，您的裝置不支援自動複製。');
+                });
+            }
+
+            function fallbackDownload(blob, filename) {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                dom.shareTypeModal.classList.add('hidden');
+            }
 
             dom.readProgressCheckbox.addEventListener('change', e => {
                 readProgress[currentDay] = e.target.checked;
@@ -1744,26 +1899,7 @@
             const isRead = !!readProgress[day];
             dom.readProgressCheckbox.checked = isRead;
             
-            const formattedChapters = data.chapters ? data.chapters.replace(/-/g, " 到 ") : "";
-            const chapterUnit = (data.book === '詩篇') ? '篇' : '章';
-            let chapStr = formattedChapters ? ` ${formattedChapters} ${chapterUnit}` : "";
-            
-            if (cleanString(data.book) === '約翰二、三書') {
-                chapStr = "";
-            }
-            
-            let psalmStr = "";
-            if (data.psalms) {
-                if (data.psalms.includes(':')) {
-                    const [pChap, pVerse] = data.psalms.split(':');
-                    const formattedVerses = pVerse.replace(/-/g, " 到 ");
-                    psalmStr = `、詩篇 ${pChap} 篇 ${formattedVerses} 節`;
-                } else {
-                    const formattedPsalms = data.psalms.replace(/-/g, " 到 ");
-                    psalmStr = `、詩篇 ${formattedPsalms} 篇`;
-                }
-            }
-            dom.displayTitle.textContent = `今日進度：${data.book}${chapStr}${psalmStr}`;
+            dom.displayTitle.textContent = `今日進度：${getDailyProgressText(day)}`;
             
             updateHeaderVisuals(day, isRead);
 
@@ -2304,6 +2440,6 @@
 
         window.addEventListener('DOMContentLoaded', init);
     </script>
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.52</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.53</div>
 </body>
 </html>
