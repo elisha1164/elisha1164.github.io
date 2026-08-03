@@ -1,21 +1,11 @@
 <!DOCTYPE html>
 <!-- 
-  版本號：v1.45
+  版本號：v1.46
   修改主旨：
-  1. 多卡片與頂面恆常導航列架構重構：
-     - 頁面架構全面改為「頂端固定功能列」+ 中央「多張經文卡片」+ 底部「＋」號新增卡片按鈕。
-     - 卡片高度設為 min-height (calc(100vh - 4rem)) 自然向下延伸，消除雙重滾動陷阱。
-     - 兩張卡片（含）以上時，於各卡片頭部選單右緣同一高度處，提供極簡的「✖」關閉/刪除按鈕；僅剩單筆卡片時自動隱藏。
-  2. 頂面恆常導航列極簡化：
-     - 移除主選單的 kebab menu 摺疊機制與標題字樣。
-     - 將全數常規功能按鈕（朗讀控制、中英對照、簡報匯出、分享複製、系統設定）不分桌機或手機，一律無摺疊地「居中對齊」恆常展示。
-  3. 經文選擇器遷移與多實例狀態引擎：
-     - 將原頂端列中的書卷、章節與導航按鈕正式下移並綁定至「各張經文卡片」的最上方，實現多段落獨立改定與同步參看。
-     - 廢除原 DOM 隱藏 <select> 中樞，改為以 JS 陣列 `cardStates` 作為全域單一真相來源 (SSOT)。
-  4. URL 與本地快取雙向同步擴充：
-     - 採用半形分號 (;) 作為多筆卡片經文範圍參數之分段隔離號（例：?ref=Gen1:1-5;John3:16），徹底避免 URL+轉譯空白與範圍減號衝突。
-  5. 全域引擎無縫調適：
-     - 中英對照、語音朗讀 (TTS) 與簡報 (PPTX) 匯出皆改為橫向遍歷整組卡片容器 (#cards-container)，一鍵統籌操作畫面內之全數卡片內容。
+  1. 修正多卡片情境下的「分享 / 複製文字」結構與邏輯：
+     - 於 #btn-share 處理常式改為遍歷 cardStates 陣列進行段落與經文萃取。
+     - 在各層級卡片內容前方加上標題資訊（如：【創世記 1:1-5】），並且在多張卡片間以空行分隔，維持明確可讀性。
+     - 廢除無條件的 200 字元截斷限制，保留足本經文結構分享與複製處理。
 -->
 <html lang="zh-TW">
 <head>
@@ -291,7 +281,7 @@
     </div>
 
     <!-- 右下角版本號標示 -->
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.45</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.46</div>
 
     <script>
         // ==========================================
@@ -1546,14 +1536,35 @@
 
         document.getElementById('btn-share').addEventListener('click', async () => {
             let titleStr = document.title.split(' | ')[0];
-            let scriptureText = '';
-            els.cardsContainer.querySelectorAll('span.text-stone-800').forEach(el => {
-                scriptureText += el.innerText.replace(/📝/g, '').replace(/\n/g, '');
+            let blocks = [];
+            cardStates.forEach(card => {
+                let cardTitle = `【${getCardTitleStr(card)}】`;
+                let lines = [];
+                if (bibleData && bibleData[card.b]) {
+                    const book = card.b;
+                    const fc = card.fc, fv = card.fv, tc = card.tc, tv = card.tv;
+                    const chapters = Object.keys(bibleData[book]).map(Number).sort((a,b)=>a-b);
+                    chapters.forEach(c => {
+                        if (c >= fc && c <= tc) {
+                            const verses = Object.keys(bibleData[book][c]).map(Number).sort((a,b)=>a-b);
+                            verses.forEach(v => {
+                                if (c === fc && c === tc) {
+                                    if (v < fv || v > tv) return;
+                                } else if (c === fc) {
+                                    if (v < fv) return;
+                                } else if (c === tc) {
+                                    if (v > tv) return;
+                                }
+                                let rawText = bibleData[book][c][v];
+                                let cleanText = rawText.replace(/\?註：(.*?)\?/g, '').trim();
+                                lines.push(`${v} ${cleanText}`);
+                            });
+                        }
+                    });
+                }
+                blocks.push(`${cardTitle}\n${lines.join('\n')}`);
             });
-            scriptureText = scriptureText.replace(/\s+/g, '');
-            if (scriptureText.length > 200) {
-                scriptureText = scriptureText.substring(0, 200) + '...';
-            }
+            let scriptureText = blocks.join('\n\n');
             
             let shareText = `${titleStr}\n\n${scriptureText}\n\n`;
 
