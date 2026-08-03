@@ -1,21 +1,21 @@
 <!DOCTYPE html>
 <!-- 
-  版本號：v1.44
+  版本號：v1.45
   修改主旨：
-  1. UI 極簡化：移除書卷按鈕的向下箭頭與「從」、「到」文字。
-  2. 排版優化：調整 Kebab Menu 的邊距與內距以消滅不必要的空白，進一步節省頂部導航列空間。
-  3. 分類名稱更新：變更書卷選擇器的分類名稱以符合更嚴謹的神學與歷史用詞。
-  4. 網址標題優化：當起訖為同一節時，網址與標題不再顯示冗餘的結束節號 (如 1:1-1 改為 1:1)。
-  5. 預設載入優化：無參數進入系統時，預設顯示《創世記》第一章全章。
-  6. PWA 安裝引導：新增 `?pwa=1` 網址參數觸發機制。精準攔截原生事件避免失效；並針對 iOS 裝置提供專屬圖文手動安裝引導 Modal。
-  7. 參與度推廣：使用者點擊上一章/下一章達 10 次時，自動觸發獨立的 PWA 安裝引導，並終生只觸發一次。
-  8. 中英對照功能 (無縫版)：改為初始載入即將 ESV 寫入 DOM，並透過純 CSS 控制顯示隱藏，實現切換雙語時「語音朗讀完全不中斷」的完美體驗。
-  9. 儲存機制優化：配置專屬 IndexedDB (`RCUV`) 並為所有鍵值加上 `RCUV_` 前綴以避免同網域衝突。新增記憶「中英縮寫」與「中英對照」的使用者偏好。
-  10. 靜默背景更新 (SWR)：實作 HTTP HEAD 請求檢查 `Last-Modified` 時間戳記。在不干擾使用者當下閱讀的前提下，若發現伺服器有新版資料，會於背景自動下載並更新本地 IndexedDB，達成下次開啟自動升級的效果。
-  11. 閱讀進度記憶：實作「網址優先 > 本地紀錄 > 預設創世記第一章」的三階段優先級讀取邏輯。
-  12. 循環播放：新增朗讀循環播放功能，可在朗讀中透過按鈕切換，預設為關閉且僅隨網頁生命週期記憶。
-  13. 書卷分類優化：細分「先知的書」為前先知、後先知與12小先知；細分「使徒書信」為保羅書信與其他書信，以降低視覺認知負擔。
-  14. 簡報匯出架構升級：導入 PPT 佔位符 (Placeholders) 機制。經文內文設為粗體、出處維持正常；使用者匯出後可直接在 PowerPoint 中透過修改母片，一鍵套用樣式變更至全檔投影片。
+  1. 多卡片與頂面恆常導航列架構重構：
+     - 頁面架構全面改為「頂端固定功能列」+ 中央「多張經文卡片」+ 底部「＋」號新增卡片按鈕。
+     - 卡片高度設為 min-height (calc(100vh - 4rem)) 自然向下延伸，消除雙重滾動陷阱。
+     - 兩張卡片（含）以上時，於各卡片頭部選單右緣同一高度處，提供極簡的「✖」關閉/刪除按鈕；僅剩單筆卡片時自動隱藏。
+  2. 頂面恆常導航列極簡化：
+     - 移除主選單的 kebab menu 摺疊機制與標題字樣。
+     - 將全數常規功能按鈕（朗讀控制、中英對照、簡報匯出、分享複製、系統設定）不分桌機或手機，一律無摺疊地「居中對齊」恆常展示。
+  3. 經文選擇器遷移與多實例狀態引擎：
+     - 將原頂端列中的書卷、章節與導航按鈕正式下移並綁定至「各張經文卡片」的最上方，實現多段落獨立改定與同步參看。
+     - 廢除原 DOM 隱藏 <select> 中樞，改為以 JS 陣列 `cardStates` 作為全域單一真相來源 (SSOT)。
+  4. URL 與本地快取雙向同步擴充：
+     - 採用半形分號 (;) 作為多筆卡片經文範圍參數之分段隔離號（例：?ref=Gen1:1-5;John3:16），徹底避免 URL+轉譯空白與範圍減號衝突。
+  5. 全域引擎無縫調適：
+     - 中英對照、語音朗讀 (TTS) 與簡報 (PPTX) 匯出皆改為橫向遍歷整組卡片容器 (#cards-container)，一鍵統籌操作畫面內之全數卡片內容。
 -->
 <html lang="zh-TW">
 <head>
@@ -76,134 +76,80 @@
         #book-modal-body.abbrev-mode .normal-view { display: none; }
 
         /* 中英對照視圖切換 (Bilingual View Toggle) */
-        #scripture-container .esv-text { display: none; }
-        #scripture-container.bilingual-mode .esv-text { display: block; }
+        #cards-container .esv-text { display: none; }
+        #cards-container.bilingual-mode .esv-text { display: block; }
     </style>
 </head>
-<body class="bg-stone-50 text-stone-800 font-sans min-h-screen pb-20">
+<body class="bg-stone-50 text-stone-800 font-sans min-h-screen pb-12">
 
-    <!-- 隱藏原生 select 作為狀態儲存中樞 (Single Source of Truth) -->
-    <div class="hidden">
-        <select id="book-select"></select>
-        <select id="from-chapter"></select>
-        <select id="from-verse"></select>
-        <select id="to-chapter"></select>
-        <select id="to-verse"></select>
-    </div>
-
-    <!-- 頂部導航與分享區塊 -->
+    <!-- 頂部固定導航功能列 (恆常可見、居中對齊常規功能) -->
     <header id="main-header" class="bg-white border-b border-stone-200 sticky top-0 z-30 shadow-sm transition-all duration-300">
-        <div class="max-w-4xl mx-auto px-4 py-3 flex flex-col md:flex-row md:items-center justify-between gap-3">
-            
-            <!-- 上層/左側：控制選單區塊與 Kebab Menu -->
-            <div class="flex justify-between items-center w-full md:w-auto flex-1 gap-2">
-                <div class="flex flex-wrap items-center gap-1.5 md:gap-2 flex-1">
-                    
-                    <!-- 上一章按鈕 -->
-                    <button id="btn-prev-chap" disabled onclick="goToPrevChapter()" class="p-1.5 md:p-2 border border-stone-300 rounded-full text-stone-500 hover:bg-stone-100 hover:text-stone-800 transition disabled:opacity-30 disabled:cursor-not-allowed bg-white shadow-sm outline-none focus:ring-2 focus:ring-amber-500 shrink-0" title="上一章">
-                        <svg class="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"></path></svg>
-                    </button>
-
-                    <!-- 書卷 Modal 觸發按鈕 -->
-                    <button id="btn-book-modal" disabled onclick="toggleBookModal()" class="py-1.5 px-3 md:px-4 border border-stone-300 rounded-full focus:ring-2 focus:ring-amber-500 outline-none bg-white text-stone-800 disabled:opacity-60 font-bold text-sm sm:text-base flex items-center gap-1.5 shadow-sm transition hover:bg-stone-50 shrink-0">
-                        <span id="current-book-name">載入中...</span>
-                    </button>
-                    
-                    <!-- 章節 Modal 觸發按鈕群 -->
-                    <div class="flex items-center gap-1.5 shrink-0">
-                        <button id="btn-from-modal" disabled onclick="openCvModal('from')" class="py-1.5 px-3 border border-stone-300 rounded-lg bg-stone-50 text-stone-800 disabled:opacity-60 hover:bg-stone-100 transition flex items-center gap-1 shadow-sm focus:ring-2 focus:ring-amber-500 outline-none">
-                            <span id="label-from" class="text-sm font-bold tracking-wide">載入中...</span>
-                        </button>
-                        <span class="text-stone-300 font-bold">-</span>
-                        <button id="btn-to-modal" disabled onclick="openCvModal('to')" class="py-1.5 px-3 border border-stone-300 rounded-lg bg-stone-50 text-stone-800 disabled:opacity-60 hover:bg-stone-100 transition flex items-center gap-1 shadow-sm focus:ring-2 focus:ring-amber-500 outline-none">
-                            <span id="label-to" class="text-sm font-bold tracking-wide">載入中...</span>
-                        </button>
-                    </div>
-
-                    <!-- 下一章按鈕 -->
-                    <button id="btn-next-chap" disabled onclick="goToNextChapter()" class="p-1.5 md:p-2 border border-stone-300 rounded-full text-stone-500 hover:bg-stone-100 hover:text-stone-800 transition disabled:opacity-30 disabled:cursor-not-allowed bg-white shadow-sm outline-none focus:ring-2 focus:ring-amber-500 shrink-0" title="下一章">
-                        <svg class="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"></path></svg>
-                    </button>
-                </div>
-
-                <!-- Kebab Menu (僅手機版顯示) -->
-                <button id="btn-kebab" class="md:hidden px-1 py-1.5 -mr-3 rounded-full text-stone-500 hover:bg-stone-100 transition" title="更多功能">
-                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                        <path fill-rule="evenodd" d="M12 5a2 2 0 110-4 2 2 0 010 4zm0 9a2 2 0 110-4 2 2 0 010 4zm0 9a2 2 0 110-4 2 2 0 010 4z" clip-rule="evenodd" />
-                    </svg>
+        <div class="max-w-4xl mx-auto px-4 py-2.5 flex justify-center items-center">
+            <div class="flex items-center gap-1 sm:gap-2 justify-center shrink-0 flex-wrap">
+                <!-- 播放控制按鈕 -->
+                <button id="btn-play" class="p-2 rounded-full bg-amber-600 hover:bg-amber-700 text-white shadow-sm transition transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed" title="朗讀全部卡片">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
                 </button>
-            </div>
+                <button id="btn-pause" class="hidden p-2 rounded-full bg-stone-800 hover:bg-stone-900 text-white shadow-sm transition transform active:scale-95" title="暫停">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
+                </button>
+                <button id="btn-resume" class="hidden p-2 rounded-full bg-amber-600 hover:bg-amber-700 text-white shadow-sm transition transform active:scale-95" title="繼續">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
+                </button>
+                <button id="btn-stop" class="hidden p-2 rounded-full bg-red-100 hover:bg-red-200 text-red-700 shadow-sm transition transform active:scale-95" title="停止">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clip-rule="evenodd"></path></svg>
+                </button>
+                <button id="btn-loop" class="hidden p-2 rounded-full text-stone-500 hover:bg-stone-100 hover:text-stone-800 shadow-sm transition transform active:scale-95" title="循環播放：關閉">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M17 2l4 4-4 4"></path><path d="M3 11v-1a4 4 0 0 1 4-4h14"></path><path d="M7 22l-4-4 4-4"></path><path d="M21 13v1a4 4 0 0 1-4 4H3"></path></svg>
+                </button>
 
-            <!-- 下層/右側：語音控制與分享設定按鈕區塊 (手機版預設隱藏，由 Kebab Menu 切換) -->
-            <div id="action-bar-wrapper" class="hidden md:block w-full md:w-auto border-t border-stone-100 md:border-none pt-2 md:pt-0">
-                <div class="flex items-center gap-1 justify-end shrink-0">
-                    <!-- 播放控制按鈕 -->
-                    <button id="btn-play" class="p-2 rounded-full bg-amber-600 hover:bg-amber-700 text-white shadow-sm transition transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed" title="朗讀">
-                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
-                    </button>
-                    <button id="btn-pause" class="hidden p-2 rounded-full bg-stone-800 hover:bg-stone-900 text-white shadow-sm transition transform active:scale-95" title="暫停">
-                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
-                    </button>
-                    <button id="btn-resume" class="hidden p-2 rounded-full bg-amber-600 hover:bg-amber-700 text-white shadow-sm transition transform active:scale-95" title="繼續">
-                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
-                    </button>
-                    <button id="btn-stop" class="hidden p-2 rounded-full bg-red-100 hover:bg-red-200 text-red-700 shadow-sm transition transform active:scale-95" title="停止">
-                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clip-rule="evenodd"></path></svg>
-                    </button>
-                    <button id="btn-loop" class="hidden p-2 rounded-full text-stone-500 hover:bg-stone-100 hover:text-stone-800 shadow-sm transition transform active:scale-95" title="循環播放：關閉">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M17 2l4 4-4 4"></path><path d="M3 11v-1a4 4 0 0 1 4-4h14"></path><path d="M7 22l-4-4 4-4"></path><path d="M21 13v1a4 4 0 0 1-4 4H3"></path></svg>
-                    </button>
+                <!-- 分隔線 -->
+                <div class="w-px h-5 bg-stone-300 mx-0.5 sm:mx-1"></div>
 
-                    <!-- 分隔線 -->
-                    <div class="w-px h-5 bg-stone-300 mx-1"></div>
+                <!-- 英譯本對照按鈕 -->
+                <button id="btn-bilingual" class="w-9 h-9 rounded-full text-stone-500 hover:bg-stone-100 hover:text-stone-800 transition flex items-center justify-center font-bold text-sm shrink-0" title="英譯本 ESV 對照 (全區)">英</button>
 
-                    <!-- 英譯本對照按鈕 -->
-                    <button id="btn-bilingual" class="w-9 h-9 rounded-full text-stone-500 hover:bg-stone-100 hover:text-stone-800 transition flex items-center justify-center font-bold text-sm" title="英譯本 ESV 對照">英</button>
+                <!-- 匯出簡報按鈕 -->
+                <button id="btn-export-ppt" class="p-2 rounded-full text-stone-500 hover:bg-stone-100 hover:text-stone-800 transition flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed shrink-0" title="匯出全體卡片為簡報 (PPTX)">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="1" ry="1"></rect><path stroke-linecap="round" stroke-linejoin="round" d="M8 20h8m-4-4v4"></path></svg>
+                </button>
 
-                    <!-- 匯出簡報按鈕 -->
-                    <button id="btn-export-ppt" class="p-2 rounded-full text-stone-500 hover:bg-stone-100 hover:text-stone-800 transition flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed" title="匯出簡報 (PPTX)">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="1" ry="1"></rect><path stroke-linecap="round" stroke-linejoin="round" d="M8 20h8m-4-4v4"></path></svg>
-                    </button>
-
-                    <!-- 分享/複製按鈕 (動態切換) -->
-                    <button id="btn-share" class="p-2 rounded-full text-stone-500 hover:bg-stone-100 hover:text-stone-800 transition" title="分享">
-                        <!-- Share Icon (預設隱藏，若支援 Web Share API 則顯示) -->
-                        <svg id="icon-share" class="w-5 h-5 hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg>
-                        <!-- Copy Icon (預設顯示，作為 Fallback) -->
-                        <svg id="icon-copy" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                <!-- 分享/複製按鈕 -->
+                <button id="btn-share" class="p-2 rounded-full text-stone-500 hover:bg-stone-100 hover:text-stone-800 transition shrink-0" title="分享與複製">
+                    <svg id="icon-share" class="w-5 h-5 hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg>
+                    <svg id="icon-copy" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                </button>
+                
+                <!-- 設定按鈕與下拉選單容器 -->
+                <div class="relative shrink-0" id="settings-container">
+                    <button id="btn-settings" class="p-2 rounded-full text-stone-500 hover:bg-stone-100 hover:text-stone-800 transition" title="系統設定">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                     </button>
                     
-                    <!-- 設定按鈕與下拉選單容器 -->
-                    <div class="relative" id="settings-container">
-                        <button id="btn-settings" class="p-2 rounded-full text-stone-500 hover:bg-stone-100 hover:text-stone-800 transition" title="設定">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                        </button>
-                        
-                        <!-- 設定下拉選單 -->
-                        <div id="settings-dropdown" class="hidden absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-lg border border-stone-200 p-4 z-50">
-                            <div class="mb-4">
-                                <label class="block text-sm font-bold text-stone-600 mb-2">🗣️ 系統語音</label>
-                                <select id="voice-select" class="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none transition bg-stone-50 text-stone-800 font-medium text-sm">
-                                    <option value="">(系統無可用中文語音)</option>
-                                </select>
-                            </div>
-
-                            <div class="mb-2">
-                                <label class="block text-sm font-bold text-stone-600 mb-2">⏱️ 朗讀語速</label>
-                                <select id="rate-select" class="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none transition bg-stone-50 text-stone-800 font-medium text-sm">
-                                    <option value="0.8">慢速 (0.8x)</option>
-                                    <option value="1.0" selected>正常 (1.0x)</option>
-                                    <option value="1.2">稍快 (1.2x)</option>
-                                    <option value="1.5">快速 (1.5x)</option>
-                                </select>
-                            </div>
-
-                            <!-- PWA 安裝按鈕 (預設隱藏，由 JS 控制顯示) -->
-                            <button id="btn-install-pwa" class="hidden w-full bg-amber-100 text-amber-800 py-2 mt-4 rounded-lg hover:bg-amber-200 transition font-bold text-sm flex items-center justify-center gap-1">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                                安裝到桌面
-                            </button>
+                    <!-- 設定下拉選單 -->
+                    <div id="settings-dropdown" class="hidden absolute right-0 sm:left-1/2 sm:-translate-x-1/2 mt-2 w-64 bg-white rounded-xl shadow-lg border border-stone-200 p-4 z-50 text-left">
+                        <div class="mb-4">
+                            <label class="block text-sm font-bold text-stone-600 mb-2">🗣️ 系統語音</label>
+                            <select id="voice-select" class="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none transition bg-stone-50 text-stone-800 font-medium text-sm">
+                                <option value="">(系統無可用中文語音)</option>
+                            </select>
                         </div>
+
+                        <div class="mb-2">
+                            <label class="block text-sm font-bold text-stone-600 mb-2">⏱️ 朗讀語速</label>
+                            <select id="rate-select" class="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none transition bg-stone-50 text-stone-800 font-medium text-sm">
+                                <option value="0.8">慢速 (0.8x)</option>
+                                <option value="1.0" selected>正常 (1.0x)</option>
+                                <option value="1.2">稍快 (1.2x)</option>
+                                <option value="1.5">快速 (1.5x)</option>
+                            </select>
+                        </div>
+
+                        <!-- PWA 安裝按鈕 -->
+                        <button id="btn-install-pwa" class="hidden w-full bg-amber-100 text-amber-800 py-2 mt-4 rounded-lg hover:bg-amber-200 transition font-bold text-sm flex items-center justify-center gap-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                            安裝到桌面
+                        </button>
                     </div>
                 </div>
             </div>
@@ -215,17 +161,23 @@
     </header>
 
     <main class="max-w-4xl mx-auto px-4 py-6">
-        <!-- 經文顯示區 -->
-        <section class="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden">
-            <div id="scripture-container" class="p-6 md:p-8 text-stone-800 leading-loose font-serif min-h-[300px] text-lg">
-                <!-- 經文內容將動態生成於此 -->
-            </div>
-        </section>
+        <!-- 經文多卡片容器 -->
+        <div id="cards-container" class="flex flex-col">
+            <article class="scripture-card min-h-[calc(100vh-4rem)] bg-white rounded-2xl shadow-sm border border-stone-200 p-8 flex items-center justify-center text-stone-400 text-lg font-serif">
+                ⏳ 正在讀取並初始化聖經經文資料庫...
+            </article>
+        </div>
 
+        <!-- 頁底「＋」號新增卡片觸發按鈕 -->
+        <div class="flex justify-center mt-6 mb-8">
+            <button onclick="addNewCard()" class="w-14 h-14 rounded-full bg-amber-500 hover:bg-amber-600 text-white shadow-lg hover:shadow-xl flex items-center justify-center transition transform hover:scale-105 active:scale-95 outline-none focus:ring-4 focus:ring-amber-300" title="新增經文卡片 (預設創世記)">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"></path></svg>
+            </button>
+        </div>
     </main>
 
     <!-- Footer -->
-    <footer class="mt-8 text-center text-stone-400 text-xs px-4 border-t border-stone-200 pt-6 pb-4">
+    <footer class="mt-4 text-center text-stone-400 text-xs px-4 border-t border-stone-200 pt-6 pb-6">
         <a href="../index.html" target="_blank" class="inline-flex items-center text-stone-500 hover:text-stone-700 transition-colors bg-stone-200/50 px-3 py-1.5 rounded-full">
             <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
@@ -338,8 +290,8 @@
         </div>
     </div>
 
-    <!-- 右下角版本號標示 (用於確認佈署狀態) -->
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.44</div>
+    <!-- 右下角版本號標示 -->
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.45</div>
 
     <script>
         // ==========================================
@@ -355,7 +307,12 @@
         let isDataReady = false;
         let isBilingual = false; // 中英對照狀態切換
         let isLooping = false;   // 循環播放狀態
-        
+
+        // 多卡片狀態管理中樞 (Single Source of Truth)
+        let cardStates = [];
+        let activeModalCardId = null; // 當前正在操作選單之卡片 ID
+        let cvState = { type: 'from', chap: 1, verse: 1 };
+
         // 語音引擎相關變數
         const synth = window.speechSynthesis;
         let voices = [];
@@ -366,23 +323,17 @@
         let isPaused = false;
         let mappings = []; // DOM 捲動對齊映射
 
-        // 66 卷書中英對照表 (嚴格遵循 FSD 規範：無空白、無句點)
-        // [v1.30更新] 字典順序已重構，舊約依照 TaNaKh 排序，新約為標準順序
-        // 此順序將作為系統上一章/下一章的全局單一導航指標 (Single Source of Truth)
+        // 66 卷書中英對照表
         const bookMap = {
-            // 律法 (Torah)
             "Gen": "創世記", "Ex": "出埃及記", "Lev": "利未記", "Num": "民數記", "Deut": "申命記",
-            // 先知 (Nevi'im)
             "Josh": "約書亞記", "Judg": "士師記", "1Sam": "撒母耳記上", "2Sam": "撒母耳記下",
             "1Kings": "列王紀上", "2Kings": "列王紀下", "Isa": "以賽亞書", "Jer": "耶利米書",
             "Ezek": "以西結書", "Hos": "何西阿書", "Joel": "約珥書", "Amos": "阿摩司書",
             "Obad": "俄巴底亞書", "Jonah": "約拿書", "Mic": "彌迦書", "Nah": "那鴻書",
             "Hab": "哈巴谷書", "Zeph": "西番雅書", "Hag": "哈該書", "Zech": "撒迦利亞書", "Mal": "瑪拉基書",
-            // 詩歌 / 著作 (Ketuvim)
             "Ps": "詩篇", "Prov": "箴言", "Job": "約伯記", "Song": "雅歌", "Ruth": "路得記",
             "Lam": "耶利米哀歌", "Eccles": "傳道書", "Est": "以斯帖記", "Dan": "但以理書",
             "Ezra": "以斯拉記", "Neh": "尼希米記", "1Chron": "歷代志上", "2Chron": "歷代志下",
-            // 新約
             "Matt": "馬太福音", "Mark": "馬可福音", "Luke": "路加福音", "John": "約翰福音", "Acts": "使徒行傳",
             "Rom": "羅馬書", "1Cor": "哥林多前書", "2Cor": "哥林多後書", "Gal": "加拉太書", "Eph": "以弗所書",
             "Phil": "腓立比書", "Col": "歌羅西書", "1Thess": "帖撒羅尼迦前書", "2Thess": "帖撒羅尼迦後書",
@@ -391,11 +342,10 @@
             "3John": "約翰三書", "Jude": "猶大書", "Rev": "啟示錄"
         };
 
-        // 反向對照表 (用於生成 URL)
         const revBookMap = Object.keys(bookMap).reduce((acc, key) => { acc[bookMap[key]] = key; return acc; }, {});
         const bookOrderArray = Object.values(bookMap);
 
-        // 書卷選擇 Modal 專用分類字典 (TaNaKh 架構 + 新約分類)
+        // 書卷選擇 Modal 專用分類字典
         const modalBookCategories = [
             {
                 title: "舊約",
@@ -433,7 +383,6 @@
             }
         ];
 
-        // 書卷中文標準簡寫標記對應表 (用於動態產生簡寫表)
         const bookAbbrevFormatCh = {
             "Gen": "<strong>創</strong>世記", "Ex": "<strong>出</strong>埃及記", "Lev": "<strong>利</strong>未記", "Num": "<strong>民</strong>數記", "Deut": "<strong>申</strong>命記",
             "Josh": "約<strong>書</strong>亞記", "Judg": "<strong>士</strong>師記", "Ruth": "路<strong>得</strong>記", "1Sam": "<strong>撒</strong>母耳記<strong>上</strong>", "2Sam": "<strong>撒</strong>母耳記<strong>下</strong>",
@@ -451,7 +400,6 @@
             "3John": "<strong>約</strong>翰<strong>三</strong>書", "Jude": "<strong>猶</strong>大書", "Rev": "<strong>啟</strong>示錄"
         };
 
-        // 書卷英文完整名稱與標準簡寫標記對應表 (用於動態產生簡寫表)
         const bookAbbrevFormatEn = {
             "Gen": "<strong>Gen</strong>esis", "Ex": "<strong>Ex</strong>odus", "Lev": "<strong>Lev</strong>iticus", "Num": "<strong>Num</strong>bers", "Deut": "<strong>Deut</strong>eronomy",
             "Josh": "<strong>Josh</strong>ua", "Judg": "<strong>Judg</strong>es", "Ruth": "<strong>Ruth</strong>", "1Sam": "<strong>1 Sam</strong>uel", "2Sam": "<strong>2 Sam</strong>uel",
@@ -469,26 +417,11 @@
             "3John": "<strong>3 John</strong>", "Jude": "<strong>Jude</strong>", "Rev": "<strong>Rev</strong>elation"
         };
 
-        // DOM 元素快取
+        // DOM 元素快取 (精簡後的頂級導航與核心容器)
         const els = {
             mainHeader: document.getElementById('main-header'),
-            btnKebab: document.getElementById('btn-kebab'),
-            actionBarWrapper: document.getElementById('action-bar-wrapper'),
             statusBar: document.getElementById('status-bar'),
-            btnPrevChap: document.getElementById('btn-prev-chap'),
-            btnNextChap: document.getElementById('btn-next-chap'),
-            bookSelect: document.getElementById('book-select'),
-            btnBookModal: document.getElementById('btn-book-modal'),
-            currentBookName: document.getElementById('current-book-name'),
-            fChap: document.getElementById('from-chapter'),
-            fVerse: document.getElementById('from-verse'),
-            tChap: document.getElementById('to-chapter'),
-            tVerse: document.getElementById('to-verse'),
-            btnFromModal: document.getElementById('btn-from-modal'),
-            btnToModal: document.getElementById('btn-to-modal'),
-            labelFrom: document.getElementById('label-from'),
-            labelTo: document.getElementById('label-to'),
-            container: document.getElementById('scripture-container'),
+            cardsContainer: document.getElementById('cards-container'),
             btnPlay: document.getElementById('btn-play'),
             btnPause: document.getElementById('btn-pause'),
             btnResume: document.getElementById('btn-resume'),
@@ -505,18 +438,19 @@
             toggleAbbrev: document.getElementById('toggle-abbrev-view')
         };
 
-        // 章節選擇 Modal 的暫存狀態
-        let cvState = { type: 'from', chap: 1, verse: 1 };
+        // 產生卡片唯一識別代碼
+        function generateCardId() {
+            return 'c-' + Math.random().toString(36).substring(2, 9) + '-' + Date.now();
+        }
 
         // ==========================================
-        // 2. 靜默背景更新機制 (SWR: Stale-while-revalidate)
+        // 2. 靜默背景更新機制 (SWR)
         // ==========================================
         async function checkAndUpdateDataInBackground() {
             try {
                 const localRcuvTime = await localforage.getItem('RCUV_rcuv_timestamp');
                 const localEsvTime = await localforage.getItem('RCUV_esv_timestamp');
 
-                // 發送 HEAD 請求，加上時間戳記強制繞過快取
                 const [headRcuv, headEsv] = await Promise.all([
                     fetch('../rcuv.json?t=' + Date.now(), { method: 'HEAD' }),
                     fetch('../esv2016.json?t=' + Date.now(), { method: 'HEAD' })
@@ -525,7 +459,6 @@
                 if (headRcuv.ok) {
                     const serverRcuvTime = headRcuv.headers.get('Last-Modified');
                     if (serverRcuvTime && serverRcuvTime !== localRcuvTime) {
-                        console.log('RCUV 有新版本，背景更新中...');
                         const res = await fetch('../rcuv.json?t=' + Date.now());
                         if (res.ok) {
                             const newData = await res.json();
@@ -538,7 +471,6 @@
                 if (headEsv.ok) {
                     const serverEsvTime = headEsv.headers.get('Last-Modified');
                     if (serverEsvTime && serverEsvTime !== localEsvTime) {
-                        console.log('ESV 有新版本，背景更新中...');
                         const res = await fetch('../esv2016.json?t=' + Date.now());
                         if (res.ok) {
                             const newEsv = await res.json();
@@ -553,27 +485,22 @@
         }
 
         // ==========================================
-        // 3. 初始化與資料快取 (IndexedDB / localforage)
+        // 3. 初始化與資料快取
         // ==========================================
         async function initApp() {
             try {
-                // PWA 分享按鈕支援偵測
                 if (navigator.share) {
                     document.getElementById('icon-share').classList.remove('hidden');
                     document.getElementById('icon-copy').classList.add('hidden');
                 }
 
-                // 產生書卷 Modal 內容
                 initBookModalContent();
 
-                // 嘗試從本地快取讀取
                 let data = await localforage.getItem('RCUV_data');
                 let esv = await localforage.getItem('RCUV_esv_data');
                 
                 if (!data || !esv) {
                     els.statusBar.innerHTML = "⏳ 正在首次下載聖經資料 (約 6MB)，請稍候...";
-                    
-                    // 依據 FSD 規範，並行載入上層目錄的資料 (加入破壞快取參數)
                     const [resRcuv, resEsv] = await Promise.all([
                         fetch('../rcuv.json?t=' + Date.now()),
                         fetch('../esv2016.json?t=' + Date.now())
@@ -582,20 +509,17 @@
                     if (!resRcuv.ok) throw new Error(`RCUV HTTP 錯誤: ${resRcuv.status}`);
                     if (!resEsv.ok) throw new Error(`ESV HTTP 錯誤: ${resEsv.status}`);
                     
-                    // 擷取伺服器的 Last-Modified 時間戳記
                     const rcuvTime = resRcuv.headers.get('Last-Modified') || Date.now().toString();
                     const esvTime = resEsv.headers.get('Last-Modified') || Date.now().toString();
 
                     data = await resRcuv.json();
                     esv = await resEsv.json();
                     
-                    // 異步寫入快取與時間戳記，不阻塞主線程渲染
                     localforage.setItem('RCUV_data', data).catch(e => console.warn('寫入 RCUV 快取失敗:', e));
                     localforage.setItem('RCUV_esv_data', esv).catch(e => console.warn('寫入 ESV 快取失敗:', e));
                     localforage.setItem('RCUV_rcuv_timestamp', rcuvTime).catch(e => console.warn('寫入 RCUV 時間戳記失敗:', e));
                     localforage.setItem('RCUV_esv_timestamp', esvTime).catch(e => console.warn('寫入 ESV 時間戳記失敗:', e));
                 } else {
-                    // 若本地已有資料，觸發 SWR 靜默背景更新檢查
                     checkAndUpdateDataInBackground();
                 }
 
@@ -603,11 +527,10 @@
                 esvData = esv;
                 isDataReady = true;
 
-                // 讀取 UI 偏好設定
                 let savedBilingual = await localforage.getItem('RCUV_bilingual');
                 if (savedBilingual !== null) {
                     isBilingual = savedBilingual;
-                    els.container.classList.toggle('bilingual-mode', isBilingual);
+                    if (els.cardsContainer) els.cardsContainer.classList.toggle('bilingual-mode', isBilingual);
                     if (isBilingual) {
                         els.btnBilingual.classList.remove('text-stone-500');
                         els.btnBilingual.classList.add('bg-stone-800', 'text-white', 'hover:bg-stone-700', 'hover:text-white');
@@ -620,24 +543,15 @@
                     document.getElementById('book-modal-body').classList.toggle('abbrev-mode', savedAbbrev);
                 }
                 
-                // 讀取最後一次閱讀進度
                 let savedRef = await localforage.getItem('RCUV_last_read_ref');
 
-                // 初始化選單
-                populateBookSelect();
-                
-                // 解析 URL 並渲染 (傳入 savedRef 作為備用)
+                // 解析 URL (含半形分號隔離之多實例參考) 並繪製卡片
                 parseUrlAndRender(savedRef);
 
-                // 隱藏狀態列，解鎖選單與按鈕
                 els.statusBar.classList.add('hidden');
-                els.btnBookModal.disabled = false;
-                els.btnFromModal.disabled = false;
-                els.btnToModal.disabled = false;
                 els.btnPlay.disabled = false;
                 els.btnExportPpt.disabled = false;
 
-                // 語音初始化
                 populateVoiceList();
                 if (speechSynthesis.onvoiceschanged !== undefined) speechSynthesis.onvoiceschanged = populateVoiceList;
 
@@ -647,7 +561,6 @@
                 els.statusBar.classList.add('bg-red-100', 'text-red-700');
                 els.statusBar.innerHTML = `❌ 載入失敗: ${error.message}。請確認連線或檔案位置。`;
                 
-                // 如果是 LINE / FB 擋住 indexedDB，提供複製按鈕
                 if (/Line|FBAV|FBAN/i.test(navigator.userAgent)) {
                     els.statusBar.innerHTML += `<button onclick="copyUrl()" class="ml-2 underline font-bold">複製網址於外部瀏覽器開啟</button>`;
                 }
@@ -655,409 +568,357 @@
         }
 
         // ==========================================
-        // 4. 網址解析器 (Parser) 與狀態綁定
+        // 4. 網址解析器 (Parser) 與多卡片狀態綁定
         // ==========================================
+        function parseSingleRef(refStr) {
+            let card = { id: generateCardId(), b: "創世記", fc: 1, fv: 1, tc: 1, tv: 999 };
+            const match = refStr.trim().match(/^(\d?[A-Za-z]+)(.*?)$/);
+            if (!match) return null;
+            
+            const bAbbrev = match[1];
+            const coords = match[2];
+            if (!bookMap[bAbbrev]) return null;
+            card.b = bookMap[bAbbrev];
+            
+            if (!coords) {
+                card.fc = 1; card.fv = 1;
+                const chapters = Object.keys(bibleData[card.b]).map(Number).sort((a,b)=>a-b);
+                card.tc = chapters[chapters.length - 1];
+                card.tv = 999;
+            } else {
+                const parts = coords.split('-');
+                const startParts = parts[0].split(':');
+                card.fc = parseInt(startParts[0]) || 1;
+                card.fv = startParts.length > 1 ? parseInt(startParts[1]) : 1;
+                
+                if (parts.length > 1) {
+                    const endParts = parts[1].split(':');
+                    if (endParts.length === 2) {
+                        card.tc = parseInt(endParts[0]);
+                        card.tv = parseInt(endParts[1]);
+                    } else {
+                        if (startParts.length === 2) {
+                            card.tc = card.fc;
+                            card.tv = parseInt(endParts[0]);
+                        } else {
+                            card.tc = parseInt(endParts[0]);
+                            card.tv = 999;
+                        }
+                    }
+                } else {
+                    card.tc = card.fc;
+                    card.tv = startParts.length > 1 ? card.fv : 999;
+                }
+            }
+            return card;
+        }
+
+        function validateCardState(card) {
+            if (!bibleData[card.b]) card.b = "創世記";
+            const chapters = Object.keys(bibleData[card.b]).map(Number).sort((a,b)=>a-b);
+            if (!chapters.includes(card.fc)) card.fc = chapters[0];
+            
+            let fVerses = Object.keys(bibleData[card.b][card.fc]).map(Number).sort((a,b)=>a-b);
+            if (!fVerses.includes(card.fv)) card.fv = fVerses[0];
+
+            if (!chapters.includes(card.tc) || card.tc < card.fc) card.tc = card.fc;
+            
+            let tVerses = Object.keys(bibleData[card.b][card.tc]).map(Number).sort((a,b)=>a-b);
+            if (card.tc === card.fc) tVerses = tVerses.filter(v => v >= card.fv);
+            
+            if (card.tv === 999 || !tVerses.includes(card.tv)) {
+                card.tv = tVerses[tVerses.length - 1];
+            }
+        }
+
         function parseUrlAndRender(refParamOverride = null) {
             const params = new URLSearchParams(window.location.search);
             const refParam = params.get('ref') || refParamOverride;
             
-            let state = { b: "創世記", fc: 1, fv: 1, tc: 1, tv: 999 }; // 預設值改為全章 (tv: 999 會觸發自動校正)
-            
+            cardStates = [];
             if (refParam) {
-                // 解析 ?ref=Gen1:1-2:5, Gen1-2, Gen1, Gen 等格式
-                // 精準分離書卷與章節座標
-                const match = refParam.match(/^(\d?[A-Za-z]+)(.*?)$/);
-                if (match) {
-                    const bAbbrev = match[1];
-                    const coords = match[2];
-                    
-                    if (bookMap[bAbbrev]) {
-                        state.b = bookMap[bAbbrev];
-                        
-                        if (!coords) {
-                            // Gen (整卷)
-                            state.fc = 1; state.fv = 1;
-                            const chapters = Object.keys(bibleData[state.b]).map(Number).sort((a,b)=>a-b);
-                            state.tc = chapters[chapters.length - 1];
-                            state.tv = 999; // 稍後驗證時會自動校正為最後一節
-                        } else {
-                            const parts = coords.split('-');
-                            const startParts = parts[0].split(':');
-                            state.fc = parseInt(startParts[0]) || 1;
-                            state.fv = startParts.length > 1 ? parseInt(startParts[1]) : 1;
-                            
-                            if (parts.length > 1) {
-                                const endParts = parts[1].split(':');
-                                if (endParts.length === 2) {
-                                    state.tc = parseInt(endParts[0]);
-                                    state.tv = parseInt(endParts[1]);
-                                } else {
-                                    if (startParts.length === 2) { // Gen1:1-5
-                                        state.tc = state.fc;
-                                        state.tv = parseInt(endParts[0]);
-                                    } else { // Gen1-2
-                                        state.tc = parseInt(endParts[0]);
-                                        state.tv = 999;
-                                    }
-                                }
-                            } else {
-                                // Gen1 or Gen1:1
-                                state.tc = state.fc;
-                                state.tv = startParts.length > 1 ? state.fv : 999;
-                            }
-                        }
+                // 以半形分號 (;) 切割多筆參考範圍
+                const refParts = refParam.split(';').filter(Boolean);
+                refParts.forEach(ref => {
+                    const card = parseSingleRef(ref);
+                    if (card) {
+                        validateCardState(card);
+                        cardStates.push(card);
                     }
-                }
+                });
             }
 
-            // 更新隱藏的下拉選單與按鈕顯示文字 (觸發連動，但不強制重設，以配合 URL 參數)
-            els.bookSelect.value = state.b;
-            if (els.currentBookName) els.currentBookName.textContent = state.b;
-            updateChapterSelects(false);
-            
-            // 安全填寫數值並觸發依賴更新
-            // 1. 設定 from-chapter 並重建 from-verse
-            if (els.fChap.querySelector(`option[value="${state.fc}"]`)) els.fChap.value = state.fc;
-            updateVerseSelects('from', false);
-            
-            // 2. 設定 from-verse 並重建 to-chapter
-            if (els.fVerse.querySelector(`option[value="${state.fv}"]`)) els.fVerse.value = state.fv;
-            updateToChapterSelect(false);
-            
-            // 3. 設定 to-chapter 並重建 to-verse
-            if (els.tChap.querySelector(`option[value="${state.tc}"]`)) els.tChap.value = state.tc;
-            updateToVerseSelect(false);
-            
-            // 4. 校正 tv=999 的情況 (選取該章最後一節)
-            if(state.tv === 999 || !els.tVerse.querySelector(`option[value="${state.tv}"]`)) {
-                 const opts = els.tVerse.options;
-                 els.tVerse.value = opts[opts.length-1].value;
-            } else {
-                 els.tVerse.value = state.tv;
+            if (!cardStates.length) {
+                let defaultCard = { id: generateCardId(), b: "創世記", fc: 1, fv: 1, tc: 1, tv: 999 };
+                validateCardState(defaultCard);
+                cardStates.push(defaultCard);
             }
-            
-            enforceValidationAndExtract();
+
+            renderAllCards();
+            updateUrlAndTitle();
         }
 
-        // 綁定 popstate 事件，支援瀏覽器「上一頁/下一頁」的完整 SPA 體驗
         window.addEventListener('popstate', () => {
             if (isDataReady) parseUrlAndRender();
         });
 
-        function updateUrlAndTitle() {
-            if (!isDataReady) return;
+        function getCardRefStr(card) {
+            const abbrev = revBookMap[card.b];
+            const fc = card.fc, fv = card.fv, tc = card.tc, tv = card.tv;
+            const chapters = Object.keys(bibleData[card.b]).map(Number).sort((a,b)=>a-b);
+            const maxChap = chapters[chapters.length - 1];
+            const maxTVerse = Object.keys(bibleData[card.b][tc]).map(Number).sort((a,b)=>a-b).pop();
             
-            const b = els.bookSelect.value;
-            const fc = parseInt(els.fChap.value);
-            const fv = parseInt(els.fVerse.value);
-            const tc = parseInt(els.tChap.value);
-            const tv = parseInt(els.tVerse.value);
-            
-            const abbrev = revBookMap[b];
-            const unitName = (b === '詩篇') ? '篇' : '章';
-            let refStr = "";
-            let titleStr = "";
+            const isWholeBook = (fc === 1 && fv === 1 && tc === maxChap && tv === maxTVerse);
+            const isWholeChapter = (fv === 1 && tc === fc && tv === maxTVerse);
+            const isMultiWholeChapters = (fv === 1 && tv === maxTVerse);
 
-            const isWholeBook = (fc === 1 && fv === 1 && tc === parseInt(els.tChap.options[els.tChap.options.length-1].value) && tv === parseInt(els.tVerse.options[els.tVerse.options.length-1].value));
-            const isWholeChapter = (fv === 1 && tc === fc && tv === parseInt(els.tVerse.options[els.tVerse.options.length-1].value));
-            const isMultiWholeChapters = (fv === 1 && tv === parseInt(els.tVerse.options[els.tVerse.options.length-1].value));
-
-            if (isWholeBook) {
-                refStr = abbrev;
-                titleStr = `${b} 全卷`;
-            } else if (tc === fc) {
-                if (isWholeChapter) {
-                    refStr = `${abbrev}${fc}`;
-                    titleStr = `${b} 第 ${fc} ${unitName}`;
-                } else if (fv === tv) {
-                    refStr = `${abbrev}${fc}:${fv}`;
-                    titleStr = `${b} ${fc}:${fv}`;
-                } else {
-                    refStr = `${abbrev}${fc}:${fv}-${tv}`;
-                    titleStr = `${b} ${fc}:${fv}-${tv}`;
-                }
+            if (isWholeBook) return abbrev;
+            if (tc === fc) {
+                if (isWholeChapter) return `${abbrev}${fc}`;
+                if (fv === tv) return `${abbrev}${fc}:${fv}`;
+                return `${abbrev}${fc}:${fv}-${tv}`;
             } else {
-                if (isMultiWholeChapters) {
-                    refStr = `${abbrev}${fc}-${tc}`;
-                    titleStr = `${b} 第 ${fc} - ${tc} ${unitName}`;
-                } else {
-                    refStr = `${abbrev}${fc}:${fv}-${tc}:${tv}`;
-                    titleStr = `${b} ${fc}:${fv}-${tc}:${tv}`;
-                }
+                if (isMultiWholeChapters) return `${abbrev}${fc}-${tc}`;
+                return `${abbrev}${fc}:${fv}-${tc}:${tv}`;
             }
+        }
 
-            // 更新網址與標題
-            const newUrl = `${window.location.pathname}?ref=${refStr}`;
-            // 只有在 URL 真的不同時才 pushState，避免不必要的歷史紀錄堆疊
-            if (window.location.search !== `?ref=${refStr}`) {
+        function getCardTitleStr(card) {
+            const b = card.b, fc = card.fc, fv = card.fv, tc = card.tc, tv = card.tv;
+            const unitName = (b === '詩篇') ? '篇' : '章';
+            const chapters = Object.keys(bibleData[b]).map(Number).sort((a,b)=>a-b);
+            const maxChap = chapters[chapters.length - 1];
+            const maxTVerse = Object.keys(bibleData[b][tc]).map(Number).sort((a,b)=>a-b).pop();
+            
+            const isWholeBook = (fc === 1 && fv === 1 && tc === maxChap && tv === maxTVerse);
+            const isWholeChapter = (fv === 1 && tc === fc && tv === maxTVerse);
+            const isMultiWholeChapters = (fv === 1 && tv === maxTVerse);
+
+            if (isWholeBook) return `${b} 全卷`;
+            if (tc === fc) {
+                if (isWholeChapter) return `${b} 第 ${fc} ${unitName}`;
+                if (fv === tv) return `${b} ${fc}:${fv}`;
+                return `${b} ${fc}:${fv}-${tv}`;
+            } else {
+                if (isMultiWholeChapters) return `${b} 第 ${fc} - ${tc} ${unitName}`;
+                return `${b} ${fc}:${fv}-${tc}:${tv}`;
+            }
+        }
+
+        function updateUrlAndTitle() {
+            if (!isDataReady || !cardStates.length) return;
+            
+            const refStrings = cardStates.map(card => getCardRefStr(card));
+            const fullRefStr = refStrings.join(';');
+            const firstCardTitle = getCardTitleStr(cardStates[0]);
+            const titleStr = cardStates.length > 1 ? `${firstCardTitle} 等${cardStates.length}段` : firstCardTitle;
+            
+            const newUrl = `${window.location.pathname}?ref=${fullRefStr}`;
+            if (window.location.search !== `?ref=${fullRefStr}`) {
                 window.history.pushState(null, '', newUrl);
             }
             document.title = `${titleStr} | 和合本 2010`;
-            
-            // 儲存進度供下次無參數啟動時讀取
-            localforage.setItem('RCUV_last_read_ref', refStr).catch(e => console.warn('寫入進度失敗:', e));
-        }
-        
-        // 同步隱藏選單的值到 UI 按鈕上
-        function syncLabels() {
-            if(els.labelFrom) els.labelFrom.textContent = `${els.fChap.value} : ${els.fVerse.value}`;
-            if(els.labelTo) els.labelTo.textContent = `${els.tChap.value} : ${els.tVerse.value}`;
+            localforage.setItem('RCUV_last_read_ref', fullRefStr).catch(e => console.warn('寫入進度失敗:', e));
         }
 
         // ==========================================
-        // 4. UI 聯動選單與防呆 (Validation)
+        // 5. 經文多卡片渲染與控制 Engine
         // ==========================================
-        function populateBookSelect() {
-            els.bookSelect.innerHTML = '';
-            bookOrderArray.forEach(book => {
-                if(bibleData[book]) {
-                    const opt = document.createElement('option');
-                    opt.value = book; opt.textContent = book;
-                    els.bookSelect.appendChild(opt);
+        function renderAllCards() {
+            if (!els.cardsContainer) return;
+            let html = '';
+
+            cardStates.forEach((card) => {
+                const book = card.b;
+                const fc = card.fc, fv = card.fv, tc = card.tc, tv = card.tv;
+                const unitName = (book === '詩篇') ? '篇' : '章';
+                
+                const isFirstBook = bookOrderArray.indexOf(book) === 0;
+                const isPrevDisabled = (isFirstBook && fc === 1);
+                const isLastBook = bookOrderArray.indexOf(book) === bookOrderArray.length - 1;
+                const allChapters = Object.keys(bibleData[book] || {}).map(Number).sort((a,b)=>a-b);
+                const maxChap = allChapters[allChapters.length - 1];
+                const isNextDisabled = (isLastBook && tc === maxChap);
+
+                let scriptureHtml = '';
+                if (!bibleData[book]) {
+                    scriptureHtml = '<p class="text-stone-400">無法讀取書卷資料。</p>';
+                } else {
+                    let chunks = [];
+                    allChapters.forEach(c => {
+                        if (c >= fc && c <= tc) {
+                            chunks.push(`<h5 class="text-2xl font-bold text-stone-800 ${c === fc ? 'mb-4' : 'mt-10 mb-4'} border-b border-stone-200 pb-2">${book} 第 ${c} ${unitName}</h5>`);
+                            const verses = Object.keys(bibleData[book][c]).map(Number).sort((a,b)=>a-b);
+                            verses.forEach(v => {
+                                if (c === fc && c === tc) {
+                                    if (v < fv || v > tv) return;
+                                } else if (c === fc) {
+                                    if (v < fv) return;
+                                } else if (c === tc) {
+                                    if (v > tv) return;
+                                }
+                                let rawText = bibleData[book][c][v];
+                                let formattedText = rawText.replace(/\?註：(.*?)\?/g, (match, p1) => {
+                                    const safeFootnote = p1.replace(/['"&<>]/g, char => ({'\'':'&#39;','"':'&quot;','&':'&amp;','<':'&lt;','>':'&gt;'}[char]));
+                                    return `<span class="inline-flex items-center justify-center cursor-pointer text-xl ml-1 opacity-80 hover:opacity-100 hover:scale-110 transition-transform" onclick="showFootnoteModal('註：${safeFootnote}')" title="點擊查看註釋">📝</span>`;
+                                });
+                                let esvTextHtml = '';
+                                if (esvData && esvData[book] && esvData[book][c] && esvData[book][c][v]) {
+                                    esvTextHtml = `<span class="esv-text text-stone-500 text-[15px] mt-1 leading-snug font-sans">${esvData[book][c][v]}</span>`;
+                                }
+                                chunks.push(`
+                                    <div class="mb-3 flex items-start leading-relaxed">
+                                        <strong class="text-stone-400 font-bold mr-3 text-base w-6 text-right shrink-0 select-none pt-[2px]">${v}</strong>
+                                        <div class="flex flex-col">
+                                            <span class="text-stone-800 text-lg">${formattedText}</span>
+                                            ${esvTextHtml}
+                                        </div>
+                                    </div>
+                                `);
+                            });
+                        }
+                    });
+                    scriptureHtml = chunks.length ? chunks.join('') : '<p class="text-stone-400">無法抽取指定的經文範圍。</p>';
                 }
-            });
-        }
 
-        function updateChapterSelects(reset = false) {
-            const book = els.bookSelect.value;
-            if (!bibleData[book]) return;
-            
-            const chapters = Object.keys(bibleData[book]).map(Number).sort((a,b)=>a-b);
-            const oldFChap = reset ? chapters[0] : (parseInt(els.fChap.value) || chapters[0]);
-            
-            els.fChap.innerHTML = '';
-            chapters.forEach(c => {
-                const opt = document.createElement('option');
-                opt.value = c; opt.textContent = c;
-                els.fChap.appendChild(opt);
-            });
-            
-            if (els.fChap.querySelector(`option[value="${oldFChap}"]`)) {
-                els.fChap.value = oldFChap;
-            } else {
-                els.fChap.value = chapters[0];
-            }
-            
-            updateVerseSelects('from', reset);
-            updateToChapterSelect(reset);
-        }
+                html += `
+                <article class="scripture-card min-h-[calc(100vh-4rem)] bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden mb-6 flex flex-col" id="${card.id}">
+                    <!-- 卡片上方選單控制器，於同一高度最右方放置極簡 ✖ 按鈕 -->
+                    <div class="p-3 sm:p-4 bg-stone-50 border-b border-stone-200 flex justify-between items-center gap-2 shrink-0">
+                        <div class="flex flex-wrap items-center gap-1.5 md:gap-2">
+                            <button onclick="goToCardPrevChapter('${card.id}')" class="p-1.5 md:p-2 border border-stone-300 rounded-full text-stone-500 hover:bg-stone-100 hover:text-stone-800 transition disabled:opacity-30 disabled:cursor-not-allowed bg-white shadow-sm outline-none focus:ring-2 focus:ring-amber-500 shrink-0" ${isPrevDisabled ? 'disabled' : ''} title="上一章">
+                                <svg class="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"></path></svg>
+                            </button>
 
-        function updateVerseSelects(target, reset = false) {
-            if (target === 'to') {
-                updateToVerseSelect(reset);
-                return;
-            }
-            const book = els.bookSelect.value;
-            const chap = els.fChap.value;
-            if (!bibleData[book] || !bibleData[book][chap]) return;
+                            <button onclick="openBookModalForCard('${card.id}')" class="py-1.5 px-3 md:px-4 border border-stone-300 rounded-full focus:ring-2 focus:ring-amber-500 outline-none bg-white text-stone-800 font-bold text-sm sm:text-base flex items-center gap-1.5 shadow-sm transition hover:bg-stone-50 shrink-0" title="點擊更換書卷">
+                                <span>${card.b}</span>
+                            </button>
+                            
+                            <div class="flex items-center gap-1.5 shrink-0">
+                                <button onclick="openCvModalForCard('${card.id}', 'from')" class="py-1.5 px-3 border border-stone-300 rounded-lg bg-white text-stone-800 hover:bg-stone-100 transition flex items-center gap-1 shadow-sm focus:ring-2 focus:ring-amber-500 outline-none" title="點擊修改起始節">
+                                    <span class="text-sm font-bold tracking-wide">${card.fc} : ${card.fv}</span>
+                                </button>
+                                <span class="text-stone-300 font-bold">-</span>
+                                <button onclick="openCvModalForCard('${card.id}', 'to')" class="py-1.5 px-3 border border-stone-300 rounded-lg bg-white text-stone-800 hover:bg-stone-100 transition flex items-center gap-1 shadow-sm focus:ring-2 focus:ring-amber-500 outline-none" title="點擊修改結束節">
+                                    <span class="text-sm font-bold tracking-wide">${card.tc} : ${card.tv}</span>
+                                </button>
+                            </div>
 
-            const verses = Object.keys(bibleData[book][chap]).map(Number).sort((a,b)=>a-b);
-            const oldVal = reset ? verses[0] : (parseInt(els.fVerse.value) || verses[0]);
-            
-            els.fVerse.innerHTML = '';
-            verses.forEach(v => {
-                const opt = document.createElement('option');
-                opt.value = v; opt.textContent = v;
-                els.fVerse.appendChild(opt);
+                            <button onclick="goToCardNextChapter('${card.id}')" class="p-1.5 md:p-2 border border-stone-300 rounded-full text-stone-500 hover:bg-stone-100 hover:text-stone-800 transition disabled:opacity-30 disabled:cursor-not-allowed bg-white shadow-sm outline-none focus:ring-2 focus:ring-amber-500 shrink-0" ${isNextDisabled ? 'disabled' : ''} title="下一章">
+                                <svg class="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"></path></svg>
+                            </button>
+                        </div>
+
+                        <!-- 極簡 ✖ 關閉按鈕 (2張及以上卡片才顯示) -->
+                        ${cardStates.length > 1 ? `
+                        <button onclick="removeCard('${card.id}')" class="p-1.5 md:p-2 text-stone-400 hover:text-red-600 transition rounded-full hover:bg-stone-100 shrink-0" title="移除卡片">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>` : ''}
+                    </div>
+                    
+                    <!-- 經文內容主體 -->
+                    <div class="p-6 md:p-8 text-stone-800 leading-loose font-serif text-lg flex-1">
+                        ${scriptureHtml}
+                    </div>
+                </article>
+                `;
             });
 
-            if (els.fVerse.querySelector(`option[value="${oldVal}"]`)) {
-                els.fVerse.value = oldVal;
-            } else {
-                els.fVerse.value = verses[0];
-            }
+            els.cardsContainer.innerHTML = html;
+            els.cardsContainer.classList.toggle('bilingual-mode', isBilingual);
         }
 
-        function updateToChapterSelect(reset = false) {
-            const book = els.bookSelect.value;
-            if (!bibleData[book]) return;
-            
-            const chapters = Object.keys(bibleData[book]).map(Number).sort((a,b)=>a-b);
-            const fChapVal = parseInt(els.fChap.value) || 1;
-            
-            // 事前防呆：過濾掉小於起始章節的選項
-            const validToChapters = chapters.filter(c => c >= fChapVal);
-            const oldTChap = reset ? validToChapters[0] : (parseInt(els.tChap.value) || validToChapters[0]);
-
-            els.tChap.innerHTML = '';
-            validToChapters.forEach(c => {
-                const opt = document.createElement('option');
-                opt.value = c; opt.textContent = c;
-                els.tChap.appendChild(opt);
-            });
-
-            if (els.tChap.querySelector(`option[value="${oldTChap}"]`)) {
-                els.tChap.value = oldTChap;
-            } else {
-                els.tChap.value = validToChapters[0];
-            }
-
-            updateToVerseSelect(reset);
-        }
-
-        function updateToVerseSelect(reset = false) {
-            const book = els.bookSelect.value;
-            const tChap = parseInt(els.tChap.value);
-            const fChap = parseInt(els.fChap.value);
-            const fVerse = parseInt(els.fVerse.value);
-
-            if (!bibleData[book] || !bibleData[book][tChap]) return;
-
-            let verses = Object.keys(bibleData[book][tChap]).map(Number).sort((a,b)=>a-b);
-
-            // 事前防呆：如果起始與結束同章，過濾掉小於起始節數的選項
-            if (tChap === fChap) {
-                verses = verses.filter(v => v >= fVerse);
-            }
-
-            const oldVal = reset ? verses[0] : (parseInt(els.tVerse.value) || verses[0]);
-
-            els.tVerse.innerHTML = '';
-            verses.forEach(v => {
-                const opt = document.createElement('option');
-                opt.value = v; opt.textContent = v;
-                els.tVerse.appendChild(opt);
-            });
-
-            if (els.tVerse.querySelector(`option[value="${oldVal}"]`)) {
-                els.tVerse.value = oldVal;
-            } else {
-                els.tVerse.value = verses[0];
-            }
-        }
-
-        // 更新 < 與 > 導航按鈕的啟用狀態
-        function updateNavButtonsState() {
+        // 導航：指定卡片前進一章
+        window.goToCardNextChapter = function(cardId) {
             if (!isDataReady) return;
-            const b = els.bookSelect.value;
-            const fc = parseInt(els.fChap.value);
-            const tc = parseInt(els.tChap.value);
+            const card = cardStates.find(c => c.id === cardId);
+            if (!card) return;
             
-            // 防呆：「<」按鈕 (創世記 第 1 章時反灰)
-            const isFirstBook = bookOrderArray.indexOf(b) === 0;
-            if (isFirstBook && fc === 1) {
-                els.btnPrevChap.disabled = true;
-            } else {
-                els.btnPrevChap.disabled = false;
-            }
-            
-            // 防呆：「>」按鈕 (啟示錄 末章時反灰)
-            const isLastBook = bookOrderArray.indexOf(b) === bookOrderArray.length - 1;
-            const chapters = Object.keys(bibleData[b]).map(Number).sort((a,b)=>a-b);
+            const chapters = Object.keys(bibleData[card.b]).map(Number).sort((a,b)=>a-b);
             const maxChap = chapters[chapters.length - 1];
-            if (isLastBook && tc === maxChap) {
-                els.btnNextChap.disabled = true;
-            } else {
-                els.btnNextChap.disabled = false;
-            }
-        }
-
-        function enforceValidationAndExtract() {
-            if (!isDataReady) return;
-            
-            // 由於 UI 選單建立時已實作事前防呆（動態過濾不合法的選項），
-            // 系統保證迄點必定 >= 起點，因此移除舊版事後校正邏輯，直接執行更新。
-            
-            syncLabels();
-            updateNavButtonsState();
-            updateUrlAndTitle();
-            extractAndRenderScripture();
-        }
-
-        // ==========================================
-        // 4.1 上一章/下一章 (導航) 控制邏輯
-        // ==========================================
-        window.goToPrevChapter = function() {
-            if (!isDataReady) return;
-            const currentBook = els.bookSelect.value;
-            const currentChap = parseInt(els.fChap.value);
-            
             let navigated = false;
-            if (currentChap > 1) {
-                // 同一卷書，上一章全章
-                navigateToFullChapter(currentBook, currentChap - 1);
+            
+            if (card.tc < maxChap) {
+                navigateToFullChapter(card, card.b, card.tc + 1);
                 navigated = true;
             } else {
-                // 跨卷，上一卷書末章全章
-                const bookIndex = bookOrderArray.indexOf(currentBook);
+                const bookIndex = bookOrderArray.indexOf(card.b);
+                if (bookIndex < bookOrderArray.length - 1) {
+                    const nextBook = bookOrderArray[bookIndex + 1];
+                    navigateToFullChapter(card, nextBook, 1);
+                    navigated = true;
+                }
+            }
+            if (navigated) handleNavEngagement();
+        };
+
+        // 導航：指定卡片後退一章
+        window.goToCardPrevChapter = function(cardId) {
+            if (!isDataReady) return;
+            const card = cardStates.find(c => c.id === cardId);
+            if (!card) return;
+            
+            let navigated = false;
+            if (card.fc > 1) {
+                navigateToFullChapter(card, card.b, card.fc - 1);
+                navigated = true;
+            } else {
+                const bookIndex = bookOrderArray.indexOf(card.b);
                 if (bookIndex > 0) {
                     const prevBook = bookOrderArray[bookIndex - 1];
                     const chapters = Object.keys(bibleData[prevBook]).map(Number).sort((a,b)=>a-b);
                     const lastChap = chapters[chapters.length - 1];
-                    navigateToFullChapter(prevBook, lastChap);
+                    navigateToFullChapter(card, prevBook, lastChap);
                     navigated = true;
                 }
             }
             if (navigated) handleNavEngagement();
         };
 
-        window.goToNextChapter = function() {
-            if (!isDataReady) return;
-            const currentBook = els.bookSelect.value;
-            const currentChap = parseInt(els.tChap.value);
-            const chapters = Object.keys(bibleData[currentBook]).map(Number).sort((a,b)=>a-b);
-            const maxChap = chapters[chapters.length - 1];
-            
-            let navigated = false;
-            if (currentChap < maxChap) {
-                // 同一卷書，下一章全章
-                navigateToFullChapter(currentBook, currentChap + 1);
-                navigated = true;
-            } else {
-                // 跨卷，下一卷書第 1 章全章
-                const bookIndex = bookOrderArray.indexOf(currentBook);
-                if (bookIndex < bookOrderArray.length - 1) {
-                    const nextBook = bookOrderArray[bookIndex + 1];
-                    navigateToFullChapter(nextBook, 1);
-                    navigated = true;
-                }
-            }
-            if (navigated) handleNavEngagement();
-        };
-
-        // 輔助函式：切換至指定書卷與章數，並強制設定範圍為「全章」
-        function navigateToFullChapter(bookName, chapter) {
-            els.bookSelect.value = bookName;
-            els.currentBookName.textContent = bookName;
-            
-            // 重建「從」的選單
-            updateChapterSelects(false); 
-            els.fChap.value = chapter;
-            updateVerseSelects('from', false); 
-            
+        function navigateToFullChapter(card, bookName, chapter) {
+            card.b = bookName;
+            card.fc = chapter;
+            card.fv = 1;
+            card.tc = chapter;
             const verses = Object.keys(bibleData[bookName][chapter]).map(Number).sort((a,b)=>a-b);
-            els.fVerse.value = verses[0]; // 設定從第 1 節
-            
-            // 重建「到」的選單並對齊
-            updateToChapterSelect(false);
-            els.tChap.value = chapter;
-            updateToVerseSelect(false);
-            els.tVerse.value = verses[verses.length - 1]; // 設定至末節
-            
-            enforceValidationAndExtract();
+            card.tv = verses[verses.length - 1];
+            stopTTS();
+            renderAllCards();
+            updateUrlAndTitle();
         }
 
-        // 當使用者在 Modal 點擊膠囊按鈕時觸發
-        window.selectBook = function(bookName) {
-            if (!bibleData[bookName]) return;
-            els.bookSelect.value = bookName;
-            els.currentBookName.textContent = bookName;
-            toggleBookModal();
-            
-            // 觸發連動重設，這會把 fChap, fVerse, tChap, tVerse 都重設為該書的首章首選項
-            updateChapterSelects(true);
-            
-            // 自動將「到」的節數設為首章的最後一節 (方便全章閱讀)
-            const firstChap = parseInt(els.fChap.value) || 1;
-            if (bibleData[bookName] && bibleData[bookName][firstChap]) {
-                const verses = Object.keys(bibleData[bookName][firstChap]).map(Number).sort((a,b)=>a-b);
-                els.tVerse.value = verses[verses.length - 1];
-            }
-            
-            enforceValidationAndExtract();
+        // 新增卡片：一律歸零載入系統預設值（《創世記》第1章全章）
+        window.addNewCard = function() {
+            if (!isDataReady) return;
+            const newCard = { id: generateCardId(), b: "創世記", fc: 1, fv: 1, tc: 1, tv: 999 };
+            validateCardState(newCard);
+            cardStates.push(newCard);
+            stopTTS();
+            renderAllCards();
+            updateUrlAndTitle();
+
+            // 延遲以保障 DOM 更新後平滑捲動至新卡片
+            setTimeout(() => {
+                const el = document.getElementById(newCard.id);
+                if (el) {
+                    const headerOffset = els.mainHeader ? els.mainHeader.offsetHeight : 60;
+                    const top = el.getBoundingClientRect().top + window.scrollY - (headerOffset + 16);
+                    window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+                }
+            }, 50);
         };
 
-        // 參與度計數與 PWA 推廣 (Engagement-based PWA Prompt)
+        // 移除卡片
+        window.removeCard = function(cardId) {
+            if (cardStates.length <= 1) return;
+            cardStates = cardStates.filter(c => c.id !== cardId);
+            stopTTS();
+            renderAllCards();
+            updateUrlAndTitle();
+        };
+
+        // 參與度計數與 PWA 推廣
         async function handleNavEngagement() {
             try {
                 let count = await localforage.getItem('RCUV_navClickCount') || 0;
@@ -1065,17 +926,11 @@
                     count++;
                     await localforage.setItem('RCUV_navClickCount', count);
                     if (count === 10) {
-                        // 標記為已觸發 (狀態推進至 11，終生不再觸發)
                         await localforage.setItem('RCUV_navClickCount', 11);
-                        
-                        // 延遲 500ms 彈出，確保經文先順利渲染，不打斷閱讀體驗
                         setTimeout(() => {
                             const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
                             const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-                            
-                            // 若已在 PWA 環境內則靜默中止
                             if (isStandalone) return;
-
                             if (isIOS) {
                                 showPwaModal('ios');
                             } else if (deferredPrompt) {
@@ -1090,24 +945,47 @@
         }
 
         // ==========================================
-        // 4.5 章節選擇 Modal (CV Modal) 控制邏輯
+        // 5.5 Modal 觸發與多實例控制 binding
         // ==========================================
-        window.openCvModal = function(type) {
-            const book = els.bookSelect.value;
-            if (!bibleData[book]) return;
+        window.openBookModalForCard = function(cardId) {
+            activeModalCardId = cardId;
+            toggleBookModal();
+        };
+
+        window.selectBook = function(bookName) {
+            if (!bibleData[bookName] || !activeModalCardId) return;
+            const card = cardStates.find(c => c.id === activeModalCardId);
+            if (!card) return;
             
-            const unitName = (book === '詩篇') ? '篇' : '章';
+            card.b = bookName;
+            const chapters = Object.keys(bibleData[bookName]).map(Number).sort((a,b)=>a-b);
+            card.fc = chapters[0];
+            card.fv = 1;
+            card.tc = chapters[0];
+            const verses = Object.keys(bibleData[bookName][chapters[0]]).map(Number).sort((a,b)=>a-b);
+            card.tv = verses[verses.length - 1];
+            
+            toggleBookModal();
+            stopTTS();
+            renderAllCards();
+            updateUrlAndTitle();
+        };
+
+        window.openCvModalForCard = function(cardId, type) {
+            activeModalCardId = cardId;
+            const card = cardStates.find(c => c.id === cardId);
+            if (!card || !bibleData[card.b]) return;
+            
+            const unitName = (card.b === '詩篇') ? '篇' : '章';
             cvState.type = type;
             document.getElementById('cv-modal-title').textContent = type === 'from' ? `選擇起始${unitName}節` : `選擇結束${unitName}節`;
             document.getElementById('cv-modal-chapter-subtitle').textContent = `第 幾 ${unitName}`;
             
-            // 讀取當前隱藏 select 的設定為暫存狀態
-            cvState.chap = type === 'from' ? parseInt(els.fChap.value) : parseInt(els.tChap.value);
-            cvState.verse = type === 'from' ? parseInt(els.fVerse.value) : parseInt(els.tVerse.value);
+            cvState.chap = type === 'from' ? card.fc : card.tc;
+            cvState.verse = type === 'from' ? card.fv : card.tv;
             
             renderCvChapters();
             renderCvVerses(cvState.chap);
-            
             document.getElementById('cv-modal').classList.remove('hidden');
         };
 
@@ -1116,201 +994,93 @@
         };
 
         function renderCvChapters() {
-            const book = els.bookSelect.value;
-            const chapters = Object.keys(bibleData[book]).map(Number).sort((a,b)=>a-b);
+            const card = cardStates.find(c => c.id === activeModalCardId);
+            if (!card) return;
+            const chapters = Object.keys(bibleData[card.b]).map(Number).sort((a,b)=>a-b);
             const container = document.getElementById('cv-modal-chapters');
             
             let minChap = 1;
             let maxChap = chapters[chapters.length - 1];
-            
-            // 若為「到」，隱藏不合法的章，但保留欄位對齊
-            if (cvState.type === 'to') {
-                minChap = parseInt(els.fChap.value);
-            }
+            if (cvState.type === 'to') minChap = card.fc;
             
             let html = '';
-            // 隱藏且佔位邏輯：第一列從 (minChap-1)%5 個空格開始
             const paddingCount = (minChap - 1) % 5;
-            for(let i = 0; i < paddingCount; i++) {
-                html += `<div class="invisible py-2"></div>`;
-            }
-            
+            for(let i = 0; i < paddingCount; i++) html += `<div class="invisible py-2"></div>`;
             for(let c = minChap; c <= maxChap; c++) {
                 const isActive = c === cvState.chap;
-                const btnClass = isActive 
-                    ? 'bg-amber-500 text-white shadow-md transform scale-105' 
-                    : 'bg-white text-stone-700 hover:bg-amber-100 border border-stone-200';
+                const btnClass = isActive ? 'bg-amber-500 text-white shadow-md transform scale-105' : 'bg-white text-stone-700 hover:bg-amber-100 border border-stone-200';
                 html += `<button onclick="handleCvChapClick(${c})" class="py-2 text-center rounded-lg font-bold text-[15px] transition ${btnClass}">${c}</button>`;
             }
-            
             container.innerHTML = html;
         }
 
         function renderCvVerses(chap) {
-            const book = els.bookSelect.value;
-            if (!bibleData[book] || !bibleData[book][chap]) return;
+            const card = cardStates.find(c => c.id === activeModalCardId);
+            if (!card || !bibleData[card.b] || !bibleData[card.b][chap]) return;
             
-            const verses = Object.keys(bibleData[book][chap]).map(Number).sort((a,b)=>a-b);
+            const verses = Object.keys(bibleData[card.b][chap]).map(Number).sort((a,b)=>a-b);
             const container = document.getElementById('cv-modal-verses');
-            
             let minVerse = verses[0] || 1;
             let maxVerse = verses[verses.length - 1];
-            
-            // 若為「到」且與起始同章，隱藏不合法的節，但保留欄位對齊
-            if (cvState.type === 'to' && chap === parseInt(els.fChap.value)) {
-                minVerse = parseInt(els.fVerse.value);
-            }
+            if (cvState.type === 'to' && chap === card.fc) minVerse = card.fv;
             
             let html = '';
-            // 隱藏且佔位邏輯
             const paddingCount = (minVerse - 1) % 5;
-            for(let i = 0; i < paddingCount; i++) {
-                html += `<div class="invisible py-2"></div>`;
-            }
-            
+            for(let i = 0; i < paddingCount; i++) html += `<div class="invisible py-2"></div>`;
             for(let v = minVerse; v <= maxVerse; v++) {
                 if (!verses.includes(v)) {
                     html += `<div class="invisible py-2"></div>`;
                     continue;
                 }
                 const isActive = v === cvState.verse;
-                const btnClass = isActive 
-                    ? 'bg-amber-500 text-white shadow-md transform scale-105' 
-                    : 'bg-white text-stone-700 hover:bg-amber-100 border border-stone-200';
+                const btnClass = isActive ? 'bg-amber-500 text-white shadow-md transform scale-105' : 'bg-white text-stone-700 hover:bg-amber-100 border border-stone-200';
                 html += `<button onclick="handleCvVerseClick(${v})" class="py-2 text-center rounded-lg font-bold text-[15px] transition ${btnClass}">${v}</button>`;
             }
-            
             container.innerHTML = html;
         }
 
         window.handleCvChapClick = function(c) {
             cvState.chap = c;
-            
-            // 決定該章合法的最小節數，並自動高亮
+            const card = cardStates.find(cd => cd.id === activeModalCardId);
             let newMinVerse = 1;
-            if (cvState.type === 'to' && c === parseInt(els.fChap.value)) {
-                newMinVerse = parseInt(els.fVerse.value);
-            }
+            if (cvState.type === 'to' && c === card.fc) newMinVerse = card.fv;
             
-            const book = els.bookSelect.value;
-            const verses = Object.keys(bibleData[book][c]).map(Number).sort((a,b)=>a-b);
+            const verses = Object.keys(bibleData[card.b][c]).map(Number).sort((a,b)=>a-b);
             const firstValidVerse = verses.find(v => v >= newMinVerse) || verses[0];
             cvState.verse = firstValidVerse;
-            
-            // 重繪左右畫面
             renderCvChapters();
             renderCvVerses(c);
         };
 
         window.handleCvVerseClick = function(v) {
             cvState.verse = v;
+            const card = cardStates.find(cd => cd.id === activeModalCardId);
+            if (!card) return;
             
-            // 將選擇結果寫回隱藏的 selects
             if (cvState.type === 'from') {
-                els.fChap.value = cvState.chap;
-                updateVerseSelects('from', false);
-                els.fVerse.value = cvState.verse;
-                
-                // 此函式內部已包含「如果 from 超過 to，強制把 to 對齊 from」的防呆機制
-                updateToChapterSelect(false);
-
-                // 若「從」選擇了某章第 1 節，自動將「到」設為同章最後一節
+                card.fc = cvState.chap;
+                card.fv = cvState.verse;
+                if (card.tc < card.fc) card.tc = card.fc;
                 if (v === 1) {
-                    const book = els.bookSelect.value;
-                    const chap = cvState.chap;
-                    if (bibleData[book] && bibleData[book][chap]) {
-                        const verses = Object.keys(bibleData[book][chap]).map(Number).sort((a,b)=>a-b);
-                        els.tChap.value = chap;
-                        updateToVerseSelect(false);
-                        els.tVerse.value = verses[verses.length - 1];
-                    }
+                    card.tc = card.fc;
+                    const verses = Object.keys(bibleData[card.b][card.fc]).map(Number).sort((a,b)=>a-b);
+                    card.tv = verses[verses.length - 1];
                 }
             } else {
-                els.tChap.value = cvState.chap;
-                updateToVerseSelect(false);
-                els.tVerse.value = cvState.verse;
+                card.tc = cvState.chap;
+                card.tv = cvState.verse;
             }
-            
+            validateCardState(card);
             closeCvModal();
-            enforceValidationAndExtract();
+            stopTTS();
+            renderAllCards();
+            updateUrlAndTitle();
         };
 
-        // ==========================================
-        // 5. 經文抽取與畫面渲染 Engine
-        // ==========================================
-        function extractAndRenderScripture() {
-            stopTTS(); // 切換經文時停止語音
-
-            const book = els.bookSelect.value;
-            const fc = parseInt(els.fChap.value);
-            const fv = parseInt(els.fVerse.value);
-            const tc = parseInt(els.tChap.value);
-            const tv = parseInt(els.tVerse.value);
-            
-            const unitName = (book === '詩篇') ? '篇' : '章';
-
-            if (!bibleData[book]) return;
-
-            let htmlChunks = [];
-            const chapters = Object.keys(bibleData[book]).map(Number).sort((a,b)=>a-b);
-            
-            chapters.forEach(c => {
-                if (c >= fc && c <= tc) {
-                    htmlChunks.push(`<h5 class="text-2xl font-bold text-stone-800 ${c === fc ? 'mb-4' : 'mt-10 mb-4'} border-b border-stone-200 pb-2">${book} 第 ${c} ${unitName}</h5>`);
-                    
-                    const verses = Object.keys(bibleData[book][c]).map(Number).sort((a,b)=>a-b);
-                    verses.forEach(v => {
-                        // 範圍過濾邏輯
-                        if (c === fc && c === tc) {
-                            if (v < fv || v > tv) return;
-                        } else if (c === fc) {
-                            if (v < fv) return;
-                        } else if (c === tc) {
-                            if (v > tv) return;
-                        }
-
-                        let rawText = bibleData[book][c][v];
-                        
-                        // 註解轉換邏輯 (HTML Escape & Inline SVG/Emoji)
-                        let formattedText = rawText.replace(/\?註：(.*?)\?/g, (match, p1) => {
-                            const safeFootnote = p1.replace(/['"&<>]/g, char => ({'\'':'&#39;','"':'&quot;','&':'&amp;','<':'&lt;','>':'&gt;'}[char]));
-                            return `<span class="inline-flex items-center justify-center cursor-pointer text-xl ml-1 opacity-80 hover:opacity-100 hover:scale-110 transition-transform" onclick="showFootnoteModal('註：${safeFootnote}')" title="點擊查看註釋">📝</span>`;
-                        });
-
-                        // 處理 ESV 對照文本 (一律預先寫入 DOM，透過 CSS 控制隱藏/顯示)
-                        let esvTextHtml = '';
-                        if (esvData && esvData[book] && esvData[book][c] && esvData[book][c][v]) {
-                            esvTextHtml = `<span class="esv-text text-stone-500 text-[15px] mt-1 leading-snug font-sans">${esvData[book][c][v]}</span>`;
-                        }
-
-                        // 節號 Flexbox 排版與防選取 (select-none)
-                        htmlChunks.push(`
-                            <div class="mb-3 flex items-start leading-relaxed">
-                                <strong class="text-stone-400 font-bold mr-3 text-base w-6 text-right shrink-0 select-none pt-[2px]">${v}</strong>
-                                <div class="flex flex-col">
-                                    <span class="text-stone-800 text-lg">${formattedText}</span>
-                                    ${esvTextHtml}
-                                </div>
-                            </div>
-                        `);
-                    });
-                }
-            });
-
-            els.container.innerHTML = htmlChunks.length ? htmlChunks.join('') : '<p class="text-stone-400">無法抽取指定的經文範圍。</p>';
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-
-        // ==========================================
-        // 5.5 雙語對照按鈕事件綁定 (純 CSS 切換，不中斷語音)
-        // ==========================================
+        // 雙語對照切換
         els.btnBilingual.addEventListener('click', () => {
             isBilingual = !isBilingual;
-            
-            // 透過切換父容器的 class 來控制內部 ESV 經文的顯示與隱藏
-            els.container.classList.toggle('bilingual-mode', isBilingual);
-            
-            // 更新按鈕視覺狀態
+            if (els.cardsContainer) els.cardsContainer.classList.toggle('bilingual-mode', isBilingual);
             if (isBilingual) {
                 els.btnBilingual.classList.remove('text-stone-500');
                 els.btnBilingual.classList.add('bg-stone-800', 'text-white', 'hover:bg-stone-700', 'hover:text-white');
@@ -1318,7 +1088,6 @@
                 els.btnBilingual.classList.add('text-stone-500');
                 els.btnBilingual.classList.remove('bg-stone-800', 'text-white', 'hover:bg-stone-700', 'hover:text-white');
             }
-
             localforage.setItem('RCUV_bilingual', isBilingual);
         });
 
@@ -1330,9 +1099,8 @@
         }
 
         // ==========================================
-        // 6. 語音朗讀模組 (TTS Engine) 與暫停/繼續控制
+        // 6. 語音朗讀模組 (TTS Engine)
         // ==========================================
-        
         function populateVoiceList() {
             const allVoices = synth.getVoices();
             let baseVoices = allVoices.filter(v => 
@@ -1341,7 +1109,6 @@
             );
             if (baseVoices.length === 0) baseVoices = allVoices.filter(v => v.lang.includes('zh') || v.lang.includes('cmn') || v.name.includes('Chinese'));
             
-            // 高擬真語音優先
             const priorityKeywords = ['HsiaoChen', 'HsiaoYu', 'Online', 'Natural', 'Premium'];
             const premiumVoices = baseVoices.filter(v => priorityKeywords.some(keyword => v.name.includes(keyword)));
             voices = premiumVoices.length > 0 ? premiumVoices : baseVoices;
@@ -1349,7 +1116,6 @@
             els.voiceSelect.innerHTML = voices.length ? '' : '<option value="">(系統無可用中文語音)</option>';
             if (!voices.length) return;
 
-            // 讀取偏好與名稱淨化
             localforage.getItem('RCUV_tts_voice_name').then(savedVoiceName => {
                 voices.forEach((voice, i) => {
                     const option = document.createElement('option');
@@ -1367,7 +1133,6 @@
             });
         }
 
-        // 綁定設定改變事件 (選項改變時即時儲存與生效)
         els.voiceSelect.addEventListener('change', e => {
             if (e.target.value !== "" && voices[e.target.value]) localforage.setItem('RCUV_tts_voice_name', voices[e.target.value].name);
         });
@@ -1375,7 +1140,6 @@
             localforage.setItem('RCUV_tts_rate', e.target.value);
         });
 
-        // 螢幕防休眠
         async function requestWakeLock() {
             if ('wakeLock' in navigator) {
                 try { wakeLock = await navigator.wakeLock.request('screen'); } 
@@ -1386,7 +1150,6 @@
             if (wakeLock !== null) wakeLock.release().then(() => { wakeLock = null; });
         }
 
-        // 切換 UI 狀態
         function setTtsUI(state) {
             if (state === 'playing') {
                 els.btnPlay.classList.add('hidden');
@@ -1401,7 +1164,6 @@
                 els.btnStop.classList.remove('hidden');
                 els.btnLoop.classList.remove('hidden');
             } else {
-                // stop
                 els.btnPlay.classList.remove('hidden');
                 els.btnPause.classList.add('hidden');
                 els.btnResume.classList.add('hidden');
@@ -1413,15 +1175,13 @@
         function startTTS() {
             if (isPlaying) stopTTS();
             
-            // 1. 從 DOM 擷取純文字與建立 Mappings
-            // 由於英文經文使用了 text-stone-500，此處的選擇器會天然且完美地將其忽略，完全不影響中文朗讀
             let textToSpeak = "";
             mappings = [];
             let currIdx = 0;
 
-            els.container.querySelectorAll('h5, span.text-stone-800').forEach(el => {
+            // 自 #cards-container 中一線遍歷所有卡片的標題與中文經文，不限片數依序誦讀
+            els.cardsContainer.querySelectorAll('h5, span.text-stone-800').forEach(el => {
                 const scrollTarget = el.tagName === 'SPAN' ? el.closest('div.mb-3') : el;
-                // 剔除表情符號 (註解)
                 const textPart = el.tagName === 'H5' ? el.innerText + '。\n' : el.innerText.replace(/📝/g, '') + ' ';
                 
                 mappings.push({
@@ -1436,7 +1196,6 @@
 
             if (textToSpeak.trim() === "") return;
 
-            // 2. 正則切分與 250 字元合併 (Chunking)
             const rawChunks = [];
             let match;
             const regex = /[^。！？；.!?;\n]+[。！？；.!?;\n]*/g;
@@ -1468,7 +1227,6 @@
             });
             if (currText) playQueue.push({ text: currText, startIndex: currStartIdx });
 
-            // 3. 狀態初始化與開始
             currentChunkIdx = 0;
             isPlaying = true;
             isPaused = false;
@@ -1479,22 +1237,19 @@
         }
 
         function playNextChunk() {
-            // 若為停止或暫停狀態，不進入下一個發音
             if (!isPlaying || isPaused) return;
             
             if (currentChunkIdx >= playQueue.length) {
                 if (isLooping && playQueue.length > 0) {
-                    currentChunkIdx = 0; // 重置索引，進行循環
+                    currentChunkIdx = 0;
                 } else {
-                    stopTTS(); // 播完了
+                    stopTTS();
                     return;
                 }
             }
 
             const chunkObj = playQueue[currentChunkIdx];
             const utterance = new SpeechSynthesisUtterance(chunkObj.text);
-            
-            // GC 防護
             window._currentUtterance = utterance;
 
             if (els.voiceSelect.value !== "" && voices[els.voiceSelect.value]) {
@@ -1504,7 +1259,6 @@
             utterance.rate = parseFloat(els.rateSelect.value);
 
             utterance.onstart = () => {
-                // 沉浸式追蹤捲動 (加上 Header 高度動態補償)
                 const targetMap = mappings.find(m => chunkObj.startIndex >= m.startIndex && chunkObj.startIndex < m.endIndex);
                 if (targetMap && targetMap.element) {
                     const elRect = targetMap.element.getBoundingClientRect();
@@ -1515,7 +1269,7 @@
             };
 
             utterance.onend = () => {
-                if (!isPlaying || isPaused) return; // 避免被 cancel 觸發
+                if (!isPlaying || isPaused) return;
                 currentChunkIdx++;
                 playNextChunk();
             };
@@ -1533,20 +1287,18 @@
             synth.speak(utterance);
         }
 
-        // 狀態儲存式暫停 (Soft Pause)
         function pauseTTS() {
             if (!isPlaying || isPaused) return;
             isPaused = true;
-            synth.cancel(); // 立即中斷發音，但記憶 currentChunkIdx
+            synth.cancel();
             setTtsUI('paused');
         }
 
-        // 從斷點恢復
         function resumeTTS() {
             if (!isPlaying || !isPaused) return;
             isPaused = false;
             setTtsUI('playing');
-            playNextChunk(); // 從 currentChunkIdx 繼續
+            playNextChunk();
         }
 
         function stopTTS() {
@@ -1560,7 +1312,6 @@
             setTtsUI('stopped');
         }
 
-        // 綁定按鈕
         els.btnPlay.addEventListener('click', startTTS);
         els.btnPause.addEventListener('click', pauseTTS);
         els.btnResume.addEventListener('click', resumeTTS);
@@ -1578,7 +1329,6 @@
             }
         });
 
-        // 可見度切換時防禦休眠
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible' && isPlaying && !isPaused) {
                 requestWakeLock();
@@ -1586,30 +1336,24 @@
         });
 
         // ==========================================
-        // 7. PPTX 簡報匯出模組
+        // 7. PPTX 簡報匯出模組 (跨卡片全區整合)
         // ==========================================
         function exportPPTX() {
-            // 強化全域變數檢測：支援 pptxgen 或 PptxGenJS (依載入環境可能有所不同)
             const PptxClass = window.pptxgen || window.PptxGenJS;
-            
             if (!PptxClass) {
                 alert('簡報匯出模組尚未載入完成或處於離線狀態，請確認網路連線後重試。');
                 return;
             }
 
-            const book = els.bookSelect.value;
-            const fc = parseInt(els.fChap.value);
-            const fv = parseInt(els.fVerse.value);
-            const tc = parseInt(els.tChap.value);
-            const tv = parseInt(els.tVerse.value);
+            if (!cardStates.length) return;
 
-            // 效能防呆限制：最多 5 章
-            if (tc - fc + 1 > 5) {
-                alert('為確保效能，一次最多僅能匯出 5 個章。');
+            // 效能防呆限制：計算所有卡片的總和章節數，若超過 5 章則警告
+            const totalChaps = cardStates.reduce((sum, c) => sum + (c.tc - c.fc + 1), 0);
+            if (totalChaps > 5) {
+                alert('為確保瀏覽器與系統效能，一次最多僅能匯出合計 5 個章的投影片。');
                 return;
             }
 
-            // UI 狀態：鎖定按鈕並顯示產生中
             const originalContent = els.btnExportPpt.innerHTML;
             els.btnExportPpt.disabled = true;
             els.btnExportPpt.innerHTML = `<span class="text-xs font-bold px-1 animate-pulse">⏳ 產生中...</span>`;
@@ -1618,55 +1362,60 @@
                 let pres = new PptxClass();
                 pres.layout = 'LAYOUT_16x9';
 
-                // 建立公版母片 (Master Slide)，導入佔位符 (Placeholders)
                 pres.defineSlideMaster({
                     title: "BIBLE_MASTER",
                     background: { color: "1E1E1E" },
                     objects: [
                         { text: { text: "和合本 2010", options: { x: '5%', y: '92%', w: '90%', h: '5%', align: 'right', color: '888888', fontSize: 14, fontFace: "Microsoft JhengHei" } } },
-                        // 定義標題佔位符 (經文出處，無粗體)
                         { placeholder: { options: { name: 'title', type: 'title', x: '5%', y: '8%', w: '90%', h: '10%', color: 'FFFFFF', fontSize: 32, fontFace: "Microsoft JhengHei", align: 'left', valign: 'top', bold: false } } },
-                        // 定義內文佔位符 (經文內容，設定粗體)
                         { placeholder: { options: { name: 'body', type: 'body', x: '5%', y: '22%', w: '90%', h: '70%', color: 'FFFFFF', fontSize: 44, fontFace: "Microsoft JhengHei", align: 'left', valign: 'top', bold: true } } }
                     ]
                 });
 
-                // 資料萃取與投影片建立迴圈
-                const chapters = Object.keys(bibleData[book]).map(Number).sort((a,b)=>a-b);
-                chapters.forEach(c => {
-                    if (c >= fc && c <= tc) {
-                        const verses = Object.keys(bibleData[book][c]).map(Number).sort((a,b)=>a-b);
-                        verses.forEach(v => {
-                            if (c === fc && c === tc) {
-                                if (v < fv || v > tv) return;
-                            } else if (c === fc) {
-                                if (v < fv) return;
-                            } else if (c === tc) {
-                                if (v > tv) return;
-                            }
+                // 遍歷所有卡片，將內容依序產製為簡報
+                cardStates.forEach((card) => {
+                    const book = card.b;
+                    const fc = card.fc, fv = card.fv, tc = card.tc, tv = card.tv;
+                    if (!bibleData[book]) return;
 
-                            // 取得原始經文，剔除註解標記，且不保留節號
-                            let rawText = bibleData[book][c][v];
-                            let cleanText = rawText.replace(/\?註：(.*?)\?/g, '').trim();
+                    const chapters = Object.keys(bibleData[book]).map(Number).sort((a,b)=>a-b);
+                    chapters.forEach(c => {
+                        if (c >= fc && c <= tc) {
+                            const verses = Object.keys(bibleData[book][c]).map(Number).sort((a,b)=>a-b);
+                            verses.forEach(v => {
+                                if (c === fc && c === tc) {
+                                    if (v < fv || v > tv) return;
+                                } else if (c === fc) {
+                                    if (v < fv) return;
+                                } else if (c === tc) {
+                                    if (v > tv) return;
+                                }
 
-                            let slide = pres.addSlide({ masterName: "BIBLE_MASTER" });
-                            
-                            // 將文字注入佔位符
-                            slide.addText(`${book} ${c}:${v}`, { placeholder: 'title' });
-                            slide.addText(cleanText, { placeholder: 'body' });
-                        });
-                    }
+                                let rawText = bibleData[book][c][v];
+                                let cleanText = rawText.replace(/\?註：(.*?)\?/g, '').trim();
+
+                                let slide = pres.addSlide({ masterName: "BIBLE_MASTER" });
+                                slide.addText(`${book} ${c}:${v}`, { placeholder: 'title' });
+                                slide.addText(cleanText, { placeholder: 'body' });
+                            });
+                        }
+                    });
                 });
 
-                // 動態決定檔名 (使用全形冒號避免作業系統檔名錯誤)
+                // 動態決定檔名
                 let filename = '';
-                if (fc === tc) {
-                    filename = `${book}${fc}：${fv}-${tv}.pptx`;
+                if (cardStates.length === 1) {
+                    const c0 = cardStates[0];
+                    if (c0.fc === c0.tc) {
+                        filename = `${c0.b}${c0.fc}：${c0.fv}-${c0.tv}.pptx`;
+                    } else {
+                        filename = `${c0.b}${c0.fc}：${c0.fv}-${c0.tc}：${c0.tv}.pptx`;
+                    }
                 } else {
-                    filename = `${book}${fc}：${fv}-${tc}：${tv}.pptx`;
+                    const c0 = cardStates[0];
+                    filename = `${c0.b}${c0.fc}：${c0.fv}等${cardStates.length}段經文.pptx`;
                 }
 
-                // 觸發下載並復原 UI 狀態
                 pres.writeFile({ fileName: filename }).then(() => {
                     els.btnExportPpt.disabled = false;
                     els.btnExportPpt.innerHTML = originalContent;
@@ -1685,33 +1434,22 @@
             }
         }
 
-        // 綁定匯出 PPTX 按鈕事件
         els.btnExportPpt.addEventListener('click', exportPPTX);
 
         // ==========================================
         // 8. Modals, Dropdowns 與分享工具
         // ==========================================
-        
-        // Kebab 選單切換邏輯 (手機版)
-        els.btnKebab.addEventListener('click', (e) => {
-            e.stopPropagation();
-            els.actionBarWrapper.classList.toggle('hidden');
-        });
-
-        // 下拉選單切換邏輯
         els.btnSettings.addEventListener('click', (e) => {
             e.stopPropagation();
             els.settingsDropdown.classList.toggle('hidden');
         });
 
-        // 點擊外部自動關閉下拉選單
         document.addEventListener('click', (e) => {
             if (els.settingsContainer && !els.settingsContainer.contains(e.target)) {
                 els.settingsDropdown.classList.add('hidden');
             }
         });
 
-        // 註釋 Modal 切換邏輯
         function toggleFootnoteModal(content = '') {
             const modal = document.getElementById('footnote-modal');
             const txtEl = document.getElementById('footnote-content');
@@ -1720,13 +1458,11 @@
         }
         window.showFootnoteModal = toggleFootnoteModal;
 
-        // 書卷選擇 Modal 切換邏輯
         function toggleBookModal() {
             document.getElementById('book-modal').classList.toggle('hidden');
         }
         window.toggleBookModal = toggleBookModal;
 
-        // 動態生成書卷選擇 Modal 內容
         function initBookModalContent() {
             const modalBody = document.getElementById('book-modal-body');
             let html = '';
@@ -1754,13 +1490,10 @@
                     <div class="flex items-center gap-2 mb-4">
                         <h3 class="text-xl font-bold text-stone-800">${cat.title}</h3>
                 `;
-                
-                // 神學排序問號提示框 (Tooltip)
                 if (cat.hasTooltip) {
                     html += `
                         <div class="relative group cursor-pointer inline-flex items-center" tabindex="0">
                             <svg class="w-5 h-5 text-stone-400 hover:text-stone-600 transition outline-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                            <!-- Tooltip Panel -->
                             <div class="absolute left-0 top-full mt-2 w-72 sm:w-80 bg-stone-800 text-stone-50 text-sm p-4 rounded-xl shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 pointer-events-none text-left">
                                 <p class="font-bold text-amber-400 mb-2">「舊約順序好陌生？」</p>
                                 <p class="leading-relaxed text-stone-200 mb-2">本系統採用舊約聖經的原始架構，也是主耶穌親口證實的順序：「摩西的<strong>律法</strong>、<strong>先知</strong>的書，和《<strong>詩篇</strong>》上所記一切指著我的話都必須應驗。」（路24:44）。</p>
@@ -1771,7 +1504,6 @@
                         </div>
                     `;
                 }
-                
                 html += `</div>`;
 
                 cat.sections.forEach(sec => {
@@ -1813,13 +1545,11 @@
         }
 
         document.getElementById('btn-share').addEventListener('click', async () => {
-            // 產生分享用的純文字經文 (經文出處+雙換行+經文+雙換行，經文超過 200 字截斷)
             let titleStr = document.title.split(' | ')[0];
             let scriptureText = '';
-            els.container.querySelectorAll('span.text-stone-800').forEach(el => {
+            els.cardsContainer.querySelectorAll('span.text-stone-800').forEach(el => {
                 scriptureText += el.innerText.replace(/📝/g, '').replace(/\n/g, '');
             });
-            // 移除可能的多餘空白
             scriptureText = scriptureText.replace(/\s+/g, '');
             if (scriptureText.length > 200) {
                 scriptureText = scriptureText.substring(0, 200) + '...';
@@ -1841,24 +1571,20 @@
         });
 
         // ==========================================
-        // 9. PWA 安裝邏輯與推廣 Modal
+        // 9. PWA 安裝邏輯與推廣
         // ==========================================
         let deferredPrompt;
-        
-        // 記錄畫面載入瞬間網址是否帶有安裝意圖
         const initialUrlParams = new URLSearchParams(window.location.search);
         const hasPwaIntent = initialUrlParams.get('pwa') === '1';
 
         window.showPwaModal = function(type) {
             document.getElementById('pwa-standard-view').classList.add('hidden');
             document.getElementById('pwa-ios-view').classList.add('hidden');
-            
             if (type === 'standard') {
                 document.getElementById('pwa-standard-view').classList.remove('hidden');
             } else if (type === 'ios') {
                 document.getElementById('pwa-ios-view').classList.remove('hidden');
             }
-            
             document.getElementById('pwa-modal').classList.remove('hidden');
         };
 
@@ -1878,33 +1604,24 @@
         };
 
         window.addEventListener('beforeinstallprompt', (e) => {
-            // 避免預設提示
             e.preventDefault();
-            // 存儲事件
             deferredPrompt = e;
-            // 解除設定選單中隱藏的安裝按鈕
             if (els.btnInstallPwa) els.btnInstallPwa.classList.remove('hidden');
-
-            // 若使用者帶有 ?pwa=1 意圖，且攔截到原生事件，則自動彈出標準安裝 Modal
             if (hasPwaIntent) {
                 showPwaModal('standard');
             }
         });
 
-        // 針對 iOS 裝置的 PWA 特例檢查
         function checkIosPwaIntent() {
             if (hasPwaIntent) {
                 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
                 const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-                
                 if (isIOS && !isStandalone) {
-                    // 延遲 500ms 確保畫面繪製完成後彈出專屬圖文 Modal
                     setTimeout(() => { showPwaModal('ios'); }, 500);
                 }
             }
         }
         
-        // 綁定啟動系統與檢查 PWA 意圖
         window.addEventListener('DOMContentLoaded', () => {
             initApp();
             checkIosPwaIntent();
