@@ -1,11 +1,10 @@
 <!DOCTYPE html>
 <!-- 
-  版本號：v1.46
+  版本號：v1.47
   修改主旨：
-  1. 修正多卡片情境下的「分享 / 複製文字」結構與邏輯：
-     - 於 #btn-share 處理常式改為遍歷 cardStates 陣列進行段落與經文萃取。
-     - 在各層級卡片內容前方加上標題資訊（如：【創世記 1:1-5】），並且在多張卡片間以空行分隔，維持明確可讀性。
-     - 廢除無條件的 200 字元截斷限制，保留足本經文結構分享與複製處理。
+  1. 調整經文卡片高度以剛好適配內容：
+     - 移除卡片容器與動態渲染模板中的 min-h-[calc(100vh-4rem)] 樣式。
+     - 使各個卡片能夠依內部經文內容篇幅自動包覆與縮放，消弭單節讀經時底部過度留白的問題。
 -->
 <html lang="zh-TW">
 <head>
@@ -153,7 +152,7 @@
     <main class="max-w-4xl mx-auto px-4 py-6">
         <!-- 經文多卡片容器 -->
         <div id="cards-container" class="flex flex-col">
-            <article class="scripture-card min-h-[calc(100vh-4rem)] bg-white rounded-2xl shadow-sm border border-stone-200 p-8 flex items-center justify-center text-stone-400 text-lg font-serif">
+            <article class="scripture-card bg-white rounded-2xl shadow-sm border border-stone-200 p-8 flex items-center justify-center text-stone-400 text-lg font-serif">
                 ⏳ 正在讀取並初始化聖經經文資料庫...
             </article>
         </div>
@@ -281,7 +280,7 @@
     </div>
 
     <!-- 右下角版本號標示 -->
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.46</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.47</div>
 
     <script>
         // ==========================================
@@ -773,7 +772,7 @@
                 }
 
                 html += `
-                <article class="scripture-card min-h-[calc(100vh-4rem)] bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden mb-6 flex flex-col" id="${card.id}">
+                <article class="scripture-card bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden mb-6 flex flex-col" id="${card.id}">
                     <!-- 卡片上方選單控制器，於同一高度最右方放置極簡 ✖ 按鈕 -->
                     <div class="p-3 sm:p-4 bg-stone-50 border-b border-stone-200 flex justify-between items-center gap-2 shrink-0">
                         <div class="flex flex-wrap items-center gap-1.5 md:gap-2">
