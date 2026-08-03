@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <!-- 
-  版本號：v1.47
+  版本號：v1.49
   修改主旨：
-  1. 調整經文卡片高度以剛好適配內容：
-     - 移除卡片容器與動態渲染模板中的 min-h-[calc(100vh-4rem)] 樣式。
-     - 使各個卡片能夠依內部經文內容篇幅自動包覆與縮放，消弭單節讀經時底部過度留白的問題。
+  1. 修正 PWA 應用程式清單 (manifest.json) 預設啟動路徑：
+     - 將 start_url 由 "./index.html" 改為根目錄 "./"。
+     - 確保透過行動裝置桌面圖示 (Home Screen Icon) 啟動 PWA 時，初始網址即為優雅乾淨的目錄根路徑（無需夾帶 /index.html 贅字）。
 -->
 <html lang="zh-TW">
 <head>
@@ -280,7 +280,7 @@
     </div>
 
     <!-- 右下角版本號標示 -->
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.47</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.49</div>
 
     <script>
         // ==========================================
@@ -702,8 +702,8 @@
             const fullRefStr = refStrings.join(';');
             const firstCardTitle = getCardTitleStr(cardStates[0]);
             const titleStr = cardStates.length > 1 ? `${firstCardTitle} 等${cardStates.length}段` : firstCardTitle;
-            
-            const newUrl = `${window.location.pathname}?ref=${fullRefStr}`;
+            const cleanPathname = window.location.pathname.replace(/\/index\.html$/, '/');
+            const newUrl = `${cleanPathname}?ref=${fullRefStr}`;
             if (window.location.search !== `?ref=${fullRefStr}`) {
                 window.history.pushState(null, '', newUrl);
             }
@@ -1519,7 +1519,7 @@
         }
 
         function copyUrl() {
-            const url = window.location.href;
+            const url = window.location.href.replace(/\/index\.html(?=[\?#]|$)/, '/');
             const dummy = document.createElement('input');
             document.body.appendChild(dummy);
             dummy.value = url;
@@ -1534,7 +1534,6 @@
         }
 
         document.getElementById('btn-share').addEventListener('click', async () => {
-            let titleStr = document.title.split(' | ')[0];
             let blocks = [];
             cardStates.forEach(card => {
                 let cardTitle = `【${getCardTitleStr(card)}】`;
@@ -1556,23 +1555,22 @@
                                 }
                                 let rawText = bibleData[book][c][v];
                                 let cleanText = rawText.replace(/\?註：(.*?)\?/g, '').trim();
-                                lines.push(`${v} ${cleanText}`);
+                                lines.push(cleanText);
                             });
                         }
                     });
                 }
-                blocks.push(`${cardTitle}\n${lines.join('\n')}`);
+                blocks.push(`${cardTitle}\n${lines.join('')}`);
             });
             let scriptureText = blocks.join('\n\n');
-            
-            let shareText = `${titleStr}\n\n${scriptureText}\n\n`;
+            const cleanUrl = window.location.href.replace(/\/index\.html(?=[\?#]|$)/, '/');
+            let shareText = `${scriptureText}\n\n${cleanUrl}`;
 
             if (navigator.share) {
                 try {
                     await navigator.share({
                         title: document.title,
-                        text: shareText,
-                        url: window.location.href
+                        text: shareText
                     });
                 } catch (e) { console.log('分享取消或失敗'); }
             } else {

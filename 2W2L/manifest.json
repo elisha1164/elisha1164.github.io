@@ -4,7 +4,7 @@
   "short_name": "人生二路",
   "description": "一本解釋聖經福音的互動小冊子，探討人生兩條路的抉擇。",
   "lang": "zh-Hant-TW",
-  "start_url": ".",
+  "start_url": "./",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0f172a",

@@ -2,7 +2,7 @@
   "id": "BPFD",
   "name": "聖經大故事家庭靈修",
   "short_name": "大故事靈修",
-  "start_url": "./index.html",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#fafaf9",
   "theme_color": "#fafaf9",

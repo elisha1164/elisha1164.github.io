@@ -2,7 +2,7 @@
   "id": "EPUB",
   "name": "老張 EPUB 閱讀器",
   "short_name": "EPUB 閱讀器",
-  "start_url": "./index.html",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#f7f9fc",
   "theme_color": "#0056b3",
