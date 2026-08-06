@@ -510,9 +510,10 @@
 
     <div id="print-area"></div>
     
-    <div class="version-tag">v3.36</div>
+    <div class="version-tag">v3.37</div>
 
     <script>
+        // v3.37 (修復：導入非同步 Promise 互斥排隊機制，消除 IndexedDB 在開書時進度儲存與 metadata 書名回寫間的讀寫競爭，確保完整書名不遭覆寫)
         // v3.36 (新增：支援 .lzbk)
         // v3.35 (修正：精簡簡轉繁特徵字字典，剔除「那」、「成」、「里」等簡繁共用字，徹底解決繁體書被過度轉換（如「了」變「瞭」）的誤判問題)
         // v3.34 (優化：在列印處理中加入目錄特徵掃描，精準隱藏目錄頁的清單標號，解決 PDF 樣式遺失問題)
@@ -778,39 +779,54 @@
             return copy;
         }
 
+        // v3.37 新增：IndexedDB 非同步讀寫互斥排隊佇列 (Mutex Queue)，杜絕併發讀改寫造成書名遭到舊快取覆蓋
+        let dbMutex = Promise.resolve();
+        function withDbMutex(fn) {
+            const res = dbMutex.then(() => fn());
+            dbMutex = res.catch(e => console.warn("DB 佇列執行緩解:", e));
+            return res;
+        }
+
         async function saveBookToDB(id, arrayBuffer, title) {
             currentBookId = id;
-            const existing = await loadBookDataFromDB(id);
-            const record = {
-                id: id,
-                data: isLzbkPath(id) ? null : arrayBuffer,
-                location: existing ? existing.location : null,
-                percentage: existing ? existing.percentage : null,
-                timestamp: Date.now(),
-                title: title || id
-            };
-            await putBookToDB(record);
-            await setCurrentPointer(id);
+            await withDbMutex(async () => {
+                const existing = await loadBookDataFromDB(id);
+                const record = {
+                    id: id,
+                    data: isLzbkPath(id) ? null : arrayBuffer,
+                    location: existing ? existing.location : null,
+                    percentage: existing ? existing.percentage : null,
+                    timestamp: Date.now(),
+                    title: title || id
+                };
+                await putBookToDB(record);
+                await setCurrentPointer(id);
+            });
         }
 
         async function updateBookTitleInDB(id, title) {
-            const record = await loadBookDataFromDB(id);
-            if (record) {
-                record.title = title;
-                await putBookToDB(record);
-            }
+            await withDbMutex(async () => {
+                const record = await loadBookDataFromDB(id);
+                if (record) {
+                    record.title = title;
+                    await putBookToDB(record);
+                }
+            });
         }
 
         async function saveLocationToDB(cfi, percentageStr = null) {
             if (!currentBookId) return;
             try {
-                const record = await loadBookDataFromDB(currentBookId);
-                if (record) {
-                    record.location = cfi;
-                    if (percentageStr !== null) record.percentage = percentageStr;
-                    record.timestamp = Date.now(); 
-                    await putBookToDB(record);
-                }
+                await withDbMutex(async () => {
+                    if (!currentBookId) return;
+                    const record = await loadBookDataFromDB(currentBookId);
+                    if (record) {
+                        record.location = cfi;
+                        if (percentageStr !== null) record.percentage = percentageStr;
+                        record.timestamp = Date.now(); 
+                        await putBookToDB(record);
+                    }
+                });
             } catch (e) { console.warn("儲存進度失敗", e); }
         }
 
