@@ -510,9 +510,10 @@
 
     <div id="print-area"></div>
     
-    <div class="version-tag">v3.35</div>
+    <div class="version-tag">v3.36</div>
 
     <script>
+        // v3.36 (新增：支援 .lzbk)
         // v3.35 (修正：精簡簡轉繁特徵字字典，剔除「那」、「成」、「里」等簡繁共用字，徹底解決繁體書被過度轉換（如「了」變「瞭」）的誤判問題)
         // v3.34 (優化：在列印處理中加入目錄特徵掃描，精準隱藏目錄頁的清單標號，解決 PDF 樣式遺失問題)
         // v3.33 (優化：在 startTTS 導入回溯補償機制，當位於章節開頭附近時強制將語音指標歸零，避免略過章名)
@@ -753,12 +754,36 @@
             }
         }
 
+        // ==========================================
+        // .lzbk 判定與 XOR 混淆加解密輔助 (v3.36)
+        // ==========================================
+        function isLzbkPath(path) {
+            if (!path) return false;
+            try {
+                const cleanPath = path.split('?')[0].split('#')[0];
+                return /\.lzbk$/i.test(cleanPath);
+            } catch (e) {
+                return /\.lzbk$/i.test(String(path));
+            }
+        }
+
+        function xorBuffer(buffer) {
+            if (!buffer) return null;
+            const copy = buffer.slice(0);
+            const bytes = new Uint8Array(copy);
+            const key = [0x4C, 0x5A, 0x42, 0x4B]; // ASCII 'LZBK'
+            for (let i = 0; i < bytes.length; i++) {
+                bytes[i] ^= key[i % 4];
+            }
+            return copy;
+        }
+
         async function saveBookToDB(id, arrayBuffer, title) {
             currentBookId = id;
             const existing = await loadBookDataFromDB(id);
             const record = {
                 id: id,
-                data: arrayBuffer,
+                data: isLzbkPath(id) ? null : arrayBuffer,
                 location: existing ? existing.location : null,
                 percentage: existing ? existing.percentage : null,
                 timestamp: Date.now(),
@@ -889,18 +914,22 @@
                 const info = document.createElement('div');
                 info.className = 'recent-item-info';
                 info.onclick = async () => {
-                    showLoading(true, '正在載入書本...');
-                    currentBookId = bookRecord.id;
-                    bookRecord.timestamp = Date.now(); 
-                    await putBookToDB(bookRecord);
-                    await setCurrentPointer(bookRecord.id);
-                    initBook(bookRecord.data, bookRecord.location);
+                    if (isLzbkPath(bookRecord.id)) {
+                        loadLzbkFromUrl(bookRecord.id, bookRecord.location);
+                    } else {
+                        showLoading(true, '正在載入書本...');
+                        currentBookId = bookRecord.id;
+                        bookRecord.timestamp = Date.now(); 
+                        await putBookToDB(bookRecord);
+                        await setCurrentPointer(bookRecord.id);
+                        initBook(bookRecord.data, bookRecord.location);
+                    }
                 };
 
                 const title = document.createElement('div');
                 title.className = 'recent-title';
-                // 過濾掉可能殘留的 .epub 副檔名
-                title.textContent = (bookRecord.title || '未知書名').replace(/\.epub$/i, '');
+                // 過濾掉可能殘留的 .epub/.lzbk 副檔名
+                title.textContent = (bookRecord.title || '未知書名').replace(/\.(epub|lzbk)$/i, '');
                 
                 const meta = document.createElement('div');
                 meta.className = 'recent-meta';
@@ -916,7 +945,7 @@
                 delBtn.innerHTML = '🗑️';
                 delBtn.onclick = async (e) => {
                     e.stopPropagation();
-                    if (confirm(`確定要移除「${(bookRecord.title || '這本書').replace(/\.epub$/i, '')}」的紀錄與檔案嗎？`)) {
+                    if (confirm(`確定要移除「${(bookRecord.title || '這本書').replace(/\.(epub|lzbk)$/i, '')}」的紀錄與檔案嗎？`)) {
                         await deleteBookFromDB(bookRecord.id);
                         renderRecentReads();
                     }
@@ -934,6 +963,7 @@
         let book = null;
         let rendition = null;
         let loadingTimeout = null; 
+        let currentBookArrayBuffer = null; // v3.36 新增：於 RAM 快取當前書本資料以供匯出 .lzbk
         let currentFontSize = 100;
         let currentLineHeight = 1.6;
         
@@ -1111,7 +1141,52 @@
         document.getElementById('btn-font-dec').addEventListener('click', () => { currentFontSize = Math.max(80, currentFontSize - 10); applyStyles(); });
         document.getElementById('btn-font-inc').addEventListener('click', () => { currentFontSize = Math.min(200, currentFontSize + 10); applyStyles(); });
         document.getElementById('btn-line-dec').addEventListener('click', () => { currentLineHeight = Math.max(1.2, parseFloat((currentLineHeight - 0.2).toFixed(1))); applyStyles(); });
-        document.getElementById('btn-line-inc').addEventListener('click', () => { currentLineHeight = Math.min(2.4, parseFloat((currentLineHeight + 0.2).toFixed(1))); applyStyles(); });
+        let lineIncClickCount = 0;
+        let lineIncLastClickTime = 0;
+        document.getElementById('btn-line-inc').addEventListener('click', async () => {
+            currentLineHeight = Math.min(2.4, parseFloat((currentLineHeight + 0.2).toFixed(1)));
+            applyStyles();
+
+            const now = Date.now();
+            if (now - lineIncLastClickTime <= 500) {
+                lineIncClickCount++;
+            } else {
+                lineIncClickCount = 1;
+            }
+            lineIncLastClickTime = now;
+
+            if (lineIncClickCount === 15) {
+                lineIncClickCount = 0;
+                if (!currentBookArrayBuffer) {
+                    alert("⚠️ 尚未載入完整書本資料，無法匯出為 .lzbk。");
+                    return;
+                }
+                try {
+                    showLoading(true, '正在打包壓縮並混淆書籍為 .lzbk...');
+                    const xoredBuffer = xorBuffer(currentBookArrayBuffer);
+                    const zip = new JSZip();
+                    zip.file("book.dat", xoredBuffer);
+                    const content = await zip.generateAsync({ type: "blob" });
+                    
+                    let exportTitle = (book && book.package && book.package.metadata && book.package.metadata.title) ? book.package.metadata.title : (document.title || "export");
+                    if (s2tConverter && exportTitle) exportTitle = s2tConverter(exportTitle);
+                    exportTitle = exportTitle.replace(/[\\/:*?"<>|]/g, "_").replace(/\.(epub|lzbk)$/i, "");
+                    if (!exportTitle || exportTitle === "老張 EPUB 閱讀器") exportTitle = "book_export";
+                    
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(content);
+                    a.download = exportTitle + ".lzbk";
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    showLoading(false);
+                } catch (err) {
+                    showLoading(false);
+                    console.error("打包 .lzbk 失敗:", err);
+                    alert("⚠️ 打包 .lzbk 發生異常！");
+                }
+            }
+        });
 
         // ==========================================
         // 頂端章節名稱與底部進度條更新邏輯
@@ -1161,6 +1236,7 @@
         // ==========================================
         function initBook(bookData, savedLocation = null) {
             if (typeof ePub === 'undefined') { showLoading(false); alert("⚠️ 核心套件載入失敗！\n請檢查網路連線。"); return; }
+            currentBookArrayBuffer = bookData; // v3.36：常態記錄當前冊二進位快取
             showLoading(true, '正在準備沉浸式閱讀體驗...');
             if (book) book.destroy(); 
             if (rendition) viewer.innerHTML = ''; 
@@ -1631,7 +1707,63 @@
         // ==========================================
         // 載入與列印邏輯
         // ==========================================
+        async function loadLzbkFromUrl(url, savedLocation = null) {
+            showLoading(true, '正在線上同步書本...');
+            let fileName = 'LZBK 檔案';
+            try {
+                const urlObj = new URL(url, window.location.href);
+                const extracted = urlObj.pathname.split('/').pop();
+                if (extracted) fileName = decodeURIComponent(extracted);
+            } catch (e) {
+                fileName = url.split('/').pop() || 'LZBK 檔案';
+                try { fileName = decodeURIComponent(fileName).split('?')[0]; } catch(e2){}
+            }
+
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`伺服器回應錯誤: ${response.status}`);
+                const compressedBuffer = await response.arrayBuffer();
+                
+                const zip = await JSZip.loadAsync(compressedBuffer);
+                const firstFilename = Object.keys(zip.files)[0];
+                if (!firstFilename) throw new Error("無有效解壓的電子書主體");
+                
+                const xoredBuffer = await zip.file(firstFilename).async("arraybuffer");
+                const epubBuffer = xorBuffer(xoredBuffer);
+
+                const id = url;
+                let titleName = fileName.replace(/\.lzbk$/i, '');
+                
+                const existing = await loadBookDataFromDB(id);
+                if (existing) {
+                    if (existing.title && existing.title !== id && existing.title !== titleName) {
+                        titleName = existing.title;
+                    }
+                    if (!savedLocation && existing.location) {
+                        savedLocation = existing.location;
+                    }
+                }
+
+                await saveBookToDB(id, epubBuffer, titleName);
+                initBook(epubBuffer, savedLocation);
+            } catch (error) {
+                showLoading(false);
+                console.error("載入 LZBK 失敗:", error);
+                showModal({
+                    title: '⚠️ 遠端書籍載入失敗',
+                    desc: `此書 (<b>${fileName}</b>) 需在網路連線下取得更新。<br><br>錯誤事由：${error.message || '連線無法建立或解析失效'}`,
+                    actionText: '🔄 再次嘗試連線',
+                    onAction: () => {
+                        loadLzbkFromUrl(url, savedLocation);
+                    }
+                });
+            }
+        }
+
         async function loadBookFromUrl(url) {
+            if (isLzbkPath(url)) {
+                return loadLzbkFromUrl(url);
+            }
             showLoading(true, '正在下載電子書...');
             
             // v3.30 新增：智能解析網址檔名，含防呆與過濾參數
@@ -1907,11 +2039,17 @@
             } else {
                 const targetId = await getCurrentPointer();
                 if (targetId) {
-                    const savedRecord = await loadBookDataFromDB(targetId);
-                    if (savedRecord && savedRecord.data) {
-                        currentBookId = targetId; 
-                        showLoading(true, '正在恢復上次的閱讀進度...');
-                        initBook(savedRecord.data, savedRecord.location);
+                    if (isLzbkPath(targetId)) {
+                        const savedRecord = await loadBookDataFromDB(targetId);
+                        const savedLoc = savedRecord ? savedRecord.location : null;
+                        loadLzbkFromUrl(targetId, savedLoc);
+                    } else {
+                        const savedRecord = await loadBookDataFromDB(targetId);
+                        if (savedRecord && savedRecord.data) {
+                            currentBookId = targetId; 
+                            showLoading(true, '正在恢復上次的閱讀進度...');
+                            initBook(savedRecord.data, savedRecord.location);
+                        }
                     }
                 }
             }
