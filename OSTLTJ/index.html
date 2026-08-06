@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v1.54 優化默想筆記匯出分享格式，於進度標題後加入首尾節經文摘錄，並移除結尾多餘分隔線 -->
 <!-- v1.53 新增默想筆記的分享功能，支援單日純文字與多日匯出，並重構進度標題邏輯 -->
 <!-- v1.52 修復主進度為詩篇時，附屬詩篇無法顯示的問題 (Day 175 Bug)，並補回默想筆記的新手導覽步驟 -->
 <!-- v1.51 新增「默想筆記」個人日誌功能，並實作雙層重置防護 Modal (可選擇保留或清空筆記) -->
@@ -1043,6 +1044,77 @@
             return `${data.book}${chapStr}${psalmStr}`;
         }
 
+        function formatNoteForShare(day, noteText) {
+            const data = bibleData[day];
+            if (!data || Object.keys(rcuvIndex).length === 0) {
+                return `第${day}天\n\n進度：${getDailyProgressText(day)}\n\n默想筆記：\n${noteText}`;
+            }
+
+            const cleanVerse = (text) => (text || "").replace(/\?註：.*?\?/g, "").trim();
+
+            const formattedChapters = data.chapters ? data.chapters.replace(/-/g, " 到 ") : "";
+            const chapterUnit = (data.book === '詩篇') ? '篇' : '章';
+            let chapStr = formattedChapters ? ` ${formattedChapters} ${chapterUnit}` : "";
+            if (cleanString(data.book) === '約翰二、三書') chapStr = "";
+            const mainTitle = `${data.book}${chapStr}`;
+
+            const tBookClean = cleanString(data.book);
+            let targetBooks = (tBookClean === '約翰二、三書') ? ['約翰二書', '約翰三書'] : [tBookClean];
+            let mainV = [];
+            targetBooks.forEach(bookName => {
+                if (bookName && rcuvIndex[bookName]) {
+                    data.parsedChapters.forEach(tc => {
+                        const chapterData = rcuvIndex[bookName][tc.ch];
+                        if (chapterData) {
+                            const verseKeys = Object.keys(chapterData).map(Number).sort((a, b) => a - b);
+                            verseKeys.forEach(vNum => {
+                                if (tc.vStart !== null && tc.vEnd !== null) {
+                                    if (vNum < tc.vStart || vNum > tc.vEnd) return;
+                                }
+                                mainV.push(chapterData[vNum.toString()]);
+                            });
+                        }
+                    });
+                }
+            });
+
+            let mainSectionText = `${mainTitle}：`;
+            if (mainV.length > 0) {
+                mainSectionText += `\n${cleanVerse(mainV[0])}…${cleanVerse(mainV[mainV.length - 1])}`;
+            }
+
+            let psalmSectionText = "";
+            if (data.psalms && data.parsedPsalms.length > 0 && rcuvIndex['詩篇']) {
+                let psalmTitle = "";
+                if (data.psalms.includes(':')) {
+                    const [pChap, pVerse] = data.psalms.split(':');
+                    psalmTitle = `詩篇 ${pChap} 篇 ${pVerse.replace(/-/g, " 到 ")} 節`;
+                } else {
+                    psalmTitle = `詩篇 ${data.psalms.replace(/-/g, " 到 ")} 篇`;
+                }
+
+                let psalmV = [];
+                data.parsedPsalms.forEach(tp => {
+                    const chapterData = rcuvIndex['詩篇'][tp.ch];
+                    if (chapterData) {
+                        const verseKeys = Object.keys(chapterData).map(Number).sort((a, b) => a - b);
+                        verseKeys.forEach(vNum => {
+                            if (tp.vStart !== null && tp.vEnd !== null) {
+                                if (vNum < tp.vStart || vNum > tp.vEnd) return;
+                            }
+                            psalmV.push(chapterData[vNum.toString()]);
+                        });
+                    }
+                });
+
+                if (psalmV.length > 0) {
+                    psalmSectionText = `\n\n${psalmTitle}：\n${cleanVerse(psalmV[0])}…${cleanVerse(psalmV[psalmV.length - 1])}`;
+                }
+            }
+
+            return `第${day}天\n\n${mainSectionText}${psalmSectionText}\n\n默想筆記：\n${noteText}`;
+        }
+
         function updateHeaderVisuals(day, isRead) {
             let actualDay = calculateCurrentDay(localStorage.getItem('gemini_start_date'));
             if (actualDay === null) actualDay = 358; 
@@ -1477,8 +1549,7 @@
                 if (!noteValue) {
                     return alert('您今天尚未填寫筆記喔！');
                 }
-                const progress = getDailyProgressText(currentDay);
-                const shareText = `第${currentDay}天\n進度：${progress}\n默想筆記：\n${noteValue}`;
+                const shareText = formatNoteForShare(currentDay, noteValue);
                 
                 if (navigator.share) {
                     try {
@@ -1493,14 +1564,15 @@
             });
 
             dom.shareAllNotesBtn.addEventListener('click', async () => {
-                let allNotesText = "";
                 const keys = Object.keys(meditationNotes).map(Number).sort((a,b)=>a-b);
+                const shareBlocks = [];
                 for (const d of keys) {
                     const n = meditationNotes[d].trim();
                     if (n) {
-                        allNotesText += `第${d}天\n進度：${getDailyProgressText(d)}\n默想筆記：\n${n}\n\n----------------------------------------\n\n`;
+                        shareBlocks.push(formatNoteForShare(d, n));
                     }
                 }
+                const allNotesText = shareBlocks.join('\n\n----------------------------------------\n\n');
                 
                 const blob = new Blob([allNotesText], { type: 'text/plain' });
                 const file = new File([blob], 'Meditation_Notes.txt', { type: 'text/plain' });
@@ -2440,6 +2512,6 @@
 
         window.addEventListener('DOMContentLoaded', init);
     </script>
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.53</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.54</div>
 </body>
 </html>
