@@ -1,6 +1,6 @@
 <!-- 
-  Version: v1.2.2
-  Summary: Added small grey version badge in the bottom-right corner for GitHub Pages deployment verification.
+  Version: v1.3.1
+  Summary: Updated DEFAULT_PROXY_URL to official Cloudflare Worker URL https://logos-ai-proxy.elisha1164.workers.dev.
 -->
 <!DOCTYPE html>
 <html lang="zh-TW" class="light">
@@ -9,6 +9,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>LogosAI - 聖經神學問答助手</title>
   
+  <!-- Favicon & Touch Icons -->
+  <link rel="icon" type="image/png" href="icon-192.png">
+  <link rel="shortcut icon" href="icon-192.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
+
   <!-- SEO & Meta -->
   <meta name="description" content="LogosAI - 高舉聖經權威的 AI 深度神學與聖經對話助手，提供權威、嚴謹且符合聖經教義的神學解答。">
   <meta name="theme-color" content="#f8fafc">
@@ -40,9 +45,8 @@
     })();
   </script>
 
-  <!-- PWA & Mobile Icons -->
+  <!-- PWA Manifest -->
   <link rel="manifest" href="manifest.json">
-  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="LogosAI">
@@ -59,7 +63,7 @@
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
   <style>
-    /* CSS Variables & Theme Tokens - Default Light Mode */
+    /* CSS Variables & Light Theme Palette */
     :root {
       --bg-primary: #f8fafc;
       --bg-secondary: #ffffff;
@@ -75,7 +79,6 @@
       --accent-gold: #b45309;
       --accent-gold-hover: #92400e;
       --accent-gold-light: rgba(180, 83, 9, 0.1);
-      --accent-blue: #0284c7;
       --user-msg-bg: #dbeafe;
       --user-msg-text: #1e3a8a;
       --assistant-msg-bg: #ffffff;
@@ -86,31 +89,6 @@
       --radius-sm: 8px;
       --radius-md: 12px;
       --radius-lg: 16px;
-    }
-
-    html.dark {
-      --bg-primary: #0f172a;
-      --bg-secondary: #1e293b;
-      --bg-tertiary: #334155;
-      --bg-sidebar: #0f172a;
-      --bg-sidebar-item: #1e293b;
-      --bg-sidebar-active: #334155;
-      --bg-card: #1e293b;
-      --border-color: rgba(255, 255, 255, 0.1);
-      --text-primary: #f8fafc;
-      --text-secondary: #94a3b8;
-      --text-muted: #64748b;
-      --accent-gold: #d97706;
-      --accent-gold-hover: #b45309;
-      --accent-gold-light: rgba(217, 119, 6, 0.15);
-      --accent-blue: #38bdf8;
-      --user-msg-bg: #1e3a8a;
-      --user-msg-text: #eff6ff;
-      --assistant-msg-bg: #1e293b;
-      --assistant-msg-text: #f8fafc;
-      --scripture-bg: rgba(217, 119, 6, 0.08);
-      --scripture-border: #d97706;
-      --shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
     }
 
     /* Global Reset - Performance First: Zero Micro-Animations */
@@ -151,16 +129,13 @@
       gap: 10px;
     }
 
-    .brand-icon {
+    .brand-logo-img {
       width: 36px;
       height: 36px;
-      background: linear-gradient(135deg, #d97706, #92400e);
-      color: #ffffff;
       border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.1rem;
+      object-fit: cover;
+      flex-shrink: 0;
+      border: 1px solid var(--border-color);
     }
 
     .brand-title h1 {
@@ -217,12 +192,18 @@
     /* Sidebar Navigation */
     .sidebar {
       width: 260px;
+      flex-shrink: 0;
       background-color: var(--bg-sidebar);
       border-right: 1px solid var(--border-color);
       display: flex;
       flex-direction: column;
       height: 100%;
       z-index: 15;
+    }
+
+    /* Desktop Sidebar Collapse State */
+    .sidebar.closed {
+      display: none !important;
     }
 
     .sidebar-header {
@@ -359,10 +340,13 @@
       max-width: 600px;
     }
 
-    .welcome-card i.fa-cross {
-      font-size: 2.5rem;
-      color: var(--accent-gold);
+    .welcome-card-icon {
+      width: 64px;
+      height: 64px;
+      border-radius: 14px;
+      object-fit: cover;
       margin-bottom: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     }
 
     .welcome-card h2 {
@@ -421,8 +405,8 @@
     }
 
     .avatar {
-      width: 34px;
-      height: 34px;
+      width: 36px;
+      height: 36px;
       border-radius: 8px;
       display: flex;
       align-items: center;
@@ -430,6 +414,7 @@
       font-size: 0.9rem;
       flex-shrink: 0;
       font-weight: 600;
+      overflow: hidden;
     }
 
     .message-row.user .avatar {
@@ -437,9 +422,11 @@
       color: #ffffff;
     }
 
-    .message-row.assistant .avatar {
-      background: linear-gradient(135deg, #d97706, #78350f);
-      color: #ffffff;
+    .avatar-img {
+      width: 100%;
+      height: 100%;
+      border-radius: 8px;
+      object-fit: cover;
     }
 
     .bubble-content {
@@ -728,6 +715,7 @@
       }
       .sidebar.open {
         left: 0;
+        display: flex !important;
       }
       .sidebar-overlay.active {
         display: block;
@@ -745,9 +733,7 @@
       <button class="btn-icon" id="btn-toggle-sidebar" title="切換會話欄">
         <i class="fa-solid fa-bars"></i>
       </button>
-      <div class="brand-icon">
-        <i class="fa-solid fa-book-bible"></i>
-      </div>
+      <img src="icon-180.png" alt="LogosAI Logo" class="brand-logo-img">
       <div class="brand-title">
         <h1>LogosAI</h1>
         <p>高舉聖經 ‧ 研討真理</p>
@@ -756,9 +742,6 @@
     <div class="header-actions">
       <button class="btn-icon" id="btn-install-pwa" title="安裝 App" style="display: none; background: var(--accent-gold-light); color: var(--accent-gold); border-color: var(--accent-gold); font-size: 1.1rem;">
         📲
-      </button>
-      <button class="btn-icon" id="btn-theme" title="切換深色/淺色主題">
-        <i class="fa-solid fa-sun"></i>
       </button>
       <button class="btn-icon" id="btn-share" title="分享此對話">
         <i class="fa-solid fa-share-nodes"></i>
@@ -787,7 +770,7 @@
       <div id="chat-container">
         <!-- Welcome Card (shown when empty) -->
         <div class="welcome-card" id="welcome-card">
-          <i class="fa-solid fa-cross"></i>
+          <img src="icon-180.png" alt="LogosAI Logo" class="welcome-card-icon">
           <h2>歡迎使用 LogosAI 聖經神學助手</h2>
           <p>LogosAI 高舉聖經最高權威，結合 AI 科技與聖經經文，為您提供嚴謹、全面且以經文佐證的神學解答。請在下方輸入您的問題。</p>
           <div class="sample-prompts">
@@ -869,7 +852,7 @@
   </div>
 
   <!-- Version Badge -->
-  <div class="app-version-badge">v1.2.2</div>
+  <div class="app-version-badge">v1.3.0</div>
 
   <!-- Toast Notification -->
   <div id="toast"></div>
@@ -877,7 +860,7 @@
   <!-- Application Logic JavaScript -->
   <script>
     /* Global Variables & State */
-    const DEFAULT_PROXY_URL = 'https://logos-ai-proxy.your-subdomain.workers.dev';
+    const DEFAULT_PROXY_URL = 'https://logos-ai-proxy.elisha1164.workers.dev';
     
     let sessions = []; // [{ id, title, createdAt, updatedAt }]
     let currentSessionId = null;
@@ -894,7 +877,6 @@
     const welcomeCard = document.getElementById('welcome-card');
     const userInput = document.getElementById('user-input');
     const btnSend = document.getElementById('btn-send');
-    const btnTheme = document.getElementById('btn-theme');
     const btnShare = document.getElementById('btn-share');
     const btnToggleSidebar = document.getElementById('btn-toggle-sidebar');
     const btnNewChat = document.getElementById('btn-new-chat');
@@ -905,7 +887,6 @@
 
     /* Initialize Application */
     document.addEventListener('DOMContentLoaded', async () => {
-      initTheme();
       registerServiceWorker();
       await initDB();
       await loadSessionsFromDB();
@@ -923,34 +904,6 @@
         });
       }
     }
-
-    /* Theme Initialization - Default Light Mode */
-    function initTheme() {
-      const savedTheme = localStorage.getItem('app_theme') || 'light';
-      if (savedTheme === 'dark') {
-        document.documentElement.classList.remove('light');
-        document.documentElement.classList.add('dark');
-        btnTheme.innerHTML = '<i class="fa-solid fa-moon"></i>';
-      } else {
-        document.documentElement.classList.remove('dark');
-        document.documentElement.classList.add('light');
-        btnTheme.innerHTML = '<i class="fa-solid fa-sun"></i>';
-      }
-    }
-
-    btnTheme.addEventListener('click', () => {
-      if (document.documentElement.classList.contains('dark')) {
-        document.documentElement.classList.remove('dark');
-        document.documentElement.classList.add('light');
-        localStorage.setItem('app_theme', 'light');
-        btnTheme.innerHTML = '<i class="fa-solid fa-sun"></i>';
-      } else {
-        document.documentElement.classList.remove('light');
-        document.documentElement.classList.add('dark');
-        localStorage.setItem('app_theme', 'dark');
-        btnTheme.innerHTML = '<i class="fa-solid fa-moon"></i>';
-      }
-    });
 
     /* IndexedDB & LocalStorage Multi-Session Data Access */
     function initDB() {
@@ -1151,7 +1104,6 @@
       if (e) e.stopPropagation();
 
       if (sessions.length <= 1) {
-        // If only 1 session, clear its messages instead of deleting
         currentMessages = [];
         await saveCurrentMessagesToDB();
         renderCurrentChatUI();
@@ -1238,10 +1190,14 @@
 
     /* Event Listeners Setup */
     function setupEventListeners() {
-      // Sidebar Toggle
+      // Sidebar Toggle for both Desktop & Mobile
       btnToggleSidebar.addEventListener('click', () => {
-        sidebar.classList.toggle('open');
-        sidebarOverlay.classList.toggle('active');
+        if (window.innerWidth <= 768) {
+          sidebar.classList.toggle('open');
+          sidebarOverlay.classList.toggle('active');
+        } else {
+          sidebar.classList.toggle('closed');
+        }
       });
 
       sidebarOverlay.addEventListener('click', () => {
@@ -1364,7 +1320,7 @@
       avatar.className = 'avatar';
       avatar.innerHTML = role === 'user' 
         ? '<i class="fa-solid fa-user"></i>' 
-        : '<i class="fa-solid fa-book-bible"></i>';
+        : '<img src="icon-180.png" alt="LogosAI" class="avatar-img">';
 
       const bubble = document.createElement('div');
       bubble.className = 'bubble-content';
@@ -1406,7 +1362,7 @@
 
       const avatar = document.createElement('div');
       avatar.className = 'avatar';
-      avatar.innerHTML = '<i class="fa-solid fa-book-bible"></i>';
+      avatar.innerHTML = '<img src="icon-180.png" alt="LogosAI" class="avatar-img">';
 
       const bubble = document.createElement('div');
       bubble.className = 'bubble-content';
