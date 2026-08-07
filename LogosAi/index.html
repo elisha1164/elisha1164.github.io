@@ -1,9 +1,9 @@
 <!-- 
-  Version: v1.1.0
-  Summary: Removed ⚙️ Settings button and modal for ultra-clean end-user UI. Proxy URL is handled directly in code.
+  Version: v1.2.1
+  Summary: Restored Service Worker (sw.js) registration for offline precaching & PWA support.
 -->
 <!DOCTYPE html>
-<html lang="zh-TW" class="dark">
+<html lang="zh-TW" class="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,7 +11,7 @@
   
   <!-- SEO & Meta -->
   <meta name="description" content="LogosAI - 高舉聖經權威的 AI 深度神學與聖經對話助手，提供權威、嚴謹且符合聖經教義的神學解答。">
-  <meta name="theme-color" content="#0f172a">
+  <meta name="theme-color" content="#f8fafc">
 
   <!-- Open Graph / Social Sharing Meta Tags -->
   <meta property="og:type" content="website">
@@ -44,7 +44,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="LogosAI">
 
   <!-- Google Fonts: Elegant Scholarly & Clean Sans -->
@@ -59,12 +59,43 @@
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
   <style>
-    /* CSS Variables & Theme Tokens */
+    /* CSS Variables & Theme Tokens - Default Light Mode */
     :root {
+      --bg-primary: #f8fafc;
+      --bg-secondary: #ffffff;
+      --bg-tertiary: #f1f5f9;
+      --bg-sidebar: #f8fafc;
+      --bg-sidebar-item: #ffffff;
+      --bg-sidebar-active: #e2e8f0;
+      --bg-card: #ffffff;
+      --border-color: #e2e8f0;
+      --text-primary: #0f172a;
+      --text-secondary: #475569;
+      --text-muted: #94a3b8;
+      --accent-gold: #b45309;
+      --accent-gold-hover: #92400e;
+      --accent-gold-light: rgba(180, 83, 9, 0.1);
+      --accent-blue: #0284c7;
+      --user-msg-bg: #dbeafe;
+      --user-msg-text: #1e3a8a;
+      --assistant-msg-bg: #ffffff;
+      --assistant-msg-text: #0f172a;
+      --scripture-bg: #fffbe6;
+      --scripture-border: #b45309;
+      --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.05);
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+    }
+
+    html.dark {
       --bg-primary: #0f172a;
       --bg-secondary: #1e293b;
       --bg-tertiary: #334155;
-      --bg-card: rgba(30, 41, 59, 0.7);
+      --bg-sidebar: #0f172a;
+      --bg-sidebar-item: #1e293b;
+      --bg-sidebar-active: #334155;
+      --bg-card: #1e293b;
       --border-color: rgba(255, 255, 255, 0.1);
       --text-primary: #f8fafc;
       --text-secondary: #94a3b8;
@@ -79,41 +110,16 @@
       --assistant-msg-text: #f8fafc;
       --scripture-bg: rgba(217, 119, 6, 0.08);
       --scripture-border: #d97706;
-      --shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
-      --radius-sm: 8px;
-      --radius-md: 12px;
-      --radius-lg: 16px;
-      --transition-fast: 0.2s ease;
-      --transition-normal: 0.3s ease;
+      --shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
     }
 
-    html.light {
-      --bg-primary: #f8fafc;
-      --bg-secondary: #ffffff;
-      --bg-tertiary: #f1f5f9;
-      --bg-card: rgba(255, 255, 255, 0.85);
-      --border-color: rgba(0, 0, 0, 0.1);
-      --text-primary: #0f172a;
-      --text-secondary: #475569;
-      --text-muted: #94a3b8;
-      --accent-gold: #b45309;
-      --accent-gold-hover: #92400e;
-      --accent-gold-light: rgba(180, 83, 9, 0.1);
-      --accent-blue: #0284c7;
-      --user-msg-bg: #dbeafe;
-      --user-msg-text: #1e3a8a;
-      --assistant-msg-bg: #ffffff;
-      --assistant-msg-text: #0f172a;
-      --scripture-bg: #fffbe6;
-      --scripture-border: #b45309;
-      --shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.08);
-    }
-
-    /* Global Reset */
+    /* Global Reset - Performance First: Zero Micro-Animations */
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
+      transition: none !important;
+      animation: none !important;
     }
 
     body {
@@ -125,54 +131,52 @@
       display: flex;
       flex-direction: column;
       overflow: hidden;
-      transition: background-color var(--transition-normal), color var(--transition-normal);
     }
 
     /* Header */
     header {
-      height: 64px;
+      height: 60px;
       background-color: var(--bg-secondary);
       border-bottom: 1px solid var(--border-color);
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 20px;
-      z-index: 10;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+      padding: 0 16px;
+      z-index: 20;
     }
 
     .brand {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
     }
 
     .brand-icon {
-      width: 38px;
-      height: 38px;
+      width: 36px;
+      height: 36px;
       background: linear-gradient(135deg, #d97706, #92400e);
       color: #ffffff;
-      border-radius: 10px;
+      border-radius: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 1.1rem;
-      box-shadow: 0 2px 8px rgba(217, 119, 6, 0.4);
     }
 
     .brand-title h1 {
-      font-family: 'Cinzel', 'Noto Serif TC', serif;
+      font-family: 'Cinzel', serif;
       font-size: 1.15rem;
       font-weight: 700;
-      color: var(--text-primary);
       letter-spacing: 0.5px;
+      color: var(--text-primary);
+      line-height: 1.1;
     }
 
     .brand-title p {
       font-size: 0.72rem;
+      font-weight: 600;
       color: var(--accent-gold);
-      font-weight: 500;
-      letter-spacing: 1px;
+      letter-spacing: 0.5px;
     }
 
     .header-actions {
@@ -182,121 +186,214 @@
     }
 
     .btn-icon {
-      width: 40px;
-      height: 40px;
-      border-radius: 10px;
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
       border: 1px solid var(--border-color);
-      background: transparent;
-      color: var(--text-secondary);
+      background-color: var(--bg-tertiary);
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 0.95rem;
+    }
+
+    .btn-icon:hover {
+      border-color: var(--accent-gold);
+      color: var(--accent-gold);
+    }
+
+    /* App Main Layout with Sidebar */
+    .app-body {
+      flex: 1;
+      display: flex;
+      height: calc(100vh - 60px);
+      height: calc(100dvh - 60px);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Sidebar Navigation */
+    .sidebar {
+      width: 260px;
+      background-color: var(--bg-sidebar);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      z-index: 15;
+    }
+
+    .sidebar-header {
+      padding: 14px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .btn-new-chat {
+      width: 100%;
+      padding: 10px 14px;
+      background: var(--accent-gold);
+      color: #ffffff;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 0.9rem;
+      font-weight: 600;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 1rem;
-      transition: all var(--transition-fast);
+      gap: 8px;
     }
 
-    .btn-icon:hover {
-      background: var(--bg-tertiary);
-      color: var(--accent-gold);
+    .btn-new-chat:hover {
+      background: var(--accent-gold-hover);
+    }
+
+    .session-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .session-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      border-radius: var(--radius-sm);
+      background: var(--bg-sidebar-item);
+      border: 1px solid var(--border-color);
+      cursor: pointer;
+      font-size: 0.88rem;
+      color: var(--text-primary);
+    }
+
+    .session-item:hover, .session-item.active {
+      background: var(--bg-sidebar-active);
       border-color: var(--accent-gold);
     }
 
-    .btn-pwa-install {
-      display: none;
+    .session-title {
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-right: 8px;
+    }
+
+    .session-item-actions {
+      display: flex;
       align-items: center;
       gap: 6px;
-      padding: 0 12px;
-      height: 38px;
-      border-radius: 10px;
-      background: linear-gradient(135deg, #d97706, #b45309);
-      color: #ffffff;
-      font-size: 0.82rem;
-      font-weight: 600;
+      opacity: 0.7;
+    }
+
+    .session-item:hover .session-item-actions {
+      opacity: 1;
+    }
+
+    .btn-session-action {
+      background: transparent;
       border: none;
+      color: var(--text-muted);
       cursor: pointer;
-      box-shadow: 0 2px 8px rgba(217, 119, 6, 0.4);
-      transition: all var(--transition-fast);
+      font-size: 0.85rem;
+      padding: 2px 4px;
     }
 
-    .btn-pwa-install:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(217, 119, 6, 0.5);
+    .btn-session-action:hover {
+      color: var(--accent-gold);
     }
 
-    /* Main Chat Layout */
+    .btn-session-action.delete:hover {
+      color: #ef4444;
+    }
+
+    /* Mobile Sidebar Overlay */
+    .sidebar-overlay {
+      display: none;
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.4);
+      z-index: 12;
+    }
+
+    /* Chat Area */
     main {
       flex: 1;
       display: flex;
       flex-direction: column;
-      max-width: 960px;
-      width: 100%;
-      margin: 0 auto;
-      height: calc(100vh - 64px);
-      height: calc(100dvh - 64px);
+      height: 100%;
       position: relative;
+      background-color: var(--bg-primary);
     }
 
     #chat-container {
       flex: 1;
       overflow-y: auto;
-      padding: 24px 16px;
+      padding: 20px 16px;
       display: flex;
       flex-direction: column;
-      gap: 20px;
-      scroll-behavior: smooth;
+      gap: 16px;
+      max-width: 900px;
+      width: 100%;
+      margin: 0 auto;
     }
 
     /* Welcome / Empty State */
     .welcome-card {
       text-align: center;
       margin: auto;
-      padding: 32px 24px;
+      padding: 28px 20px;
       background: var(--bg-card);
-      backdrop-filter: blur(12px);
       border: 1px solid var(--border-color);
       border-radius: var(--radius-lg);
       box-shadow: var(--shadow-lg);
       max-width: 600px;
-      animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
-    .welcome-card i {
-      font-size: 2.8rem;
+    .welcome-card i.fa-cross {
+      font-size: 2.5rem;
       color: var(--accent-gold);
-      margin-bottom: 16px;
+      margin-bottom: 12px;
     }
 
     .welcome-card h2 {
       font-family: 'Noto Serif TC', serif;
-      font-size: 1.4rem;
-      margin-bottom: 10px;
+      font-size: 1.3rem;
+      margin-bottom: 8px;
       color: var(--text-primary);
     }
 
     .welcome-card p {
-      font-size: 0.92rem;
+      font-size: 0.9rem;
       color: var(--text-secondary);
       line-height: 1.6;
-      margin-bottom: 20px;
+      margin-bottom: 18px;
     }
 
     .sample-prompts {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 10px;
+      gap: 8px;
       text-align: left;
     }
 
     .sample-prompt-btn {
-      padding: 12px 14px;
+      padding: 10px 12px;
       background: var(--bg-tertiary);
       border: 1px solid var(--border-color);
       border-radius: var(--radius-md);
       color: var(--text-primary);
       font-size: 0.85rem;
       cursor: pointer;
-      transition: all var(--transition-fast);
       display: flex;
       align-items: center;
       gap: 8px;
@@ -305,21 +402,18 @@
     .sample-prompt-btn:hover {
       border-color: var(--accent-gold);
       background: var(--accent-gold-light);
-      transform: translateY(-2px);
     }
 
     .sample-prompt-btn i {
       font-size: 0.9rem;
-      margin-bottom: 0;
       color: var(--accent-gold);
     }
 
     /* Message Bubbles */
     .message-row {
       display: flex;
-      gap: 14px;
+      gap: 12px;
       width: 100%;
-      animation: messageSlideIn 0.3s ease-out;
     }
 
     .message-row.user {
@@ -327,13 +421,13 @@
     }
 
     .avatar {
-      width: 36px;
-      height: 36px;
-      border-radius: 10px;
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 0.95rem;
+      font-size: 0.9rem;
       flex-shrink: 0;
       font-weight: 600;
     }
@@ -346,18 +440,17 @@
     .message-row.assistant .avatar {
       background: linear-gradient(135deg, #d97706, #78350f);
       color: #ffffff;
-      box-shadow: 0 2px 6px rgba(217, 119, 6, 0.3);
     }
 
     .bubble-content {
-      max-width: 82%;
-      padding: 16px 20px;
+      max-width: 84%;
+      padding: 14px 18px;
       border-radius: var(--radius-md);
       font-size: 0.95rem;
-      line-height: 1.7;
+      line-height: 1.65;
       word-break: break-word;
       position: relative;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
     }
 
     .message-row.user .bubble-content {
@@ -374,16 +467,15 @@
       font-family: 'Noto Serif TC', serif;
     }
 
-    /* Markdown Elements Styling inside Assistant Bubble */
     .bubble-content h1, .bubble-content h2, .bubble-content h3 {
       font-family: 'Noto Serif TC', serif;
-      margin-top: 14px;
-      margin-bottom: 8px;
+      margin-top: 12px;
+      margin-bottom: 6px;
       color: var(--accent-gold);
     }
 
     .bubble-content p {
-      margin-bottom: 12px;
+      margin-bottom: 10px;
     }
 
     .bubble-content p:last-child {
@@ -393,20 +485,34 @@
     .bubble-content blockquote {
       background: var(--scripture-bg);
       border-left: 4px solid var(--scripture-border);
-      padding: 12px 16px;
-      margin: 14px 0;
-      border-radius: 0 10px 10px 0;
+      padding: 10px 14px;
+      margin: 12px 0;
+      border-radius: 0 8px 8px 0;
       font-family: 'Noto Serif TC', serif;
-      font-style: normal;
       color: var(--text-primary);
-      position: relative;
-      box-shadow: inset 0 0 12px rgba(217, 119, 6, 0.05);
+    }
+
+    .bubble-content ul, .bubble-content ol {
+      margin-left: 20px;
+      margin-bottom: 10px;
+    }
+
+    .bubble-content li {
+      margin-bottom: 4px;
+    }
+
+    .bubble-content code {
+      background: rgba(0, 0, 0, 0.08);
+      padding: 2px 5px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 0.88rem;
     }
 
     .bubble-actions {
       display: flex;
       justify-content: flex-end;
-      margin-top: 10px;
+      margin-top: 8px;
       padding-top: 6px;
       border-top: 1px dashed var(--border-color);
     }
@@ -420,9 +526,8 @@
       display: flex;
       align-items: center;
       gap: 4px;
-      padding: 4px 8px;
-      border-radius: 6px;
-      transition: all var(--transition-fast);
+      padding: 3px 6px;
+      border-radius: 4px;
     }
 
     .btn-copy-msg:hover {
@@ -430,29 +535,12 @@
       background: var(--accent-gold-light);
     }
 
-    .bubble-content ul, .bubble-content ol {
-      margin-left: 20px;
-      margin-bottom: 12px;
-    }
-
-    .bubble-content li {
-      margin-bottom: 4px;
-    }
-
-    .bubble-content code {
-      background: rgba(0, 0, 0, 0.2);
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-family: monospace;
-      font-size: 0.88rem;
-    }
-
     /* Typing Indicator */
     .typing-indicator {
-      display: inline-flex;
+      display: flex;
       align-items: center;
       gap: 5px;
-      padding: 8px 12px;
+      padding: 4px 0;
     }
 
     .typing-dot {
@@ -460,196 +548,111 @@
       height: 7px;
       background-color: var(--accent-gold);
       border-radius: 50%;
-      animation: typingBounce 1.4s infinite ease-in-out both;
     }
-
-    .typing-dot:nth-child(1) { animation-delay: -0.32s; }
-    .typing-dot:nth-child(2) { animation-delay: -0.16s; }
 
     /* Input Footer Container */
     .input-container {
-      padding: 14px 16px 20px;
-      background: var(--bg-primary);
+      padding: 12px 16px 16px;
+      background-color: var(--bg-primary);
       border-top: 1px solid var(--border-color);
+      max-width: 900px;
+      width: 100%;
+      margin: 0 auto;
     }
 
     .input-box-wrapper {
       display: flex;
       align-items: flex-end;
-      gap: 10px;
-      background: var(--bg-secondary);
+      gap: 8px;
+      background-color: var(--bg-secondary);
       border: 1px solid var(--border-color);
-      border-radius: var(--radius-lg);
-      padding: 10px 14px;
-      box-shadow: var(--shadow-lg);
-      transition: border-color var(--transition-fast);
+      border-radius: var(--radius-md);
+      padding: 8px 12px;
     }
 
     .input-box-wrapper:focus-within {
       border-color: var(--accent-gold);
     }
 
-    textarea {
+    textarea#user-input {
       flex: 1;
       background: transparent;
       border: none;
       outline: none;
       color: var(--text-primary);
-      font-family: inherit;
       font-size: 0.95rem;
+      font-family: inherit;
       resize: none;
       max-height: 160px;
-      min-height: 24px;
       line-height: 1.5;
+      padding: 4px 0;
     }
 
     .btn-send {
-      width: 40px;
-      height: 40px;
-      border-radius: 12px;
-      background: linear-gradient(135deg, #d97706, #b45309);
-      border: none;
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      background: var(--accent-gold);
       color: #ffffff;
-      cursor: pointer;
+      border: none;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 1rem;
-      transition: all var(--transition-fast);
+      cursor: pointer;
+      font-size: 0.95rem;
       flex-shrink: 0;
     }
 
     .btn-send:hover {
-      transform: scale(1.05);
-      box-shadow: 0 4px 12px rgba(217, 119, 6, 0.4);
+      background: var(--accent-gold-hover);
     }
 
     .btn-send:disabled {
-      background: var(--bg-tertiary);
-      color: var(--text-muted);
+      background: var(--text-muted);
       cursor: not-allowed;
-      transform: none;
-      box-shadow: none;
     }
 
-    /* Modal Overlay */
+    /* Modal Overlay & Card */
     .modal-overlay {
+      display: none;
       position: fixed;
       top: 0;
       left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0, 0, 0, 0.65);
-      backdrop-filter: blur(4px);
-      display: flex;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 100;
       align-items: center;
       justify-content: center;
-      padding: 20px;
-      z-index: 100;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity var(--transition-normal);
+      padding: 16px;
     }
 
     .modal-overlay.active {
-      opacity: 1;
-      pointer-events: auto;
+      display: flex;
     }
 
     .modal-card {
       background: var(--bg-secondary);
       border: 1px solid var(--border-color);
       border-radius: var(--radius-lg);
+      padding: 24px;
       width: 100%;
       max-width: 480px;
-      padding: 24px;
       box-shadow: var(--shadow-lg);
-      transform: translateY(20px);
-      transition: transform var(--transition-normal);
-    }
-
-    .modal-overlay.active .modal-card {
-      transform: translateY(0);
     }
 
     .modal-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 20px;
-
-    }
-
-    .modal-header h3 {
-      font-family: 'Noto Serif TC', serif;
-      font-size: 1.2rem;
-      color: var(--text-primary);
-    }
-
-    .form-group {
       margin-bottom: 16px;
     }
 
-    .form-group label {
-      display: block;
-      font-size: 0.85rem;
-      font-weight: 500;
-      color: var(--text-secondary);
-      margin-bottom: 6px;
-    }
-
-    .form-control {
-      width: 100%;
-      padding: 10px 12px;
-      background: var(--bg-tertiary);
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-sm);
+    .modal-header h3 {
+      font-size: 1.1rem;
       color: var(--text-primary);
-      font-size: 0.9rem;
-      outline: none;
-      transition: border-color var(--transition-fast);
     }
 
-    .form-control:focus {
-      border-color: var(--accent-gold);
-    }
-
-    .help-text {
-      font-size: 0.75rem;
-      color: var(--text-muted);
-      margin-top: 4px;
-      line-height: 1.4;
-    }
-
-    .modal-actions {
-      display: flex;
-      justify-content: flex-end;
-      gap: 10px;
-      margin-top: 24px;
-    }
-
-    .btn-secondary {
-      padding: 8px 16px;
-      background: var(--bg-tertiary);
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-sm);
-      color: var(--text-primary);
-      cursor: pointer;
-      font-size: 0.88rem;
-    }
-
-    .btn-primary {
-      padding: 8px 18px;
-      background: var(--accent-gold);
-      border: none;
-      border-radius: var(--radius-sm);
-      color: #ffffff;
-      cursor: pointer;
-      font-weight: 500;
-      font-size: 0.88rem;
-    }
-
-    /* Share Options Container */
     .share-options {
       display: flex;
       flex-direction: column;
@@ -657,17 +660,17 @@
     }
 
     .share-option-btn {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 12px;
+      padding: 12px 14px;
       background: var(--bg-tertiary);
       border: 1px solid var(--border-color);
-      border-radius: var(--radius-md);
+      border-radius: var(--radius-sm);
       color: var(--text-primary);
-      cursor: pointer;
       font-size: 0.9rem;
-      transition: all var(--transition-fast);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-align: left;
     }
 
     .share-option-btn:hover {
@@ -676,29 +679,24 @@
     }
 
     .share-option-btn i {
-      font-size: 1.1rem;
       color: var(--accent-gold);
-      width: 24px;
-      text-align: center;
+      font-size: 1rem;
     }
 
     /* Toast Notification */
     #toast {
       position: fixed;
-      bottom: 80px;
+      bottom: 24px;
       left: 50%;
       transform: translateX(-50%) translateY(100px);
-      background: var(--bg-secondary);
-      border: 1px solid var(--accent-gold);
-      color: var(--text-primary);
-      padding: 10px 20px;
-      border-radius: var(--radius-md);
+      background: #0f172a;
+      color: #ffffff;
+      padding: 10px 18px;
+      border-radius: 30px;
       font-size: 0.88rem;
-      box-shadow: var(--shadow-lg);
-      opacity: 0;
-      transition: all 0.3s ease;
       z-index: 200;
       pointer-events: none;
+      opacity: 0;
     }
 
     #toast.show {
@@ -706,42 +704,40 @@
       opacity: 1;
     }
 
-    /* Animations */
-    @keyframes fadeIn {
-      from { opacity: 0; transform: scale(0.96); }
-      to { opacity: 1; transform: scale(1); }
-    }
-
-    @keyframes messageSlideIn {
-      from { opacity: 0; transform: translateY(12px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    @keyframes typingBounce {
-      0%, 80%, 100% { transform: scale(0); }
-      40% { transform: scale(1); }
-    }
-
     /* Responsive */
-    @media (max-width: 640px) {
-      header { padding: 0 12px; }
-      .brand-title h1 { font-size: 1rem; }
+    @media (max-width: 768px) {
+      .sidebar {
+        position: absolute;
+        top: 0;
+        left: -260px;
+        height: 100%;
+        box-shadow: 4px 0 12px rgba(0, 0, 0, 0.15);
+      }
+      .sidebar.open {
+        left: 0;
+      }
+      .sidebar-overlay.active {
+        display: block;
+      }
       .bubble-content { max-width: 90%; }
       .welcome-card { padding: 20px 16px; }
     }
   </style>
 </head>
-<body>
+<body class="light">
 
   <!-- Header -->
   <header>
     <div class="brand">
+      <button class="btn-icon" id="btn-toggle-sidebar" title="切換會話欄">
+        <i class="fa-solid fa-bars"></i>
+      </button>
       <div class="brand-icon">
         <i class="fa-solid fa-book-bible"></i>
       </div>
       <div class="brand-title">
         <h1>LogosAI</h1>
-        <p>SCRIPTURE & THEOLOGY</p>
+        <p>高舉聖經 ‧ 研討真理</p>
       </div>
     </div>
     <div class="header-actions">
@@ -749,60 +745,72 @@
         📲
       </button>
       <button class="btn-icon" id="btn-theme" title="切換深色/淺色主題">
-        <i class="fa-solid fa-moon"></i>
+        <i class="fa-solid fa-sun"></i>
       </button>
-      <button class="btn-icon" id="btn-share" title="分享與匯出對話">
+      <button class="btn-icon" id="btn-share" title="分享此對話">
         <i class="fa-solid fa-share-nodes"></i>
-      </button>
-      <button class="btn-icon" id="btn-clear" title="重置對話歷史">
-        <i class="fa-solid fa-trash-can"></i>
       </button>
     </div>
   </header>
 
-  <!-- Main Chat View -->
-  <main>
-    <div id="chat-container">
-      <!-- Welcome Card (shown when empty) -->
-      <div class="welcome-card" id="welcome-card">
-        <i class="fa-solid fa-cross"></i>
-        <h2>歡迎使用 LogosAI 聖經神學助手</h2>
-        <p>LogosAI 高舉聖經最高權威，結合 AI 科技與聖經經文，為您提供嚴謹、全面且以經文佐證的神學解答。請在下方輸入您的問題。</p>
-        <div class="sample-prompts">
-          <button class="sample-prompt-btn" data-prompt="如果神是全能又愛我們的，為什麼世界上會有苦難與不公平？">
-            <i class="fa-solid fa-circle-question"></i>
-            信仰困惑：苦難與上帝的愛
-          </button>
-          <button class="sample-prompt-btn" data-prompt="讀聖經遇到看不懂或覺得矛盾的地方，應該如何理解？">
-            <i class="fa-solid fa-circle-question"></i>
-            讀經疑難：如何面對難解經文
-          </button>
-          <button class="sample-prompt-btn" data-prompt="基督徒在日常生活與課業/工作中，如何尋求神的旨意？">
-            <i class="fa-solid fa-circle-question"></i>
-            生活實踐：尋求神的旨意
+  <!-- App Main Layout with Sidebar -->
+  <div class="app-body">
+    <!-- Sidebar for Multi-Session Management -->
+    <aside id="sidebar" class="sidebar">
+      <div class="sidebar-header">
+        <button class="btn-new-chat" id="btn-new-chat">
+          <i class="fa-solid fa-plus"></i> 新建對話
+        </button>
+      </div>
+      <div class="session-list" id="session-list">
+        <!-- Sessions inserted dynamically -->
+      </div>
+    </aside>
+
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+    <!-- Main Chat Area -->
+    <main>
+      <div id="chat-container">
+        <!-- Welcome Card (shown when empty) -->
+        <div class="welcome-card" id="welcome-card">
+          <i class="fa-solid fa-cross"></i>
+          <h2>歡迎使用 LogosAI 聖經神學助手</h2>
+          <p>LogosAI 高舉聖經最高權威，結合 AI 科技與聖經經文，為您提供嚴謹、全面且以經文佐證的神學解答。請在下方輸入您的問題。</p>
+          <div class="sample-prompts">
+            <button class="sample-prompt-btn" data-prompt="如果神是全能又愛我們的，為什麼世界上會有苦難與不公平？">
+              <i class="fa-solid fa-circle-question"></i>
+              信仰困惑：苦難與上帝的愛
+            </button>
+            <button class="sample-prompt-btn" data-prompt="讀聖經遇到看不懂或覺得矛盾的地方，應該如何理解？">
+              <i class="fa-solid fa-circle-question"></i>
+              讀經疑難：如何面對難解經文
+            </button>
+            <button class="sample-prompt-btn" data-prompt="基督徒在日常生活與課業/工作中，如何尋求神的旨意？">
+              <i class="fa-solid fa-circle-question"></i>
+              生活實踐：尋求神的旨意
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Input Footer -->
+      <div class="input-container">
+        <div class="input-box-wrapper">
+          <textarea id="user-input" placeholder="請輸入您的神學或聖經問題... (Enter 發送，Shift+Enter 換行)" rows="1"></textarea>
+          <button class="btn-send" id="btn-send" title="發送訊息">
+            <i class="fa-solid fa-paper-plane"></i>
           </button>
         </div>
       </div>
-    </div>
-
-    <!-- Input Footer -->
-    <div class="input-container">
-      <div class="input-box-wrapper">
-        <textarea id="user-input" placeholder="請輸入您的神學或聖經問題... (Enter 發送，Shift+Enter 換行)" rows="1"></textarea>
-        <button class="btn-send" id="btn-send" title="發送訊息">
-          <i class="fa-solid fa-paper-plane"></i>
-        </button>
-      </div>
-    </div>
-  </main>
-
-
+    </main>
+  </div>
 
   <!-- Share Modal (Desktop Fallback) -->
   <div class="modal-overlay" id="modal-share">
     <div class="modal-card">
       <div class="modal-header">
-        <h3><i class="fa-solid fa-share-nodes" style="color: var(--accent-gold); margin-right: 8px;"></i>匯出與分享對話</h3>
+        <h3><i class="fa-solid fa-share-nodes" style="color: var(--accent-gold); margin-right: 8px;"></i>匯出與分享此對話</h3>
         <button class="btn-icon" id="btn-close-share" style="width: 32px; height: 32px;"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="share-options">
@@ -812,7 +820,7 @@
         </button>
         <button class="share-option-btn" id="share-copy">
           <i class="fa-solid fa-copy"></i>
-          <span>一鍵複製全文對話至剪貼簿</span>
+          <span>一鍵複製本對話全文至剪貼簿</span>
         </button>
         <button class="share-option-btn" id="share-download-md">
           <i class="fa-solid fa-file-code"></i>
@@ -824,6 +832,8 @@
         </button>
       </div>
     </div>
+  </div>
+
   <!-- iOS PWA Install Guide Modal -->
   <div class="modal-overlay" id="modal-ios-install">
     <div class="modal-card">
@@ -851,12 +861,17 @@
   <!-- Application Logic JavaScript -->
   <script>
     /* Global Variables & State */
-    const DEFAULT_PROXY_URL = 'https://logos-ai-proxy.elisha1164.workers.dev/'; // 預設 Cloudflare Worker 代理網址
-    let conversationHistory = []; // { role: 'user'|'assistant', content: '...' }
+    const DEFAULT_PROXY_URL = 'https://logos-ai-proxy.your-subdomain.workers.dev';
+    
+    let sessions = []; // [{ id, title, createdAt, updatedAt }]
+    let currentSessionId = null;
+    let currentMessages = []; // [{ id, sessionId, role, content }]
+    
     let db = null;
-    const DB_NAME = 'TheologyChatDB';
+    const DB_NAME = 'LogosAIChatDB_v2';
     const DB_VERSION = 1;
-    const STORE_NAME = 'messages';
+    const STORE_SESSIONS = 'sessions';
+    const STORE_MESSAGES = 'messages';
 
     // DOM Elements
     const chatContainer = document.getElementById('chat-container');
@@ -864,30 +879,46 @@
     const userInput = document.getElementById('user-input');
     const btnSend = document.getElementById('btn-send');
     const btnTheme = document.getElementById('btn-theme');
-    const btnClear = document.getElementById('btn-clear');
     const btnShare = document.getElementById('btn-share');
+    const btnToggleSidebar = document.getElementById('btn-toggle-sidebar');
+    const btnNewChat = document.getElementById('btn-new-chat');
+    const sidebar = document.getElementById('sidebar');
+    const sidebarOverlay = document.getElementById('sidebar-overlay');
+    const sessionListEl = document.getElementById('session-list');
     const modalShare = document.getElementById('modal-share');
 
     /* Initialize Application */
     document.addEventListener('DOMContentLoaded', async () => {
       initTheme();
+      registerServiceWorker();
       await initDB();
-      await loadHistoryFromDB();
+      await loadSessionsFromDB();
       setupEventListeners();
       checkIOSPWA();
     });
 
-    /* Theme Initialization */
+    /* Register PWA Service Worker (sw.js) */
+    function registerServiceWorker() {
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('./sw.js')
+            .then(reg => console.log('Service Worker Registered:', reg.scope))
+            .catch(err => console.warn('Service Worker Registration Failed:', err));
+        });
+      }
+    }
+
+    /* Theme Initialization - Default Light Mode */
     function initTheme() {
-      const savedTheme = localStorage.getItem('app_theme') || 'dark';
-      if (savedTheme === 'light') {
-        document.documentElement.classList.remove('dark');
-        document.documentElement.classList.add('light');
-        btnTheme.innerHTML = '<i class="fa-solid fa-sun"></i>';
-      } else {
+      const savedTheme = localStorage.getItem('app_theme') || 'light';
+      if (savedTheme === 'dark') {
         document.documentElement.classList.remove('light');
         document.documentElement.classList.add('dark');
         btnTheme.innerHTML = '<i class="fa-solid fa-moon"></i>';
+      } else {
+        document.documentElement.classList.remove('dark');
+        document.documentElement.classList.add('light');
+        btnTheme.innerHTML = '<i class="fa-solid fa-sun"></i>';
       }
     }
 
@@ -905,15 +936,19 @@
       }
     });
 
-    /* IndexedDB & LocalStorage Helper Functions */
+    /* IndexedDB & LocalStorage Multi-Session Data Access */
     function initDB() {
       return new Promise((resolve) => {
         try {
           const request = indexedDB.open(DB_NAME, DB_VERSION);
           request.onupgradeneeded = (e) => {
             const dbInstance = e.target.result;
-            if (!dbInstance.objectStoreNames.contains(STORE_NAME)) {
-              dbInstance.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+            if (!dbInstance.objectStoreNames.contains(STORE_SESSIONS)) {
+              dbInstance.createObjectStore(STORE_SESSIONS, { keyPath: 'id' });
+            }
+            if (!dbInstance.objectStoreNames.contains(STORE_MESSAGES)) {
+              const msgStore = dbInstance.createObjectStore(STORE_MESSAGES, { keyPath: 'id', autoIncrement: true });
+              msgStore.createIndex('sessionId', 'sessionId', { unique: false });
             }
           };
           request.onsuccess = (e) => {
@@ -931,82 +966,281 @@
       });
     }
 
-    async function saveMessagesToDB() {
-      // LocalStorage backup
-      try {
-        localStorage.setItem('theology_chat_backup', JSON.stringify(conversationHistory));
-      } catch(e) {}
-
-      if (!db) return;
-      try {
-        const tx = db.transaction(STORE_NAME, 'readwrite');
-        const store = tx.objectStore(STORE_NAME);
-        await store.clear();
-        conversationHistory.forEach(msg => {
-          store.add({ role: msg.role, content: msg.content, timestamp: Date.now() });
-        });
-      } catch(e) {}
-    }
-
-    async function loadHistoryFromDB() {
-      let loaded = false;
+    async function loadSessionsFromDB() {
       if (db) {
         try {
-          const tx = db.transaction(STORE_NAME, 'readonly');
-          const store = tx.objectStore(STORE_NAME);
+          const tx = db.transaction(STORE_SESSIONS, 'readonly');
+          const store = tx.objectStore(STORE_SESSIONS);
           const request = store.getAll();
-          request.onsuccess = () => {
-            const records = request.result || [];
-            if (records.length > 0) {
-              conversationHistory = records.map(r => ({ role: r.role, content: r.content }));
-              welcomeCard.style.display = 'none';
-              conversationHistory.forEach(msg => appendMessageUI(msg.role, msg.content));
-              loaded = true;
+          request.onsuccess = async () => {
+            sessions = request.result || [];
+            sessions.sort((a, b) => b.updatedAt - a.updatedAt);
+            if (sessions.length === 0) {
+              await createNewSession('新神學對話');
             } else {
-              loadLocalStorageFallback();
+              renderSessionListUI();
+              await switchSession(sessions[0].id);
             }
           };
-        } catch(e) {
-          loadLocalStorageFallback();
-        }
-      } else {
-        loadLocalStorageFallback();
-      }
-    }
-
-    function loadLocalStorageFallback() {
-      try {
-        const raw = localStorage.getItem('theology_chat_backup');
-        if (raw) {
-          conversationHistory = JSON.parse(raw) || [];
-          if (conversationHistory.length > 0) {
-            welcomeCard.style.display = 'none';
-            conversationHistory.forEach(msg => appendMessageUI(msg.role, msg.content));
-          }
-        }
-      } catch(e) {}
-    }
-
-    async function clearHistoryDB() {
-      conversationHistory = [];
-      try {
-        localStorage.removeItem('theology_chat_backup');
-      } catch(e) {}
-      if (db) {
-        try {
-          const tx = db.transaction(STORE_NAME, 'readwrite');
-          const store = tx.objectStore(STORE_NAME);
-          store.clear();
+          return;
         } catch(e) {}
       }
-      chatContainer.innerHTML = '';
-      chatContainer.appendChild(welcomeCard);
-      welcomeCard.style.display = 'block';
-      showToast('對話歷史已成功清空');
+      loadLocalStorageSessions();
     }
 
-    /* Event Listeners */
+    function loadLocalStorageSessions() {
+      try {
+        const raw = localStorage.getItem('logos_sessions_backup');
+        if (raw) {
+          sessions = JSON.parse(raw) || [];
+        }
+      } catch(e) {}
+
+      if (sessions.length === 0) {
+        createNewSession('新神學對話');
+      } else {
+        renderSessionListUI();
+        switchSession(sessions[0].id);
+      }
+    }
+
+    async function createNewSession(customTitle = '新神學對話') {
+      const newId = 'session_' + Date.now();
+      const newSession = {
+        id: newId,
+        title: customTitle,
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      };
+      sessions.unshift(newSession);
+
+      if (db) {
+        try {
+          const tx = db.transaction(STORE_SESSIONS, 'readwrite');
+          tx.objectStore(STORE_SESSIONS).put(newSession);
+        } catch(e) {}
+      }
+      saveLocalStorageBackup();
+      renderSessionListUI();
+      await switchSession(newId);
+    }
+
+    async function switchSession(sessionId) {
+      currentSessionId = sessionId;
+      renderSessionListUI();
+      await loadMessagesForSession(sessionId);
+    }
+
+    async function loadMessagesForSession(sessionId) {
+      currentMessages = [];
+      chatContainer.innerHTML = '';
+
+      if (db) {
+        try {
+          const tx = db.transaction(STORE_MESSAGES, 'readonly');
+          const store = tx.objectStore(STORE_MESSAGES);
+          const index = store.index('sessionId');
+          const request = index.getAll(sessionId);
+
+          request.onsuccess = () => {
+            currentMessages = request.result || [];
+            renderCurrentChatUI();
+          };
+          return;
+        } catch(e) {}
+      }
+
+      // LocalStorage Fallback
+      try {
+        const raw = localStorage.getItem(`logos_msg_${sessionId}`);
+        if (raw) currentMessages = JSON.parse(raw) || [];
+      } catch(e) {}
+      renderCurrentChatUI();
+    }
+
+    function renderCurrentChatUI() {
+      chatContainer.innerHTML = '';
+      if (currentMessages.length === 0) {
+        chatContainer.appendChild(welcomeCard);
+        welcomeCard.style.display = 'block';
+      } else {
+        welcomeCard.style.display = 'none';
+        currentMessages.forEach(msg => appendMessageUI(msg.role, msg.content));
+      }
+      smartScrollToBottom();
+    }
+
+    async function saveCurrentMessagesToDB() {
+      if (db) {
+        try {
+          const tx = db.transaction([STORE_MESSAGES, STORE_SESSIONS], 'readwrite');
+          const msgStore = tx.objectStore(STORE_MESSAGES);
+          const sessionStore = tx.objectStore(STORE_SESSIONS);
+
+          // Clear old messages for this session
+          const index = msgStore.index('sessionId');
+          const request = index.getAllKeys(currentSessionId);
+          request.onsuccess = () => {
+            const keys = request.result || [];
+            keys.forEach(k => msgStore.delete(k));
+            currentMessages.forEach(msg => {
+              msgStore.add({ sessionId: currentSessionId, role: msg.role, content: msg.content, timestamp: Date.now() });
+            });
+          };
+
+          // Update session updatedAt timestamp
+          const targetSession = sessions.find(s => s.id === currentSessionId);
+          if (targetSession) {
+            targetSession.updatedAt = Date.now();
+            sessionStore.put(targetSession);
+          }
+        } catch(e) {}
+      }
+
+      // LocalStorage Backup
+      try {
+        localStorage.setItem(`logos_msg_${currentSessionId}`, JSON.stringify(currentMessages));
+      } catch(e) {}
+      saveLocalStorageBackup();
+    }
+
+    function saveLocalStorageBackup() {
+      try {
+        localStorage.setItem('logos_sessions_backup', JSON.stringify(sessions));
+      } catch(e) {}
+    }
+
+    async function renameSession(sessionId) {
+      const target = sessions.find(s => s.id === sessionId);
+      if (!target) return;
+
+      const newTitle = prompt('請輸入新的會話名稱：', target.title);
+      if (newTitle && newTitle.trim()) {
+        target.title = newTitle.trim();
+        target.updatedAt = Date.now();
+
+        if (db) {
+          try {
+            const tx = db.transaction(STORE_SESSIONS, 'readwrite');
+            tx.objectStore(STORE_SESSIONS).put(target);
+          } catch(e) {}
+        }
+        saveLocalStorageBackup();
+        renderSessionListUI();
+        showToast('會話名稱已更新');
+      }
+    }
+
+    async function deleteSession(sessionId, e) {
+      if (e) e.stopPropagation();
+
+      if (sessions.length <= 1) {
+        // If only 1 session, clear its messages instead of deleting
+        currentMessages = [];
+        await saveCurrentMessagesToDB();
+        renderCurrentChatUI();
+        showToast('會話內容已重置');
+        return;
+      }
+
+      if (!confirm('確定要刪除此會話嗎？')) return;
+
+      sessions = sessions.filter(s => s.id !== sessionId);
+
+      if (db) {
+        try {
+          const tx = db.transaction([STORE_SESSIONS, STORE_MESSAGES], 'readwrite');
+          tx.objectStore(STORE_SESSIONS).delete(sessionId);
+          const msgIndex = tx.objectStore(STORE_MESSAGES).index('sessionId');
+          const req = msgIndex.getAllKeys(sessionId);
+          req.onsuccess = () => {
+            const keys = req.result || [];
+            keys.forEach(k => tx.objectStore(STORE_MESSAGES).delete(k));
+          };
+        } catch(err) {}
+      }
+
+      try {
+        localStorage.removeItem(`logos_msg_${sessionId}`);
+      } catch(err) {}
+      saveLocalStorageBackup();
+
+      renderSessionListUI();
+      if (currentSessionId === sessionId) {
+        await switchSession(sessions[0].id);
+      }
+      showToast('會話已成功刪除');
+    }
+
+    function renderSessionListUI() {
+      sessionListEl.innerHTML = '';
+      sessions.forEach(s => {
+        const item = document.createElement('div');
+        item.className = `session-item ${s.id === currentSessionId ? 'active' : ''}`;
+        
+        const titleSpan = document.createElement('span');
+        titleSpan.className = 'session-title';
+        titleSpan.textContent = s.title || '無標題對話';
+
+        const actionsDiv = document.createElement('div');
+        actionsDiv.className = 'session-item-actions';
+
+        const btnRename = document.createElement('button');
+        btnRename.className = 'btn-session-action';
+        btnRename.innerHTML = '<i class="fa-regular fa-pen-to-square"></i>';
+        btnRename.title = '重命名會話';
+        btnRename.addEventListener('click', (e) => {
+          e.stopPropagation();
+          renameSession(s.id);
+        });
+
+        const btnDel = document.createElement('button');
+        btnDel.className = 'btn-session-action delete';
+        btnDel.innerHTML = '<i class="fa-regular fa-trash-can"></i>';
+        btnDel.title = '刪除會話';
+        btnDel.addEventListener('click', (e) => deleteSession(s.id, e));
+
+        actionsDiv.appendChild(btnRename);
+        actionsDiv.appendChild(btnDel);
+
+        item.appendChild(titleSpan);
+        item.appendChild(actionsDiv);
+
+        item.addEventListener('click', () => {
+          if (currentSessionId !== s.id) {
+            switchSession(s.id);
+            if (window.innerWidth <= 768) {
+              sidebar.classList.remove('open');
+              sidebarOverlay.classList.remove('active');
+            }
+          }
+        });
+
+        sessionListEl.appendChild(item);
+      });
+    }
+
+    /* Event Listeners Setup */
     function setupEventListeners() {
+      // Sidebar Toggle
+      btnToggleSidebar.addEventListener('click', () => {
+        sidebar.classList.toggle('open');
+        sidebarOverlay.classList.toggle('active');
+      });
+
+      sidebarOverlay.addEventListener('click', () => {
+        sidebar.classList.remove('open');
+        sidebarOverlay.classList.remove('active');
+      });
+
+      btnNewChat.addEventListener('click', () => {
+        createNewSession();
+        if (window.innerWidth <= 768) {
+          sidebar.classList.remove('open');
+          sidebarOverlay.classList.remove('active');
+        }
+      });
+
       // Auto resize textarea
       userInput.addEventListener('input', () => {
         userInput.style.height = 'auto';
@@ -1032,13 +1266,6 @@
           userInput.style.height = Math.min(userInput.scrollHeight, 160) + 'px';
           sendMessage();
         });
-      });
-
-      // Clear History
-      btnClear.addEventListener('click', () => {
-        if (confirm('確定要清除所有對話紀錄嗎？此動作無法復原。')) {
-          clearHistoryDB();
-        }
       });
 
       // Share Modal
@@ -1178,7 +1405,7 @@
       row.appendChild(avatar);
       row.appendChild(bubble);
       chatContainer.appendChild(row);
-      chatContainer.scrollTop = chatContainer.scrollHeight;
+      smartScrollToBottom();
     }
 
     function removeTypingIndicator() {
@@ -1199,10 +1426,17 @@
         return;
       }
 
+      // Auto Title generation for first message
+      const currentSession = sessions.find(s => s.id === currentSessionId);
+      if (currentSession && (currentSession.title === '新神學對話' || currentSession.title === '無標題對話') && currentMessages.length === 0) {
+        currentSession.title = text.length > 18 ? text.substring(0, 18) + '...' : text;
+        renderSessionListUI();
+      }
+
       // Add user message to history & UI
-      conversationHistory.push({ role: 'user', content: text });
+      currentMessages.push({ role: 'user', content: text });
       appendMessageUI('user', text);
-      await saveMessagesToDB();
+      await saveCurrentMessagesToDB();
 
       userInput.value = '';
       userInput.style.height = 'auto';
@@ -1215,13 +1449,12 @@
         const model = 'gemini-3.6-flash';
 
         if (proxyUrl) {
-          // Send via Cloudflare Worker Proxy (System Prompt is securely injected by Cloudflare Worker)
           const response = await fetch(proxyUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               model: model,
-              messages: conversationHistory
+              messages: currentMessages
             })
           });
 
@@ -1232,9 +1465,8 @@
           replyText = data.choices[0].message.content;
 
         } else if (directKey) {
-          // Direct Gemini API call (testing fallback)
           const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${directKey}`;
-          const contents = conversationHistory.map(msg => ({
+          const contents = currentMessages.map(msg => ({
             role: msg.role === 'assistant' ? 'model' : 'user',
             parts: [{ text: msg.content }]
           }));
@@ -1257,8 +1489,8 @@
         removeTypingIndicator();
 
         // Typewriter animation effect
-        conversationHistory.push({ role: 'assistant', content: replyText });
-        await saveMessagesToDB();
+        currentMessages.push({ role: 'assistant', content: replyText });
+        await saveCurrentMessagesToDB();
 
         const bubble = appendMessageUI('assistant', '');
         const textBody = bubble.querySelector('.msg-text-body');
@@ -1270,7 +1502,6 @@
           if (charIndex >= replyText.length) {
             if (textBody) textBody.innerHTML = marked.parse(replyText);
 
-            // Append copy button when animation finishes
             const actions = document.createElement('div');
             actions.className = 'bubble-actions';
             const copyBtn = document.createElement('button');
@@ -1288,7 +1519,7 @@
             if (textBody) textBody.innerHTML = marked.parse(replyText.substring(0, charIndex) + '▌');
             smartScrollToBottom();
           }
-        }, 20);
+        }, 15);
 
       } catch (err) {
         removeTypingIndicator();
@@ -1299,68 +1530,77 @@
       }
     }
 
-    /* Share & Export Functions */
+    /* Share & Export Functions for Current Active Session */
     function openShareModal() {
-      if (conversationHistory.length === 0) {
-        showToast('目前尚無對話內容可供分享');
+      if (currentMessages.length === 0) {
+        showToast('目前會話尚無對話內容可供分享');
         return;
       }
       modalShare.classList.add('active');
     }
 
-    function getFormattedConversationText() {
-      let text = `# LogosAI 聖經神學對話紀錄\n匯出時間：${new Date().toLocaleString()}\n\n---\n\n`;
-      conversationHistory.forEach(msg => {
-        const roleTitle = msg.role === 'user' ? '問 (User)' : '答 (LogosAI 聖經神學助手)';
-        text += `### ${roleTitle}\n\n${msg.content}\n\n---\n\n`;
+    function generateShareText() {
+      const currentSession = sessions.find(s => s.id === currentSessionId);
+      const title = currentSession ? currentSession.title : 'LogosAI 神學對話';
+      let formatted = `📖 **LogosAI 聖經神學問答紀錄**\n主題：${title}\n日期：${new Date().toLocaleDateString('zh-TW')}\n-----------------------------------\n\n`;
+      currentMessages.forEach(msg => {
+        const roleName = msg.role === 'user' ? '👤 提問' : '📖 神學解答';
+        formatted += `### ${roleName}:\n${msg.content}\n\n`;
       });
-      return text;
+      return formatted;
     }
 
     async function triggerNativeShare() {
+      const shareData = {
+        title: 'LogosAI 聖經神學對話紀錄',
+        text: generateShareText().substring(0, 1000) + '...',
+        url: window.location.href
+      };
+
       if (navigator.share) {
         try {
-          await navigator.share({
-            title: 'LogosAI 聖經神學對話紀錄',
-            text: getFormattedConversationText()
-          });
-          showToast('已成功觸發系統分享');
+          await navigator.share(shareData);
           modalShare.classList.remove('active');
+          showToast('分享成功！');
         } catch (err) {
           if (err.name !== 'AbortError') {
-            showToast('分享失敗，已切換為複製模式');
             copyConversationToClipboard();
           }
         }
       } else {
-        showToast('當前瀏覽器不支援原生 Web Share API，已為您一鍵複製');
         copyConversationToClipboard();
       }
     }
 
     function copyConversationToClipboard() {
-      const text = getFormattedConversationText();
-      navigator.clipboard.writeText(text).then(() => {
-        showToast('對話紀錄已成功複製至剪貼簿！');
+      const fullText = generateShareText();
+      navigator.clipboard.writeText(fullText).then(() => {
         modalShare.classList.remove('active');
+        showToast('對話全文已成功複製至剪貼簿！');
       }).catch(err => {
-        showToast('複製失敗: ' + err.message);
+        showToast('複製失敗，請手動全選複製');
       });
     }
 
     function downloadFile(format) {
-      const text = getFormattedConversationText();
-      const blob = new Blob([text], { type: format === 'md' ? 'text/markdown' : 'text/plain;charset=utf-8' });
+      const currentSession = sessions.find(s => s.id === currentSessionId);
+      const title = currentSession ? currentSession.title.replace(/[\/\\?%*:|"<>]/g, '_') : 'LogosAI_Chat';
+      const content = generateShareText();
+      const filename = `LogosAI_${title}.${format}`;
+      const mimeType = format === 'md' ? 'text/markdown' : 'text/plain';
+
+      const blob = new Blob([content], { type: `${mimeType};charset=utf-8` });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `LogosAI_Chat_${Date.now()}.${format}`;
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      showToast(`已下載 ${format.toUpperCase()} 檔案`);
+
       modalShare.classList.remove('active');
+      showToast(`已成功下載 ${filename}`);
     }
 
     /* Toast Notification Helper */
@@ -1370,16 +1610,7 @@
       toast.classList.add('show');
       setTimeout(() => {
         toast.classList.remove('show');
-      }, 3000);
-    }
-
-    /* PWA Service Worker Registration */
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js')
-          .then(reg => console.log('[LogosAI PWA] Service Worker registered:', reg.scope))
-          .catch(err => console.error('[LogosAI PWA] Service Worker registration failed:', err));
-      });
+      }, 2500);
     }
   </script>
 </body>
