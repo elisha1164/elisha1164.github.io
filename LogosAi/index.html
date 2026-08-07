@@ -1,6 +1,6 @@
 <!-- 
-  Version: v1.2.1
-  Summary: Restored Service Worker (sw.js) registration for offline precaching & PWA support.
+  Version: v1.2.2
+  Summary: Added small grey version badge in the bottom-right corner for GitHub Pages deployment verification.
 -->
 <!DOCTYPE html>
 <html lang="zh-TW" class="light">
@@ -704,6 +704,19 @@
       opacity: 1;
     }
 
+    /* Version Badge */
+    .app-version-badge {
+      position: fixed;
+      bottom: 4px;
+      right: 10px;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      opacity: 0.75;
+      pointer-events: none;
+      z-index: 5;
+      font-family: monospace;
+    }
+
     /* Responsive */
     @media (max-width: 768px) {
       .sidebar {
@@ -854,6 +867,9 @@
       </div>
     </div>
   </div>
+
+  <!-- Version Badge -->
+  <div class="app-version-badge">v1.2.2</div>
 
   <!-- Toast Notification -->
   <div id="toast"></div>
