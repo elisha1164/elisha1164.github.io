@@ -1,6 +1,6 @@
 <!-- 
-  Version: v2.0.0
-  Summary: Added smooth wave bouncing animation for the 3-dot typing indicator during AI response generation.
+  Version: v2.1.0
+  Summary: Added local storage privacy disclaimer at the bottom of every conversation session.
 -->
 <!DOCTYPE html>
 <html lang="zh-TW" class="light">
@@ -581,6 +581,18 @@
       }
     }
 
+    /* Bottom Privacy Disclaimer */
+    .chat-privacy-disclaimer {
+      text-align: center;
+      font-size: 0.76rem;
+      color: var(--text-muted);
+      opacity: 0.75;
+      padding: 16px 8px 12px;
+      margin-top: 16px;
+      border-top: 1px dashed var(--border-color);
+      user-select: none;
+    }
+
     /* Input Footer Container */
     .input-container {
       padding: 12px 16px 16px;
@@ -896,7 +908,7 @@
   </div>
 
   <!-- Version Badge -->
-  <div class="app-version-badge">v2.0.0</div>
+  <div class="app-version-badge">v2.1.0</div>
 
   <!-- Toast Notification -->
   <div id="toast"></div>
@@ -1079,8 +1091,20 @@
       } else {
         welcomeCard.style.display = 'none';
         currentMessages.forEach(msg => appendMessageUI(msg.role, msg.content));
+        appendPrivacyDisclaimer();
       }
       smartScrollToBottom();
+    }
+
+    function appendPrivacyDisclaimer() {
+      const existing = document.getElementById('chat-privacy-disclaimer');
+      if (existing) existing.remove();
+
+      const disclaimer = document.createElement('div');
+      disclaimer.id = 'chat-privacy-disclaimer';
+      disclaimer.className = 'chat-privacy-disclaimer';
+      disclaimer.textContent = '對話歷史只會儲存在您的裝置中，若遺失或損毀，無人能協助復原，請自行妥善備份。';
+      chatContainer.appendChild(disclaimer);
     }
 
     async function saveCurrentMessagesToDB() {
@@ -1438,6 +1462,7 @@
       row.appendChild(avatar);
       row.appendChild(bubble);
       chatContainer.appendChild(row);
+      appendPrivacyDisclaimer();
       smartScrollToBottom();
       return bubble;
     }
