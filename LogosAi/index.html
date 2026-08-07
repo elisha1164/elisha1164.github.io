@@ -1,6 +1,6 @@
 <!-- 
-  Version: v2.3.0
-  Summary: Instant static scroll positioning to the user's last asked question when loading or switching conversation sessions.
+  Version: v2.5.0
+  Summary: Added smooth scrolling to bottom when user sends a new question or during real-time typewriter AI response generation.
 -->
 <!DOCTYPE html>
 <html lang="zh-TW" class="light">
@@ -908,7 +908,7 @@
   </div>
 
   <!-- Version Badge -->
-  <div class="app-version-badge">v2.3.0</div>
+  <div class="app-version-badge">v2.5.0</div>
 
   <!-- Toast Notification -->
   <div id="toast"></div>
@@ -1420,11 +1420,15 @@
       }
     }
 
+    function scrollToBottomSmooth() {
+      chatContainer.scrollTo({
+        top: chatContainer.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
+
     function smartScrollToBottom() {
-      const distanceToBottom = chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight;
-      if (distanceToBottom < 160) {
-        chatContainer.scrollTop = chatContainer.scrollHeight;
-      }
+      chatContainer.scrollTop = chatContainer.scrollHeight;
     }
 
     /* Append Message to UI */
@@ -1533,6 +1537,7 @@
       // Add user message to history & UI
       currentMessages.push({ role: 'user', content: text });
       appendMessageUI('user', text);
+      scrollToBottomSmooth();
       await saveCurrentMessagesToDB();
 
       userInput.value = '';
@@ -1540,6 +1545,7 @@
       btnSend.disabled = true;
 
       appendTypingIndicator();
+      scrollToBottomSmooth();
 
       try {
         const response = await fetch(proxyUrl, {
@@ -1584,10 +1590,10 @@
             bubble.appendChild(actions);
 
             clearInterval(typeInterval);
-            smartScrollToBottom();
+            scrollToBottomSmooth();
           } else {
             if (textBody) textBody.innerHTML = marked.parse(replyText.substring(0, charIndex) + '▌');
-            smartScrollToBottom();
+            scrollToBottomSmooth();
           }
         }, 15);
 
