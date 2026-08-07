@@ -1,6 +1,6 @@
 <!-- 
-  Version: v1.3.1
-  Summary: Updated DEFAULT_PROXY_URL to official Cloudflare Worker URL https://logos-ai-proxy.elisha1164.workers.dev.
+  Version: v1.5.1
+  Summary: Dynamically generate clean share URL by stripping openExternalBrowser=1 without hardcoding domain.
 -->
 <!DOCTYPE html>
 <html lang="zh-TW" class="light">
@@ -76,16 +76,19 @@
       --text-primary: #0f172a;
       --text-secondary: #475569;
       --text-muted: #94a3b8;
-      --accent-gold: #b45309;
-      --accent-gold-hover: #92400e;
-      --accent-gold-light: rgba(180, 83, 9, 0.1);
-      --user-msg-bg: #dbeafe;
-      --user-msg-text: #1e3a8a;
+      
+      /* Primary Navy Blue Theme matching icon-180.png (#0f172a) */
+      --accent-gold: #0f172a;
+      --accent-gold-hover: #1e293b;
+      --accent-gold-light: rgba(15, 23, 42, 0.08);
+      
+      --user-msg-bg: #2563eb;
+      --user-msg-text: #ffffff;
       --assistant-msg-bg: #ffffff;
       --assistant-msg-text: #0f172a;
-      --scripture-bg: #fffbe6;
-      --scripture-border: #b45309;
-      --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.05);
+      --scripture-bg: #f1f5f9;
+      --scripture-border: #0f172a;
+      --shadow-lg: 0 4px 16px rgba(15, 23, 42, 0.08);
       --radius-sm: 8px;
       --radius-md: 12px;
       --radius-lg: 16px;
@@ -852,7 +855,7 @@
   </div>
 
   <!-- Version Badge -->
-  <div class="app-version-badge">v1.3.0</div>
+  <div class="app-version-badge">v1.5.1</div>
 
   <!-- Toast Notification -->
   <div id="toast"></div>
@@ -1104,10 +1107,33 @@
       if (e) e.stopPropagation();
 
       if (sessions.length <= 1) {
+        // Reset the sole remaining session title and clear its messages
+        const single = sessions[0];
+        single.title = '新神學對話';
+        single.updatedAt = Date.now();
         currentMessages = [];
-        await saveCurrentMessagesToDB();
+
+        if (db) {
+          try {
+            const tx = db.transaction([STORE_SESSIONS, STORE_MESSAGES], 'readwrite');
+            tx.objectStore(STORE_SESSIONS).put(single);
+            const msgIndex = tx.objectStore(STORE_MESSAGES).index('sessionId');
+            const req = msgIndex.getAllKeys(single.id);
+            req.onsuccess = () => {
+              const keys = req.result || [];
+              keys.forEach(k => tx.objectStore(STORE_MESSAGES).delete(k));
+            };
+          } catch(err) {}
+        }
+
+        try {
+          localStorage.removeItem(`logos_msg_${single.id}`);
+        } catch(err) {}
+        saveLocalStorageBackup();
+
+        renderSessionListUI();
         renderCurrentChatUI();
-        showToast('會話內容已重置');
+        showToast('對話內容與標題已重置');
         return;
       }
 
@@ -1240,8 +1266,18 @@
         });
       });
 
-      // Share Modal
-      btnShare.addEventListener('click', openShareModal);
+      // Share Action
+      btnShare.addEventListener('click', () => {
+        if (currentMessages.length === 0) {
+          showToast('目前會話尚無對話內容可供分享');
+          return;
+        }
+        if (navigator.share) {
+          triggerNativeShare();
+        } else {
+          openShareModal();
+        }
+      });
       document.getElementById('btn-close-share').addEventListener('click', () => modalShare.classList.remove('active'));
 
       document.getElementById('share-native').addEventListener('click', triggerNativeShare);
@@ -1390,7 +1426,10 @@
       const text = userInput.value.trim();
       if (!text) return;
 
-      const proxyUrl = localStorage.getItem('proxy_url') || DEFAULT_PROXY_URL;
+      let proxyUrl = localStorage.getItem('proxy_url') || DEFAULT_PROXY_URL;
+      if (!proxyUrl || proxyUrl.includes('your-subdomain')) {
+        proxyUrl = DEFAULT_PROXY_URL;
+      }
       const directKey = localStorage.getItem('direct_api_key') || '';
 
       if (!proxyUrl && !directKey) {
@@ -1495,8 +1534,11 @@
 
       } catch (err) {
         removeTypingIndicator();
-        appendMessageUI('assistant', `⚠️ **請求發生錯誤**\n\n${err.message}`);
-        console.error(err);
+        const errorContent = `⚠️ **請求發生錯誤**\n\n${err.message}\n\n*提示：若為 Failed to fetch，請檢查網路連線或確定 Cloudflare Worker 已上線。*`;
+        currentMessages.push({ role: 'assistant', content: errorContent });
+        appendMessageUI('assistant', errorContent);
+        await saveCurrentMessagesToDB();
+        console.error('sendMessage error:', err);
       } finally {
         btnSend.disabled = false;
       }
@@ -1514,25 +1556,29 @@
     function generateShareText() {
       const currentSession = sessions.find(s => s.id === currentSessionId);
       const title = currentSession ? currentSession.title : 'LogosAI 神學對話';
-      let formatted = `📖 **LogosAI 聖經神學問答紀錄**\n主題：${title}\n日期：${new Date().toLocaleDateString('zh-TW')}\n-----------------------------------\n\n`;
+      const cleanUrl = window.location.href.replace(/[?&]openExternalBrowser=1/, '').replace(/\?$/, '');
+      
+      let formatted = `【${title}】\n\n`;
       currentMessages.forEach(msg => {
-        const roleName = msg.role === 'user' ? '👤 提問' : '📖 神學解答';
-        formatted += `### ${roleName}:\n${msg.content}\n\n`;
+        const roleLabel = msg.role === 'user' ? '👤 提問：' : '📖 神學解答：';
+        formatted += `${roleLabel}\n${msg.content}\n\n`;
       });
+      formatted += `LogosAI - 高舉聖經 ‧ 研討真理\n${cleanUrl}`;
       return formatted;
     }
 
     async function triggerNativeShare() {
-      const shareData = {
-        title: 'LogosAI 聖經神學對話紀錄',
-        text: generateShareText().substring(0, 1000) + '...',
-        url: window.location.href
-      };
+      const shareText = generateShareText();
+      const currentSession = sessions.find(s => s.id === currentSessionId);
+      const title = currentSession ? currentSession.title : 'LogosAI 聖經神學對話紀錄';
 
       if (navigator.share) {
         try {
-          await navigator.share(shareData);
-          modalShare.classList.remove('active');
+          await navigator.share({
+            title: title,
+            text: shareText
+          });
+          if (modalShare) modalShare.classList.remove('active');
           showToast('分享成功！');
         } catch (err) {
           if (err.name !== 'AbortError') {
