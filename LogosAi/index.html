@@ -1,6 +1,6 @@
 <!-- 
-  Version: v2.1.0
-  Summary: Added local storage privacy disclaimer at the bottom of every conversation session.
+  Version: v2.3.0
+  Summary: Instant static scroll positioning to the user's last asked question when loading or switching conversation sessions.
 -->
 <!DOCTYPE html>
 <html lang="zh-TW" class="light">
@@ -554,7 +554,7 @@
     .typing-dot {
       width: 8px;
       height: 8px;
-      background-color: var(--accent-navy);
+      background-color: #0f172a;
       border-radius: 50%;
       opacity: 0.4;
       animation: typingBouncing 1.4s infinite ease-in-out !important;
@@ -908,7 +908,7 @@
   </div>
 
   <!-- Version Badge -->
-  <div class="app-version-badge">v2.1.0</div>
+  <div class="app-version-badge">v2.3.0</div>
 
   <!-- Toast Notification -->
   <div id="toast"></div>
@@ -1093,7 +1093,24 @@
         currentMessages.forEach(msg => appendMessageUI(msg.role, msg.content));
         appendPrivacyDisclaimer();
       }
-      smartScrollToBottom();
+      scrollToLastUserMessage();
+    }
+
+    function scrollToLastUserMessage() {
+      const userRows = chatContainer.querySelectorAll('.message-row.user');
+      if (userRows.length > 0) {
+        const lastUserRow = userRows[userRows.length - 1];
+        chatContainer.scrollTop = Math.max(0, lastUserRow.offsetTop - 12);
+      } else {
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+      }
+    }
+
+    function smartScrollToBottom() {
+      const distanceToBottom = chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight;
+      if (distanceToBottom < 160) {
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+      }
     }
 
     function appendPrivacyDisclaimer() {
@@ -1103,7 +1120,7 @@
       const disclaimer = document.createElement('div');
       disclaimer.id = 'chat-privacy-disclaimer';
       disclaimer.className = 'chat-privacy-disclaimer';
-      disclaimer.textContent = '對話歷史只會儲存在您的裝置中，若遺失或損毀，無人能協助復原，請自行妥善備份。';
+      disclaimer.textContent = '對話歷史僅存在本裝置，無後台紀錄，請自行複製備份。';
       chatContainer.appendChild(disclaimer);
     }
 
@@ -1447,7 +1464,7 @@
           } else {
             const copyBtn = document.createElement('button');
             copyBtn.className = 'btn-copy-msg';
-            copyBtn.innerHTML = '<i class="fa-regular fa-copy"></i> 複製解答';
+            copyBtn.innerHTML = '<i class="fa-regular fa-copy"></i> 複製';
             copyBtn.addEventListener('click', () => {
               navigator.clipboard.writeText(content).then(() => showToast('已複製解答內容'));
             });
@@ -1490,6 +1507,7 @@
       row.appendChild(avatar);
       row.appendChild(bubble);
       chatContainer.appendChild(row);
+      appendPrivacyDisclaimer();
       smartScrollToBottom();
     }
 
@@ -1558,7 +1576,7 @@
             actions.className = 'bubble-actions';
             const copyBtn = document.createElement('button');
             copyBtn.className = 'btn-copy-msg';
-            copyBtn.innerHTML = '<i class="fa-regular fa-copy"></i> 複製解答';
+            copyBtn.innerHTML = '<i class="fa-regular fa-copy"></i> 複製';
             copyBtn.addEventListener('click', () => {
               navigator.clipboard.writeText(replyText).then(() => showToast('已複製解答內容'));
             });
