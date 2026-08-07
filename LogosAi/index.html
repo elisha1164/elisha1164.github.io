@@ -1,6 +1,6 @@
 <!-- 
-  Version: v2.5.0
-  Summary: Added smooth scrolling to bottom when user sends a new question or during real-time typewriter AI response generation.
+  Version: v2.5.1
+  Summary: Implemented requestAnimationFrame ease-out smooth scroll animation for reliable scrolling when sending new questions.
 -->
 <!DOCTYPE html>
 <html lang="zh-TW" class="light">
@@ -908,7 +908,7 @@
   </div>
 
   <!-- Version Badge -->
-  <div class="app-version-badge">v2.5.0</div>
+  <div class="app-version-badge">v2.5.1</div>
 
   <!-- Toast Notification -->
   <div id="toast"></div>
@@ -1420,11 +1420,39 @@
       }
     }
 
+    let currentScrollAnimationId = null;
+
     function scrollToBottomSmooth() {
-      chatContainer.scrollTo({
-        top: chatContainer.scrollHeight,
-        behavior: 'smooth'
-      });
+      if (currentScrollAnimationId) {
+        cancelAnimationFrame(currentScrollAnimationId);
+      }
+      const start = chatContainer.scrollTop;
+      const target = chatContainer.scrollHeight - chatContainer.clientHeight;
+      const change = target - start;
+      if (Math.abs(change) < 4) {
+        chatContainer.scrollTop = target;
+        return;
+      }
+
+      const duration = 350; // 350ms smooth transition
+      let startTime = null;
+
+      function animateScroll(currentTime) {
+        if (!startTime) startTime = currentTime;
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const easeProgress = progress * (2 - progress); // Ease-out quad
+
+        chatContainer.scrollTop = start + change * easeProgress;
+
+        if (progress < 1) {
+          currentScrollAnimationId = requestAnimationFrame(animateScroll);
+        } else {
+          currentScrollAnimationId = null;
+        }
+      }
+
+      currentScrollAnimationId = requestAnimationFrame(animateScroll);
     }
 
     function smartScrollToBottom() {
