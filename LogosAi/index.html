@@ -1,0 +1,1386 @@
+<!-- 
+  Version: v1.1.0
+  Summary: Removed ⚙️ Settings button and modal for ultra-clean end-user UI. Proxy URL is handled directly in code.
+-->
+<!DOCTYPE html>
+<html lang="zh-TW" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LogosAI - 聖經神學問答助手</title>
+  
+  <!-- SEO & Meta -->
+  <meta name="description" content="LogosAI - 高舉聖經權威的 AI 深度神學與聖經對話助手，提供權威、嚴謹且符合聖經教義的神學解答。">
+  <meta name="theme-color" content="#0f172a">
+
+  <!-- Open Graph / Social Sharing Meta Tags -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="LogosAI - 聖經神學問答助手">
+  <meta property="og:description" content="高舉聖經權威的 AI 深度神學與聖經對話助手，提供權威、嚴謹且符合聖經教義的神學解答。">
+  <meta property="og:image" content="icon-512.png">
+  <meta property="og:site_name" content="LogosAI">
+
+  <!-- Twitter Card Meta Tags -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="LogosAI - 聖經神學問答助手">
+  <meta name="twitter:description" content="高舉聖經權威的 AI 深度神學與聖經對話助手，提供權威、嚴謹且符合聖經教義的神學解答。">
+  <meta name="twitter:image" content="icon-512.png">
+
+  <!-- LINE In-App Browser Universal Auto-Escape Script -->
+  <script>
+    (function handleLineInAppBrowser() {
+      var ua = navigator.userAgent || '';
+      if (/Line/i.test(ua)) {
+        var currentUrl = window.location.href;
+        if (!currentUrl.includes('openExternalBrowser=1')) {
+          var delimiter = currentUrl.includes('?') ? '&' : '?';
+          window.location.href = currentUrl + delimiter + 'openExternalBrowser=1';
+        }
+      }
+    })();
+  </script>
+
+  <!-- PWA & Mobile Icons -->
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="LogosAI">
+
+  <!-- Google Fonts: Elegant Scholarly & Clean Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Noto+Sans+TC:wght@300;400;500;600;700&family=Noto+Serif+TC:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <!-- Marked.js for Markdown Rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+  <style>
+    /* CSS Variables & Theme Tokens */
+    :root {
+      --bg-primary: #0f172a;
+      --bg-secondary: #1e293b;
+      --bg-tertiary: #334155;
+      --bg-card: rgba(30, 41, 59, 0.7);
+      --border-color: rgba(255, 255, 255, 0.1);
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --accent-gold: #d97706;
+      --accent-gold-hover: #b45309;
+      --accent-gold-light: rgba(217, 119, 6, 0.15);
+      --accent-blue: #38bdf8;
+      --user-msg-bg: #1e3a8a;
+      --user-msg-text: #eff6ff;
+      --assistant-msg-bg: #1e293b;
+      --assistant-msg-text: #f8fafc;
+      --scripture-bg: rgba(217, 119, 6, 0.08);
+      --scripture-border: #d97706;
+      --shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --transition-fast: 0.2s ease;
+      --transition-normal: 0.3s ease;
+    }
+
+    html.light {
+      --bg-primary: #f8fafc;
+      --bg-secondary: #ffffff;
+      --bg-tertiary: #f1f5f9;
+      --bg-card: rgba(255, 255, 255, 0.85);
+      --border-color: rgba(0, 0, 0, 0.1);
+      --text-primary: #0f172a;
+      --text-secondary: #475569;
+      --text-muted: #94a3b8;
+      --accent-gold: #b45309;
+      --accent-gold-hover: #92400e;
+      --accent-gold-light: rgba(180, 83, 9, 0.1);
+      --accent-blue: #0284c7;
+      --user-msg-bg: #dbeafe;
+      --user-msg-text: #1e3a8a;
+      --assistant-msg-bg: #ffffff;
+      --assistant-msg-text: #0f172a;
+      --scripture-bg: #fffbe6;
+      --scripture-border: #b45309;
+      --shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.08);
+    }
+
+    /* Global Reset */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      height: 100vh;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transition: background-color var(--transition-normal), color var(--transition-normal);
+    }
+
+    /* Header */
+    header {
+      height: 64px;
+      background-color: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      z-index: 10;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-icon {
+      width: 38px;
+      height: 38px;
+      background: linear-gradient(135deg, #d97706, #92400e);
+      color: #ffffff;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      box-shadow: 0 2px 8px rgba(217, 119, 6, 0.4);
+    }
+
+    .brand-title h1 {
+      font-family: 'Cinzel', 'Noto Serif TC', serif;
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: 0.5px;
+    }
+
+    .brand-title p {
+      font-size: 0.72rem;
+      color: var(--accent-gold);
+      font-weight: 500;
+      letter-spacing: 1px;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      border: 1px solid var(--border-color);
+      background: transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      transition: all var(--transition-fast);
+    }
+
+    .btn-icon:hover {
+      background: var(--bg-tertiary);
+      color: var(--accent-gold);
+      border-color: var(--accent-gold);
+    }
+
+    .btn-pwa-install {
+      display: none;
+      align-items: center;
+      gap: 6px;
+      padding: 0 12px;
+      height: 38px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #d97706, #b45309);
+      color: #ffffff;
+      font-size: 0.82rem;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(217, 119, 6, 0.4);
+      transition: all var(--transition-fast);
+    }
+
+    .btn-pwa-install:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(217, 119, 6, 0.5);
+    }
+
+    /* Main Chat Layout */
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      max-width: 960px;
+      width: 100%;
+      margin: 0 auto;
+      height: calc(100vh - 64px);
+      height: calc(100dvh - 64px);
+      position: relative;
+    }
+
+    #chat-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      scroll-behavior: smooth;
+    }
+
+    /* Welcome / Empty State */
+    .welcome-card {
+      text-align: center;
+      margin: auto;
+      padding: 32px 24px;
+      background: var(--bg-card);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-lg);
+      max-width: 600px;
+      animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .welcome-card i {
+      font-size: 2.8rem;
+      color: var(--accent-gold);
+      margin-bottom: 16px;
+    }
+
+    .welcome-card h2 {
+      font-family: 'Noto Serif TC', serif;
+      font-size: 1.4rem;
+      margin-bottom: 10px;
+      color: var(--text-primary);
+    }
+
+    .welcome-card p {
+      font-size: 0.92rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+      margin-bottom: 20px;
+    }
+
+    .sample-prompts {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 10px;
+      text-align: left;
+    }
+
+    .sample-prompt-btn {
+      padding: 12px 14px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      color: var(--text-primary);
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .sample-prompt-btn:hover {
+      border-color: var(--accent-gold);
+      background: var(--accent-gold-light);
+      transform: translateY(-2px);
+    }
+
+    .sample-prompt-btn i {
+      font-size: 0.9rem;
+      margin-bottom: 0;
+      color: var(--accent-gold);
+    }
+
+    /* Message Bubbles */
+    .message-row {
+      display: flex;
+      gap: 14px;
+      width: 100%;
+      animation: messageSlideIn 0.3s ease-out;
+    }
+
+    .message-row.user {
+      flex-direction: row-reverse;
+    }
+
+    .avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.95rem;
+      flex-shrink: 0;
+      font-weight: 600;
+    }
+
+    .message-row.user .avatar {
+      background: #2563eb;
+      color: #ffffff;
+    }
+
+    .message-row.assistant .avatar {
+      background: linear-gradient(135deg, #d97706, #78350f);
+      color: #ffffff;
+      box-shadow: 0 2px 6px rgba(217, 119, 6, 0.3);
+    }
+
+    .bubble-content {
+      max-width: 82%;
+      padding: 16px 20px;
+      border-radius: var(--radius-md);
+      font-size: 0.95rem;
+      line-height: 1.7;
+      word-break: break-word;
+      position: relative;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    .message-row.user .bubble-content {
+      background-color: var(--user-msg-bg);
+      color: var(--user-msg-text);
+      border-bottom-right-radius: 4px;
+    }
+
+    .message-row.assistant .bubble-content {
+      background-color: var(--assistant-msg-bg);
+      color: var(--assistant-msg-text);
+      border: 1px solid var(--border-color);
+      border-bottom-left-radius: 4px;
+      font-family: 'Noto Serif TC', serif;
+    }
+
+    /* Markdown Elements Styling inside Assistant Bubble */
+    .bubble-content h1, .bubble-content h2, .bubble-content h3 {
+      font-family: 'Noto Serif TC', serif;
+      margin-top: 14px;
+      margin-bottom: 8px;
+      color: var(--accent-gold);
+    }
+
+    .bubble-content p {
+      margin-bottom: 12px;
+    }
+
+    .bubble-content p:last-child {
+      margin-bottom: 0;
+    }
+
+    .bubble-content blockquote {
+      background: var(--scripture-bg);
+      border-left: 4px solid var(--scripture-border);
+      padding: 12px 16px;
+      margin: 14px 0;
+      border-radius: 0 10px 10px 0;
+      font-family: 'Noto Serif TC', serif;
+      font-style: normal;
+      color: var(--text-primary);
+      position: relative;
+      box-shadow: inset 0 0 12px rgba(217, 119, 6, 0.05);
+    }
+
+    .bubble-actions {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 10px;
+      padding-top: 6px;
+      border-top: 1px dashed var(--border-color);
+    }
+
+    .btn-copy-msg {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 0.78rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      transition: all var(--transition-fast);
+    }
+
+    .btn-copy-msg:hover {
+      color: var(--accent-gold);
+      background: var(--accent-gold-light);
+    }
+
+    .bubble-content ul, .bubble-content ol {
+      margin-left: 20px;
+      margin-bottom: 12px;
+    }
+
+    .bubble-content li {
+      margin-bottom: 4px;
+    }
+
+    .bubble-content code {
+      background: rgba(0, 0, 0, 0.2);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 0.88rem;
+    }
+
+    /* Typing Indicator */
+    .typing-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 8px 12px;
+    }
+
+    .typing-dot {
+      width: 7px;
+      height: 7px;
+      background-color: var(--accent-gold);
+      border-radius: 50%;
+      animation: typingBounce 1.4s infinite ease-in-out both;
+    }
+
+    .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+    .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+
+    /* Input Footer Container */
+    .input-container {
+      padding: 14px 16px 20px;
+      background: var(--bg-primary);
+      border-top: 1px solid var(--border-color);
+    }
+
+    .input-box-wrapper {
+      display: flex;
+      align-items: flex-end;
+      gap: 10px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 10px 14px;
+      box-shadow: var(--shadow-lg);
+      transition: border-color var(--transition-fast);
+    }
+
+    .input-box-wrapper:focus-within {
+      border-color: var(--accent-gold);
+    }
+
+    textarea {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 0.95rem;
+      resize: none;
+      max-height: 160px;
+      min-height: 24px;
+      line-height: 1.5;
+    }
+
+    .btn-send {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #d97706, #b45309);
+      border: none;
+      color: #ffffff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      transition: all var(--transition-fast);
+      flex-shrink: 0;
+    }
+
+    .btn-send:hover {
+      transform: scale(1.05);
+      box-shadow: 0 4px 12px rgba(217, 119, 6, 0.4);
+    }
+
+    .btn-send:disabled {
+      background: var(--bg-tertiary);
+      color: var(--text-muted);
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    /* Modal Overlay */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--transition-normal);
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      width: 100%;
+      max-width: 480px;
+      padding: 24px;
+      box-shadow: var(--shadow-lg);
+      transform: translateY(20px);
+      transition: transform var(--transition-normal);
+    }
+
+    .modal-overlay.active .modal-card {
+      transform: translateY(0);
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+
+    }
+
+    .modal-header h3 {
+      font-family: 'Noto Serif TC', serif;
+      font-size: 1.2rem;
+      color: var(--text-primary);
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+
+    .form-control {
+      width: 100%;
+      padding: 10px 12px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color var(--transition-fast);
+    }
+
+    .form-control:focus {
+      border-color: var(--accent-gold);
+    }
+
+    .help-text {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+      line-height: 1.4;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 24px;
+    }
+
+    .btn-secondary {
+      padding: 8px 16px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      cursor: pointer;
+      font-size: 0.88rem;
+    }
+
+    .btn-primary {
+      padding: 8px 18px;
+      background: var(--accent-gold);
+      border: none;
+      border-radius: var(--radius-sm);
+      color: #ffffff;
+      cursor: pointer;
+      font-weight: 500;
+      font-size: 0.88rem;
+    }
+
+    /* Share Options Container */
+    .share-options {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .share-option-btn {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      color: var(--text-primary);
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: all var(--transition-fast);
+    }
+
+    .share-option-btn:hover {
+      border-color: var(--accent-gold);
+      background: var(--accent-gold-light);
+    }
+
+    .share-option-btn i {
+      font-size: 1.1rem;
+      color: var(--accent-gold);
+      width: 24px;
+      text-align: center;
+    }
+
+    /* Toast Notification */
+    #toast {
+      position: fixed;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: var(--bg-secondary);
+      border: 1px solid var(--accent-gold);
+      color: var(--text-primary);
+      padding: 10px 20px;
+      border-radius: var(--radius-md);
+      font-size: 0.88rem;
+      box-shadow: var(--shadow-lg);
+      opacity: 0;
+      transition: all 0.3s ease;
+      z-index: 200;
+      pointer-events: none;
+    }
+
+    #toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
+    /* Animations */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.96); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    @keyframes messageSlideIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes typingBounce {
+      0%, 80%, 100% { transform: scale(0); }
+      40% { transform: scale(1); }
+    }
+
+    /* Responsive */
+    @media (max-width: 640px) {
+      header { padding: 0 12px; }
+      .brand-title h1 { font-size: 1rem; }
+      .bubble-content { max-width: 90%; }
+      .welcome-card { padding: 20px 16px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="brand">
+      <div class="brand-icon">
+        <i class="fa-solid fa-book-bible"></i>
+      </div>
+      <div class="brand-title">
+        <h1>LogosAI</h1>
+        <p>SCRIPTURE & THEOLOGY</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="btn-icon" id="btn-install-pwa" title="安裝 App" style="display: none; background: var(--accent-gold-light); color: var(--accent-gold); border-color: var(--accent-gold); font-size: 1.1rem;">
+        📲
+      </button>
+      <button class="btn-icon" id="btn-theme" title="切換深色/淺色主題">
+        <i class="fa-solid fa-moon"></i>
+      </button>
+      <button class="btn-icon" id="btn-share" title="分享與匯出對話">
+        <i class="fa-solid fa-share-nodes"></i>
+      </button>
+      <button class="btn-icon" id="btn-clear" title="重置對話歷史">
+        <i class="fa-solid fa-trash-can"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Chat View -->
+  <main>
+    <div id="chat-container">
+      <!-- Welcome Card (shown when empty) -->
+      <div class="welcome-card" id="welcome-card">
+        <i class="fa-solid fa-cross"></i>
+        <h2>歡迎使用 LogosAI 聖經神學助手</h2>
+        <p>LogosAI 高舉聖經最高權威，結合 AI 科技與聖經經文，為您提供嚴謹、全面且以經文佐證的神學解答。請在下方輸入您的問題。</p>
+        <div class="sample-prompts">
+          <button class="sample-prompt-btn" data-prompt="如果神是全能又愛我們的，為什麼世界上會有苦難與不公平？">
+            <i class="fa-solid fa-circle-question"></i>
+            信仰困惑：苦難與上帝的愛
+          </button>
+          <button class="sample-prompt-btn" data-prompt="讀聖經遇到看不懂或覺得矛盾的地方，應該如何理解？">
+            <i class="fa-solid fa-circle-question"></i>
+            讀經疑難：如何面對難解經文
+          </button>
+          <button class="sample-prompt-btn" data-prompt="基督徒在日常生活與課業/工作中，如何尋求神的旨意？">
+            <i class="fa-solid fa-circle-question"></i>
+            生活實踐：尋求神的旨意
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Input Footer -->
+    <div class="input-container">
+      <div class="input-box-wrapper">
+        <textarea id="user-input" placeholder="請輸入您的神學或聖經問題... (Enter 發送，Shift+Enter 換行)" rows="1"></textarea>
+        <button class="btn-send" id="btn-send" title="發送訊息">
+          <i class="fa-solid fa-paper-plane"></i>
+        </button>
+      </div>
+    </div>
+  </main>
+
+
+
+  <!-- Share Modal (Desktop Fallback) -->
+  <div class="modal-overlay" id="modal-share">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-share-nodes" style="color: var(--accent-gold); margin-right: 8px;"></i>匯出與分享對話</h3>
+        <button class="btn-icon" id="btn-close-share" style="width: 32px; height: 32px;"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="share-options">
+        <button class="share-option-btn" id="share-native">
+          <i class="fa-solid fa-mobile-screen"></i>
+          <span>觸發手機系統原生分享 (LINE / 郵件 / AirDrop)</span>
+        </button>
+        <button class="share-option-btn" id="share-copy">
+          <i class="fa-solid fa-copy"></i>
+          <span>一鍵複製全文對話至剪貼簿</span>
+        </button>
+        <button class="share-option-btn" id="share-download-md">
+          <i class="fa-solid fa-file-code"></i>
+          <span>下載 Markdown 格式紀錄 (.md)</span>
+        </button>
+        <button class="share-option-btn" id="share-download-txt">
+          <i class="fa-solid fa-file-lines"></i>
+          <span>下載 純文字格式紀錄 (.txt)</span>
+        </button>
+      </div>
+    </div>
+  <!-- iOS PWA Install Guide Modal -->
+  <div class="modal-overlay" id="modal-ios-install">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3><i class="fa-brands fa-apple" style="color: var(--accent-gold); margin-right: 8px;"></i>安裝 LogosAI 至 iOS 主畫面</h3>
+        <button class="btn-icon" id="btn-close-ios-guide" style="width: 32px; height: 32px;"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div style="font-size: 0.9rem; line-height: 1.8; color: var(--text-secondary);">
+        <p style="margin-bottom: 12px;">將 LogosAI 新增至 iPhone / iPad 主畫面，獲得全螢幕獨立 App 級體驗：</p>
+        <ol style="margin-left: 20px; margin-bottom: 16px;">
+          <li style="margin-bottom: 8px;">請確定使用 <strong>Safari 瀏覽器</strong> 開啟本網頁</li>
+          <li style="margin-bottom: 8px;">點擊 Safari 底部工具列中央的 <strong>「分享」圖示</strong> <i class="fa-solid fa-arrow-up-from-bracket" style="color: var(--accent-gold);"></i></li>
+          <li style="margin-bottom: 8px;">選單向上滑動，選擇 <strong>「加入主畫面」</strong> <i class="fa-solid fa-square-plus" style="color: var(--accent-gold);"></i></li>
+        </ol>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-primary" id="btn-dismiss-ios-guide" style="width: 100%;">知道了！</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast"></div>
+
+  <!-- Application Logic JavaScript -->
+  <script>
+    /* Global Variables & State */
+    const DEFAULT_PROXY_URL = 'https://logos-ai-proxy.elisha1164.workers.dev/'; // 預設 Cloudflare Worker 代理網址
+    let conversationHistory = []; // { role: 'user'|'assistant', content: '...' }
+    let db = null;
+    const DB_NAME = 'TheologyChatDB';
+    const DB_VERSION = 1;
+    const STORE_NAME = 'messages';
+
+    // DOM Elements
+    const chatContainer = document.getElementById('chat-container');
+    const welcomeCard = document.getElementById('welcome-card');
+    const userInput = document.getElementById('user-input');
+    const btnSend = document.getElementById('btn-send');
+    const btnTheme = document.getElementById('btn-theme');
+    const btnClear = document.getElementById('btn-clear');
+    const btnShare = document.getElementById('btn-share');
+    const modalShare = document.getElementById('modal-share');
+
+    /* Initialize Application */
+    document.addEventListener('DOMContentLoaded', async () => {
+      initTheme();
+      await initDB();
+      await loadHistoryFromDB();
+      setupEventListeners();
+      checkIOSPWA();
+    });
+
+    /* Theme Initialization */
+    function initTheme() {
+      const savedTheme = localStorage.getItem('app_theme') || 'dark';
+      if (savedTheme === 'light') {
+        document.documentElement.classList.remove('dark');
+        document.documentElement.classList.add('light');
+        btnTheme.innerHTML = '<i class="fa-solid fa-sun"></i>';
+      } else {
+        document.documentElement.classList.remove('light');
+        document.documentElement.classList.add('dark');
+        btnTheme.innerHTML = '<i class="fa-solid fa-moon"></i>';
+      }
+    }
+
+    btnTheme.addEventListener('click', () => {
+      if (document.documentElement.classList.contains('dark')) {
+        document.documentElement.classList.remove('dark');
+        document.documentElement.classList.add('light');
+        localStorage.setItem('app_theme', 'light');
+        btnTheme.innerHTML = '<i class="fa-solid fa-sun"></i>';
+      } else {
+        document.documentElement.classList.remove('light');
+        document.documentElement.classList.add('dark');
+        localStorage.setItem('app_theme', 'dark');
+        btnTheme.innerHTML = '<i class="fa-solid fa-moon"></i>';
+      }
+    });
+
+    /* IndexedDB & LocalStorage Helper Functions */
+    function initDB() {
+      return new Promise((resolve) => {
+        try {
+          const request = indexedDB.open(DB_NAME, DB_VERSION);
+          request.onupgradeneeded = (e) => {
+            const dbInstance = e.target.result;
+            if (!dbInstance.objectStoreNames.contains(STORE_NAME)) {
+              dbInstance.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+            }
+          };
+          request.onsuccess = (e) => {
+            db = e.target.result;
+            resolve();
+          };
+          request.onerror = (e) => {
+            console.warn('IndexedDB blocked, using LocalStorage fallback:', e.target.error);
+            resolve();
+          };
+        } catch(err) {
+          console.warn('IndexedDB unavailable, using LocalStorage fallback:', err);
+          resolve();
+        }
+      });
+    }
+
+    async function saveMessagesToDB() {
+      // LocalStorage backup
+      try {
+        localStorage.setItem('theology_chat_backup', JSON.stringify(conversationHistory));
+      } catch(e) {}
+
+      if (!db) return;
+      try {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        await store.clear();
+        conversationHistory.forEach(msg => {
+          store.add({ role: msg.role, content: msg.content, timestamp: Date.now() });
+        });
+      } catch(e) {}
+    }
+
+    async function loadHistoryFromDB() {
+      let loaded = false;
+      if (db) {
+        try {
+          const tx = db.transaction(STORE_NAME, 'readonly');
+          const store = tx.objectStore(STORE_NAME);
+          const request = store.getAll();
+          request.onsuccess = () => {
+            const records = request.result || [];
+            if (records.length > 0) {
+              conversationHistory = records.map(r => ({ role: r.role, content: r.content }));
+              welcomeCard.style.display = 'none';
+              conversationHistory.forEach(msg => appendMessageUI(msg.role, msg.content));
+              loaded = true;
+            } else {
+              loadLocalStorageFallback();
+            }
+          };
+        } catch(e) {
+          loadLocalStorageFallback();
+        }
+      } else {
+        loadLocalStorageFallback();
+      }
+    }
+
+    function loadLocalStorageFallback() {
+      try {
+        const raw = localStorage.getItem('theology_chat_backup');
+        if (raw) {
+          conversationHistory = JSON.parse(raw) || [];
+          if (conversationHistory.length > 0) {
+            welcomeCard.style.display = 'none';
+            conversationHistory.forEach(msg => appendMessageUI(msg.role, msg.content));
+          }
+        }
+      } catch(e) {}
+    }
+
+    async function clearHistoryDB() {
+      conversationHistory = [];
+      try {
+        localStorage.removeItem('theology_chat_backup');
+      } catch(e) {}
+      if (db) {
+        try {
+          const tx = db.transaction(STORE_NAME, 'readwrite');
+          const store = tx.objectStore(STORE_NAME);
+          store.clear();
+        } catch(e) {}
+      }
+      chatContainer.innerHTML = '';
+      chatContainer.appendChild(welcomeCard);
+      welcomeCard.style.display = 'block';
+      showToast('對話歷史已成功清空');
+    }
+
+    /* Event Listeners */
+    function setupEventListeners() {
+      // Auto resize textarea
+      userInput.addEventListener('input', () => {
+        userInput.style.height = 'auto';
+        userInput.style.height = Math.min(userInput.scrollHeight, 160) + 'px';
+      });
+
+      // Send on Enter
+      userInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          sendMessage();
+        }
+      });
+
+      btnSend.addEventListener('click', sendMessage);
+
+      // Sample prompt buttons
+      document.querySelectorAll('.sample-prompt-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const prompt = btn.getAttribute('data-prompt');
+          userInput.value = prompt;
+          userInput.style.height = 'auto';
+          userInput.style.height = Math.min(userInput.scrollHeight, 160) + 'px';
+          sendMessage();
+        });
+      });
+
+      // Clear History
+      btnClear.addEventListener('click', () => {
+        if (confirm('確定要清除所有對話紀錄嗎？此動作無法復原。')) {
+          clearHistoryDB();
+        }
+      });
+
+      // Share Modal
+      btnShare.addEventListener('click', openShareModal);
+      document.getElementById('btn-close-share').addEventListener('click', () => modalShare.classList.remove('active'));
+
+      document.getElementById('share-native').addEventListener('click', triggerNativeShare);
+      document.getElementById('share-copy').addEventListener('click', copyConversationToClipboard);
+      document.getElementById('share-download-md').addEventListener('click', () => downloadFile('md'));
+      document.getElementById('share-download-txt').addEventListener('click', () => downloadFile('txt'));
+
+      // PWA Install Button Handler
+      const btnInstallPwa = document.getElementById('btn-install-pwa');
+      if (btnInstallPwa) {
+        btnInstallPwa.addEventListener('click', handlePWAInstallClick);
+      }
+
+      // iOS PWA Modal Dismiss Handlers
+      const closeIOSModal = () => {
+        document.getElementById('modal-ios-install').classList.remove('active');
+      };
+      document.getElementById('btn-close-ios-guide').addEventListener('click', closeIOSModal);
+      document.getElementById('btn-dismiss-ios-guide').addEventListener('click', closeIOSModal);
+    }
+
+    /* PWA Install Logic */
+    let deferredPrompt = null;
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      const btnInstall = document.getElementById('btn-install-pwa');
+      if (btnInstall) btnInstall.style.display = 'flex';
+    });
+
+    function checkIOSPWA() {
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+      const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+
+      if (isIOS && !isStandalone) {
+        const btnInstall = document.getElementById('btn-install-pwa');
+        if (btnInstall) btnInstall.style.display = 'flex';
+      }
+    }
+
+    function handlePWAInstallClick() {
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+      if (isIOS) {
+        document.getElementById('modal-ios-install').classList.add('active');
+      } else if (deferredPrompt) {
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then((choiceResult) => {
+          if (choiceResult.outcome === 'accepted') {
+            showToast('感謝安裝 LogosAI！');
+            const btnInstall = document.getElementById('btn-install-pwa');
+            if (btnInstall) btnInstall.style.display = 'none';
+          }
+          deferredPrompt = null;
+        });
+      } else {
+        showToast('請使用瀏覽器選單點擊「安裝」或「加到主畫面」');
+      }
+    }
+
+    function smartScrollToBottom() {
+      const distanceToBottom = chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight;
+      if (distanceToBottom < 160) {
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+      }
+    }
+
+    /* Append Message to UI */
+    function appendMessageUI(role, content) {
+      welcomeCard.style.display = 'none';
+
+      const row = document.createElement('div');
+      row.className = `message-row ${role}`;
+
+      const avatar = document.createElement('div');
+      avatar.className = 'avatar';
+      avatar.innerHTML = role === 'user' 
+        ? '<i class="fa-solid fa-user"></i>' 
+        : '<i class="fa-solid fa-book-bible"></i>';
+
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble-content';
+
+      if (role === 'assistant') {
+        const textWrapper = document.createElement('div');
+        textWrapper.className = 'msg-text-body';
+        textWrapper.innerHTML = marked.parse(content || '');
+        bubble.appendChild(textWrapper);
+
+        if (content) {
+          const actions = document.createElement('div');
+          actions.className = 'bubble-actions';
+          const copyBtn = document.createElement('button');
+          copyBtn.className = 'btn-copy-msg';
+          copyBtn.innerHTML = '<i class="fa-regular fa-copy"></i> 複製解答';
+          copyBtn.addEventListener('click', () => {
+            navigator.clipboard.writeText(content).then(() => showToast('已複製解答內容'));
+          });
+          actions.appendChild(copyBtn);
+          bubble.appendChild(actions);
+        }
+      } else {
+        bubble.textContent = content;
+      }
+
+      row.appendChild(avatar);
+      row.appendChild(bubble);
+      chatContainer.appendChild(row);
+      smartScrollToBottom();
+      return bubble;
+    }
+
+    /* Append Typing Indicator */
+    function appendTypingIndicator() {
+      const row = document.createElement('div');
+      row.className = 'message-row assistant';
+      row.id = 'typing-indicator-row';
+
+      const avatar = document.createElement('div');
+      avatar.className = 'avatar';
+      avatar.innerHTML = '<i class="fa-solid fa-book-bible"></i>';
+
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble-content';
+      bubble.innerHTML = `
+        <div class="typing-indicator">
+          <div class="typing-dot"></div>
+          <div class="typing-dot"></div>
+          <div class="typing-dot"></div>
+        </div>
+      `;
+
+      row.appendChild(avatar);
+      row.appendChild(bubble);
+      chatContainer.appendChild(row);
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    function removeTypingIndicator() {
+      const indicator = document.getElementById('typing-indicator-row');
+      if (indicator) indicator.remove();
+    }
+
+    /* Send Message Handler */
+    async function sendMessage() {
+      const text = userInput.value.trim();
+      if (!text) return;
+
+      const proxyUrl = localStorage.getItem('proxy_url') || DEFAULT_PROXY_URL;
+      const directKey = localStorage.getItem('direct_api_key') || '';
+
+      if (!proxyUrl && !directKey) {
+        showToast('請先於程式碼中設定 Worker 網址');
+        return;
+      }
+
+      // Add user message to history & UI
+      conversationHistory.push({ role: 'user', content: text });
+      appendMessageUI('user', text);
+      await saveMessagesToDB();
+
+      userInput.value = '';
+      userInput.style.height = 'auto';
+      btnSend.disabled = true;
+
+      appendTypingIndicator();
+
+      try {
+        let replyText = '';
+        const model = 'gemini-3.6-flash';
+
+        if (proxyUrl) {
+          // Send via Cloudflare Worker Proxy (System Prompt is securely injected by Cloudflare Worker)
+          const response = await fetch(proxyUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model: model,
+              messages: conversationHistory
+            })
+          });
+
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.error || `HTTP ${response.status}`);
+          }
+          replyText = data.choices[0].message.content;
+
+        } else if (directKey) {
+          // Direct Gemini API call (testing fallback)
+          const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${directKey}`;
+          const contents = conversationHistory.map(msg => ({
+            role: msg.role === 'assistant' ? 'model' : 'user',
+            parts: [{ text: msg.content }]
+          }));
+
+          const response = await fetch(geminiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: contents
+            })
+          });
+
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.error?.message || `HTTP ${response.status}`);
+          }
+          replyText = data.candidates[0].content.parts.map(p => p.text).join('');
+        }
+
+        removeTypingIndicator();
+
+        // Typewriter animation effect
+        conversationHistory.push({ role: 'assistant', content: replyText });
+        await saveMessagesToDB();
+
+        const bubble = appendMessageUI('assistant', '');
+        const textBody = bubble.querySelector('.msg-text-body');
+        let charIndex = 0;
+        const step = Math.max(1, Math.floor(replyText.length / 80));
+        
+        const typeInterval = setInterval(() => {
+          charIndex += step;
+          if (charIndex >= replyText.length) {
+            if (textBody) textBody.innerHTML = marked.parse(replyText);
+
+            // Append copy button when animation finishes
+            const actions = document.createElement('div');
+            actions.className = 'bubble-actions';
+            const copyBtn = document.createElement('button');
+            copyBtn.className = 'btn-copy-msg';
+            copyBtn.innerHTML = '<i class="fa-regular fa-copy"></i> 複製解答';
+            copyBtn.addEventListener('click', () => {
+              navigator.clipboard.writeText(replyText).then(() => showToast('已複製解答內容'));
+            });
+            actions.appendChild(copyBtn);
+            bubble.appendChild(actions);
+
+            clearInterval(typeInterval);
+            smartScrollToBottom();
+          } else {
+            if (textBody) textBody.innerHTML = marked.parse(replyText.substring(0, charIndex) + '▌');
+            smartScrollToBottom();
+          }
+        }, 20);
+
+      } catch (err) {
+        removeTypingIndicator();
+        appendMessageUI('assistant', `⚠️ **請求發生錯誤**\n\n${err.message}`);
+        console.error(err);
+      } finally {
+        btnSend.disabled = false;
+      }
+    }
+
+    /* Share & Export Functions */
+    function openShareModal() {
+      if (conversationHistory.length === 0) {
+        showToast('目前尚無對話內容可供分享');
+        return;
+      }
+      modalShare.classList.add('active');
+    }
+
+    function getFormattedConversationText() {
+      let text = `# LogosAI 聖經神學對話紀錄\n匯出時間：${new Date().toLocaleString()}\n\n---\n\n`;
+      conversationHistory.forEach(msg => {
+        const roleTitle = msg.role === 'user' ? '問 (User)' : '答 (LogosAI 聖經神學助手)';
+        text += `### ${roleTitle}\n\n${msg.content}\n\n---\n\n`;
+      });
+      return text;
+    }
+
+    async function triggerNativeShare() {
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: 'LogosAI 聖經神學對話紀錄',
+            text: getFormattedConversationText()
+          });
+          showToast('已成功觸發系統分享');
+          modalShare.classList.remove('active');
+        } catch (err) {
+          if (err.name !== 'AbortError') {
+            showToast('分享失敗，已切換為複製模式');
+            copyConversationToClipboard();
+          }
+        }
+      } else {
+        showToast('當前瀏覽器不支援原生 Web Share API，已為您一鍵複製');
+        copyConversationToClipboard();
+      }
+    }
+
+    function copyConversationToClipboard() {
+      const text = getFormattedConversationText();
+      navigator.clipboard.writeText(text).then(() => {
+        showToast('對話紀錄已成功複製至剪貼簿！');
+        modalShare.classList.remove('active');
+      }).catch(err => {
+        showToast('複製失敗: ' + err.message);
+      });
+    }
+
+    function downloadFile(format) {
+      const text = getFormattedConversationText();
+      const blob = new Blob([text], { type: format === 'md' ? 'text/markdown' : 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `LogosAI_Chat_${Date.now()}.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast(`已下載 ${format.toUpperCase()} 檔案`);
+      modalShare.classList.remove('active');
+    }
+
+    /* Toast Notification Helper */
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.classList.add('show');
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 3000);
+    }
+
+    /* PWA Service Worker Registration */
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then(reg => console.log('[LogosAI PWA] Service Worker registered:', reg.scope))
+          .catch(err => console.error('[LogosAI PWA] Service Worker registration failed:', err));
+      });
+    }
+  </script>
+</body>
+</html>

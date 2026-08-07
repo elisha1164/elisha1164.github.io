@@ -1,0 +1,29 @@
+{
+  "name": "LogosAI - 聖經神學問答助手",
+  "short_name": "LogosAI",
+  "description": "高舉聖經權威的 AI 深度神學與聖經對話助手，提供權威、嚴謹且符合聖經教義的神學解答。",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "icon-180.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
