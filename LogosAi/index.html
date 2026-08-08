@@ -1,6 +1,6 @@
 <!-- 
-  Version: v2.6.0
-  Summary: Added '安裝' text next to emoji in the top-right PWA installation button to enhance visual prompt.
+  Version: v2.7.0
+  Summary: Updated disclaimer text to include system biblical verification responsibility statement, reduced top/bottom padding by half, and removed top border line.
 -->
 <!DOCTYPE html>
 <html lang="zh-TW" class="light">
@@ -587,9 +587,8 @@
       font-size: 0.76rem;
       color: var(--text-muted);
       opacity: 0.75;
-      padding: 16px 8px 12px;
-      margin-top: 16px;
-      border-top: 1px dashed var(--border-color);
+      padding: 6px 8px;
+      margin-top: 6px;
       user-select: none;
     }
 
@@ -908,7 +907,7 @@
   </div>
 
   <!-- Version Badge -->
-  <div class="app-version-badge">v2.6.0</div>
+  <div class="app-version-badge">v2.7.0</div>
 
   <!-- Toast Notification -->
   <div id="toast"></div>
@@ -1120,7 +1119,7 @@
       const disclaimer = document.createElement('div');
       disclaimer.id = 'chat-privacy-disclaimer';
       disclaimer.className = 'chat-privacy-disclaimer';
-      disclaimer.textContent = '對話歷史僅存在本裝置，無後台紀錄，請自行複製備份。';
+      disclaimer.textContent = 'LogosAI 被設定嚴格按照聖經回答您的問題，但您仍有義務自行查證答案是否符合聖經。對話歷史僅儲存在本裝置，無後台紀錄，請自行複製備份。';
       chatContainer.appendChild(disclaimer);
     }
 
