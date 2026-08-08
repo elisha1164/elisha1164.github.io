@@ -1,0 +1,8 @@
+# Exclude Cloudflare Worker script containing sensitive System Prompt
+worker.js
+LogosAi/worker.js
+**/worker.js
+
+# OS metadata
+.DS_Store
+Thumbs.db
