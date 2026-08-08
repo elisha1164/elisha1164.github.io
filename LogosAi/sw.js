@@ -1,9 +1,9 @@
 /* 
- * Version: v1.0.4
- * Summary: Service Worker for LogosAI PWA caching static assets and handling offline capability.
+ * Version: v2.7.0
+ * Summary: Synchronized Service Worker cache version with main application release v2.7.0.
  */
 
-const CACHE_NAME = 'logosai-v1.0.4';
+const CACHE_NAME = 'logosai-v2.7.0';
 const STATIC_ASSETS = [
   './',
   './index.html',
