@@ -1,6 +1,6 @@
 <!-- 
-  Version: v2.5.1
-  Summary: Implemented requestAnimationFrame ease-out smooth scroll animation for reliable scrolling when sending new questions.
+  Version: v2.6.0
+  Summary: Added '安裝' text next to emoji in the top-right PWA installation button to enhance visual prompt.
 -->
 <!DOCTYPE html>
 <html lang="zh-TW" class="light">
@@ -796,8 +796,8 @@
       </div>
     </div>
     <div class="header-actions">
-      <button class="btn-icon" id="btn-install-pwa" title="安裝 App" style="display: none; background: var(--accent-gold-light); color: var(--accent-gold); border-color: var(--accent-gold); font-size: 1.1rem;">
-        📲
+      <button class="btn-icon" id="btn-install-pwa" title="安裝 App" style="display: none; width: auto; padding: 0 10px; gap: 4px; background: var(--accent-gold-light); color: var(--accent-gold); border-color: var(--accent-gold); font-size: 0.88rem; font-weight: 600;">
+        📲 安裝
       </button>
       <button class="btn-icon" id="btn-share" title="分享此對話">
         <i class="fa-solid fa-share-nodes"></i>
@@ -908,7 +908,7 @@
   </div>
 
   <!-- Version Badge -->
-  <div class="app-version-badge">v2.5.1</div>
+  <div class="app-version-badge">v2.6.0</div>
 
   <!-- Toast Notification -->
   <div id="toast"></div>
