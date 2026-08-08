@@ -1,6 +1,6 @@
 <!-- 
-  Version: v2.7.0
-  Summary: Updated disclaimer text to include system biblical verification responsibility statement, reduced top/bottom padding by half, and removed top border line.
+  Version: v2.8.0
+  Summary: Fixed iPadOS 13+ desktop-mode Safari userAgent detection for PWA install button.
 -->
 <!DOCTYPE html>
 <html lang="zh-TW" class="light">
@@ -907,7 +907,7 @@
   </div>
 
   <!-- Version Badge -->
-  <div class="app-version-badge">v2.7.0</div>
+  <div class="app-version-badge">v2.8.0</div>
 
   <!-- Toast Notification -->
   <div id="toast"></div>
@@ -1383,6 +1383,12 @@
     /* PWA Install Logic */
     let deferredPrompt = null;
 
+    function isIOSDevice() {
+      return (/iPad|iPhone|iPod/.test(navigator.userAgent) || 
+             (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) ||
+             (navigator.userAgent.includes('Macintosh') && 'ontouchend' in document)) && !window.MSStream;
+    }
+
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       deferredPrompt = e;
@@ -1391,7 +1397,7 @@
     });
 
     function checkIOSPWA() {
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+      const isIOS = isIOSDevice();
       const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
 
       if (isIOS && !isStandalone) {
@@ -1401,7 +1407,7 @@
     }
 
     function handlePWAInstallClick() {
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+      const isIOS = isIOSDevice();
       if (isIOS) {
         document.getElementById('modal-ios-install').classList.add('active');
       } else if (deferredPrompt) {
