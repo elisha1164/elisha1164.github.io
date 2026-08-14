@@ -1,3 +1,4 @@
+<!-- v3.38: 新增彩蛋，連按標題 5 次解鎖網址載入功能 -->
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -393,13 +394,13 @@
         </div>
 
         <div class="welcome-card">
-            <h1>📖 老張 EPUB 閱讀器</h1>
+            <h1 id="app-title" style="user-select: none;">📖 老張 EPUB 閱讀器</h1>
             
             <!-- v3.24: 分段控制項頁籤 -->
             <div class="segmented-control" id="welcome-tabs">
                 <button class="segment-btn" id="btn-tab-recent" onclick="switchTab('recent')" style="display: none;">最近閱讀</button>
                 <button class="segment-btn active" id="btn-tab-local" onclick="switchTab('local')">本機載入</button>
-                <button class="segment-btn" id="btn-tab-url" onclick="switchTab('url')">網址載入</button>
+                <button class="segment-btn" id="btn-tab-url" onclick="switchTab('url')" style="display: none;">網址載入</button>
             </div>
 
             <!-- v3.24: 頁籤內容區塊 (內部滾動) -->
@@ -510,7 +511,7 @@
 
     <div id="print-area"></div>
     
-    <div class="version-tag">v3.37</div>
+    <div class="version-tag">v3.38</div>
 
     <script>
         // v3.37 (修復：導入非同步 Promise 互斥排隊機制，消除 IndexedDB 在開書時進度儲存與 metadata 書名回寫間的讀寫競爭，確保完整書名不遭覆寫)
@@ -2028,6 +2029,25 @@
         });
 
         window.addEventListener('DOMContentLoaded', async () => {
+            // v3.38: 隱藏的網址載入解鎖邏輯 (2秒內5下連擊)
+            let titleClickCount = 0;
+            let titleClickTimeout = null;
+            const appTitle = document.getElementById('app-title');
+            if (appTitle) {
+                appTitle.addEventListener('click', () => {
+                    titleClickCount++;
+                    clearTimeout(titleClickTimeout);
+                    if (titleClickCount >= 5) {
+                        const urlBtn = document.getElementById('btn-tab-url');
+                        if (urlBtn) urlBtn.style.display = 'block';
+                        titleClickCount = 0;
+                    } else {
+                        titleClickTimeout = setTimeout(() => {
+                            titleClickCount = 0;
+                        }, 2000);
+                    }
+                });
+            }
             initRecommendModal(); // v3.22 載入推薦書庫事件
             initPWAInstall();     // v3.28 載入 PWA 安裝邏輯
 
