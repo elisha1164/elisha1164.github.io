@@ -1,6 +1,6 @@
 <!-- 
-  Version: v2.8.0
-  Summary: Fixed iPadOS 13+ desktop-mode Safari userAgent detection for PWA install button.
+  Version: v3.3.0
+  Summary: Synchronized version badge with main release v3.3.0.
 -->
 <!DOCTYPE html>
 <html lang="zh-TW" class="light">
@@ -180,6 +180,25 @@
     .btn-icon:hover {
       border-color: var(--accent-gold);
       color: var(--accent-gold);
+    }
+
+    .audience-select {
+      height: 36px;
+      padding: 0 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      background-color: var(--bg-tertiary);
+      color: var(--text-primary);
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      outline: none;
+      transition: border-color 0.2s ease, background-color 0.2s ease;
+    }
+
+    .audience-select:hover, .audience-select:focus {
+      border-color: var(--accent-gold);
+      background-color: var(--bg-primary);
     }
 
     /* App Main Layout with Sidebar */
@@ -795,6 +814,10 @@
       </div>
     </div>
     <div class="header-actions">
+      <select id="select-audience" class="audience-select" title="切換受眾模式">
+        <option value="general" selected>大眾版</option>
+        <option value="youth">青少版</option>
+      </select>
       <button class="btn-icon" id="btn-install-pwa" title="安裝 App" style="display: none; width: auto; padding: 0 10px; gap: 4px; background: var(--accent-gold-light); color: var(--accent-gold); border-color: var(--accent-gold); font-size: 0.88rem; font-weight: 600;">
         📲 安裝
       </button>
@@ -907,7 +930,7 @@
   </div>
 
   <!-- Version Badge -->
-  <div class="app-version-badge">v2.8.0</div>
+  <div class="app-version-badge">v3.3.0</div>
 
   <!-- Toast Notification -->
   <div id="toast"></div>
@@ -1580,12 +1603,16 @@
       appendTypingIndicator();
       scrollToBottomSmooth();
 
+      const audienceSelect = document.getElementById('select-audience');
+      const targetAudience = audienceSelect ? audienceSelect.value : 'general';
+
       try {
         const response = await fetch(proxyUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            messages: currentMessages
+            messages: currentMessages,
+            targetAudience: targetAudience
           })
         });
 
