@@ -1,6 +1,6 @@
 <!-- 
-  Version: v3.4.0
-  Summary: Added responsive CSS rules for Markdown/HTML tables and pre/code blocks to prevent horizontal overflow on mobile screens.
+  Version: v3.5.0
+  Summary: Added localStorage persistence and toast notification for target audience mode selection (大眾版/青少版).
 -->
 <!DOCTYPE html>
 <html lang="zh-TW" class="light">
@@ -969,7 +969,7 @@
   </div>
 
   <!-- Version Badge -->
-  <div class="app-version-badge">v3.4.0</div>
+  <div class="app-version-badge">v3.5.0</div>
 
   <!-- Toast Notification -->
   <div id="toast"></div>
@@ -1359,6 +1359,21 @@
 
     /* Event Listeners Setup */
     function setupEventListeners() {
+      // Restore saved target audience preference from localStorage
+      const selectAudience = document.getElementById('select-audience');
+      const savedAudience = localStorage.getItem('logosai_target_audience');
+      if (savedAudience && selectAudience) {
+        selectAudience.value = savedAudience;
+      }
+      if (selectAudience) {
+        selectAudience.addEventListener('change', (e) => {
+          const val = e.target.value;
+          localStorage.setItem('logosai_target_audience', val);
+          const label = val === 'youth' ? '青少版' : '大眾版';
+          showToast(`受眾模式已切換為「${label}」並自動記憶`);
+        });
+      }
+
       // Sidebar Toggle for both Desktop & Mobile
       btnToggleSidebar.addEventListener('click', () => {
         if (window.innerWidth <= 768) {

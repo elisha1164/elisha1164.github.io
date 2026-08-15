@@ -1,9 +1,9 @@
 /* 
- * Version: v3.4.0
- * Summary: Synchronized Service Worker cache version with main application release v3.4.0.
+ * Version: v3.5.0
+ * Summary: Synchronized Service Worker cache version with main application release v3.5.0.
  */
 
-const CACHE_NAME = 'logosai-v3.4.0';
+const CACHE_NAME = 'logosai-v3.5.0';
 const STATIC_ASSETS = [
   './',
   './index.html',
