@@ -1,6 +1,6 @@
 <!-- 
-  Version: v3.5.0
-  Summary: Added localStorage persistence and toast notification for target audience mode selection (大眾版/青少版).
+  Version: v3.6.0
+  Summary: Added OS-level high contrast auto-adaptation via @media (prefers-contrast: more) and @media (forced-colors: active) without altering default user experience.
 -->
 <!DOCTYPE html>
 <html lang="zh-TW" class="light">
@@ -836,6 +836,83 @@
       .bubble-content { max-width: 90%; }
       .welcome-card { padding: 20px 16px; }
     }
+
+    /* =========================================================
+       OS-Level Accessibility & High Contrast Auto-Adaptation
+       (Only triggers when user has enabled High Contrast in OS)
+       ========================================================= */
+    @media (prefers-contrast: more), (forced-colors: active) {
+      :root {
+        --text-primary: #000000;
+        --text-secondary: #111827;
+        --text-muted: #374151;
+        --border-color: #000000;
+        --bg-tertiary: #e2e8f0;
+        --accent-gold: #000000;
+        --accent-gold-hover: #000000;
+        --user-msg-bg: #1d4ed8;
+        --user-msg-text: #ffffff;
+        --assistant-msg-bg: #ffffff;
+        --assistant-msg-text: #000000;
+        --scripture-bg: #f8fafc;
+        --scripture-border: #000000;
+      }
+
+      /* High Contrast Text & Border Reinforcement */
+      .bubble-content {
+        border: 2px solid #000000 !important;
+        font-weight: 500;
+        line-height: 1.75;
+      }
+
+      .message-row.assistant .bubble-content {
+        color: #000000 !important;
+        background-color: #ffffff !important;
+        font-weight: 500;
+      }
+
+      .message-row.assistant .bubble-content p,
+      .message-row.assistant .bubble-content li {
+        color: #000000 !important;
+      }
+
+      .bubble-content blockquote {
+        background-color: #f1f5f9 !important;
+        border-left: 5px solid #000000 !important;
+        border-top: 1px solid #000000 !important;
+        border-right: 1px solid #000000 !important;
+        border-bottom: 1px solid #000000 !important;
+        color: #000000 !important;
+        font-weight: 600;
+      }
+
+      .bubble-content h1, 
+      .bubble-content h2, 
+      .bubble-content h3 {
+        color: #000000 !important;
+        font-weight: 700;
+      }
+
+      .chat-privacy-disclaimer {
+        color: #000000 !important;
+        font-weight: 600;
+      }
+
+      .input-wrapper {
+        border: 2px solid #000000 !important;
+      }
+
+      .btn-send {
+        background-color: #000000 !important;
+        color: #ffffff !important;
+      }
+
+      .audience-select, .btn-icon {
+        border: 2px solid #000000 !important;
+        color: #000000 !important;
+        font-weight: 700;
+      }
+    }
   </style>
 </head>
 <body class="light">
@@ -969,7 +1046,7 @@
   </div>
 
   <!-- Version Badge -->
-  <div class="app-version-badge">v3.5.0</div>
+  <div class="app-version-badge">v3.6.0</div>
 
   <!-- Toast Notification -->
   <div id="toast"></div>
