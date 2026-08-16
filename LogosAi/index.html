@@ -1,6 +1,6 @@
 <!-- 
-  Version: v3.6.0
-  Summary: Added OS-level high contrast auto-adaptation via @media (prefers-contrast: more) and @media (forced-colors: active) without altering default user experience.
+  Version: v3.7.0
+  Summary: Added toolroom badge link in sidebar footer to navigate to main tools directory (老張工具間).
 -->
 <!DOCTYPE html>
 <html lang="zh-TW" class="light">
@@ -314,6 +314,43 @@
 
     .btn-session-action.delete:hover {
       color: #ef4444;
+    }
+
+    /* Sidebar Footer Toolroom Badge Link */
+    .sidebar-footer {
+      padding: 12px 14px;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background-color: var(--bg-sidebar);
+    }
+
+    .badge-tool-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 9999px;
+      background-color: var(--bg-tertiary);
+      color: var(--text-secondary);
+      font-size: 0.8rem;
+      font-weight: 500;
+      text-decoration: none;
+      border: 1px solid var(--border-color);
+      transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+    }
+
+    .badge-tool-link:hover {
+      color: var(--text-primary);
+      background-color: var(--bg-sidebar-active);
+      border-color: var(--accent-gold);
+    }
+
+    .badge-tool-link svg {
+      width: 13px;
+      height: 13px;
+      flex-shrink: 0;
     }
 
     /* Mobile Sidebar Overlay */
@@ -955,6 +992,14 @@
       <div class="session-list" id="session-list">
         <!-- Sessions inserted dynamically -->
       </div>
+      <div class="sidebar-footer">
+        <a href="../index.html" target="_blank" class="badge-tool-link" title="前往老張工具間">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
+          </svg>
+          老張工具間
+        </a>
+      </div>
     </aside>
 
     <div class="sidebar-overlay" id="sidebar-overlay"></div>
@@ -1046,7 +1091,7 @@
   </div>
 
   <!-- Version Badge -->
-  <div class="app-version-badge">v3.6.0</div>
+  <div class="app-version-badge">v3.7.0</div>
 
   <!-- Toast Notification -->
   <div id="toast"></div>
