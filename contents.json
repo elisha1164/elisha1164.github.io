@@ -94,5 +94,17 @@
     "link": "2W2L/",
     "buttonIcon": "book-open",
     "buttonText": "點此開啟小冊子"
+  },
+  {
+    "id": "app9",
+    "tags": ["AI", "神學", "工具"],
+    "icon": "message-circle-question",
+    "title": "LogosAI",
+    "subtitle": "聖經神學問答助手",
+    "tagline": "「高舉聖經權威，深度研討真理」",
+    "description": "讀經遇到難題？神學觀念卡關？LogosAI 專注回到聖經本文，引經據典為你剖析真理。無論是深入研討的大眾版，或直白好吸收的青少版，隨時打開就能與專屬的神學導師在線對話！",
+    "link": "LogosAi/",
+    "buttonIcon": "sparkles",
+    "buttonText": "點此開啟 LogosAI，研討真理"
   }
 ]
