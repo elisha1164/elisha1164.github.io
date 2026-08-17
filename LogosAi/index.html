@@ -1,6 +1,6 @@
 <!-- 
-  Version: v3.7.0
-  Summary: Added toolroom badge link in sidebar footer to navigate to main tools directory (老張工具間).
+  Version: v3.8.0
+  Summary: Adjusted typewriter speed to human reading pace (32ms/char) with natural scrolling and user scroll protection.
 -->
 <!DOCTYPE html>
 <html lang="zh-TW" class="light">
@@ -1091,7 +1091,7 @@
   </div>
 
   <!-- Version Badge -->
-  <div class="app-version-badge">v3.7.0</div>
+  <div class="app-version-badge">v3.8.0</div>
 
   <!-- Toast Notification -->
   <div id="toast"></div>
@@ -1806,12 +1806,24 @@
 
         const bubble = appendMessageUI('assistant', '');
         const textBody = bubble.querySelector('.msg-text-body');
+        // 人類正常閱讀速度打字機效果 (每 30ms 吐 1 字，每秒約 30 字，伴隨自然下捲)
         let charIndex = 0;
-        const step = Math.max(1, Math.floor(replyText.length / 80));
+        let isUserScrollingUp = false;
+
+        // 偵測使用者是否主動向上滑動查閱前文（避免打架）
+        const scrollCheckHandler = () => {
+          const threshold = 90;
+          const isAtBottom = (chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight) < threshold;
+          isUserScrollingUp = !isAtBottom;
+        };
+        chatContainer.addEventListener('scroll', scrollCheckHandler, { passive: true });
         
         const typeInterval = setInterval(() => {
-          charIndex += step;
+          charIndex += 1;
           if (charIndex >= replyText.length) {
+            clearInterval(typeInterval);
+            chatContainer.removeEventListener('scroll', scrollCheckHandler);
+
             if (textBody) textBody.innerHTML = marked.parse(replyText);
 
             const actions = document.createElement('div');
@@ -1825,13 +1837,16 @@
             actions.appendChild(copyBtn);
             bubble.appendChild(actions);
 
-            clearInterval(typeInterval);
-            scrollToBottomSmooth();
+            if (!isUserScrollingUp) {
+              smartScrollToBottom();
+            }
           } else {
             if (textBody) textBody.innerHTML = marked.parse(replyText.substring(0, charIndex) + '▌');
-            scrollToBottomSmooth();
+            if (!isUserScrollingUp) {
+              smartScrollToBottom();
+            }
           }
-        }, 15);
+        }, 30);
 
       } catch (err) {
         removeTypingIndicator();
