@@ -1,6 +1,6 @@
 <!-- 
-  Version: v4.0.0
-  Summary: Fixed invisible retry button styling (undefined --accent-navy) and hardened retryLastUserMessage cross-browser compatibility.
+  Version: v4.1.0
+  Summary: Ensured 'Try Again' button only appears on the very latest error response to prevent stale retries.
 -->
 <!DOCTYPE html>
 <html lang="zh-TW" class="light">
@@ -1130,7 +1130,7 @@
   </div>
 
   <!-- Version Badge -->
-  <div class="app-version-badge">v4.0.0</div>
+  <div class="app-version-badge">v4.1.0</div>
 
   <!-- Toast Notification -->
   <div id="toast"></div>
@@ -1312,7 +1312,10 @@
         welcomeCard.style.display = 'block';
       } else {
         welcomeCard.style.display = 'none';
-        currentMessages.forEach(msg => appendMessageUI(msg.role, msg.content));
+        currentMessages.forEach((msg, idx) => {
+          const isLast = idx === currentMessages.length - 1;
+          appendMessageUI(msg.role, msg.content, isLast);
+        });
         appendPrivacyDisclaimer();
       }
       scrollToLastUserMessage();
@@ -1731,7 +1734,7 @@
     }
 
     /* Append Message to UI */
-    function appendMessageUI(role, content) {
+    function appendMessageUI(role, content, isLastMessage = false) {
       welcomeCard.style.display = 'none';
 
       const row = document.createElement('div');
@@ -1757,13 +1760,19 @@
           actions.className = 'bubble-actions';
 
           if (content.includes('請求發生錯誤')) {
-            const retryBtn = document.createElement('button');
-            retryBtn.className = 'btn-retry-msg';
-            retryBtn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> 再試一次';
-            retryBtn.addEventListener('click', () => {
-              retryLastUserMessage();
-            });
-            actions.appendChild(retryBtn);
+            if (isLastMessage) {
+              // Ensure only the very latest error bubble has an active retry button
+              document.querySelectorAll('.btn-retry-msg').forEach(btn => btn.remove());
+
+              const retryBtn = document.createElement('button');
+              retryBtn.className = 'btn-retry-msg';
+              retryBtn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> 再試一次';
+              retryBtn.addEventListener('click', () => {
+                retryLastUserMessage();
+              });
+              actions.appendChild(retryBtn);
+              bubble.appendChild(actions);
+            }
           } else {
             const copyBtn = document.createElement('button');
             copyBtn.className = 'btn-copy-msg';
@@ -1772,8 +1781,8 @@
               navigator.clipboard.writeText(content).then(() => showToast('已複製解答內容'));
             });
             actions.appendChild(copyBtn);
+            bubble.appendChild(actions);
           }
-          bubble.appendChild(actions);
         }
       } else {
         bubble.textContent = content;
@@ -1823,6 +1832,9 @@
     async function sendMessage() {
       const text = userInput.value.trim();
       if (!text) return;
+
+      // Clear any prior retry buttons on screen upon sending a new message
+      document.querySelectorAll('.btn-retry-msg').forEach(btn => btn.remove());
 
       const proxyUrl = DEFAULT_PROXY_URL;
 
@@ -1922,7 +1934,7 @@
         }
         const errorContent = `⚠️ **請求發生錯誤**\n\n${errHint}`;
         currentMessages.push({ role: 'assistant', content: errorContent });
-        appendMessageUI('assistant', errorContent);
+        appendMessageUI('assistant', errorContent, true);
         await saveCurrentMessagesToDB();
         console.error('sendMessage error:', err);
       } finally {
