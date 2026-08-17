@@ -1,6 +1,6 @@
 <!-- 
-  Version: v3.8.0
-  Summary: Adjusted typewriter speed to human reading pace (32ms/char) with natural scrolling and user scroll protection.
+  Version: v4.0.0
+  Summary: Fixed invisible retry button styling (undefined --accent-navy) and hardened retryLastUserMessage cross-browser compatibility.
 -->
 <!DOCTYPE html>
 <html lang="zh-TW" class="light">
@@ -182,23 +182,44 @@
       color: var(--accent-gold);
     }
 
-    .audience-select {
-      height: 36px;
-      padding: 0 10px;
-      border-radius: 8px;
-      border: 1px solid var(--border-color);
+    .audience-toggle-switch {
+      display: inline-flex;
+      align-items: center;
       background-color: var(--bg-tertiary);
-      color: var(--text-primary);
-      font-size: 0.85rem;
-      font-weight: 600;
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      padding: 2px;
+      height: 36px;
+      user-select: none;
       cursor: pointer;
-      outline: none;
-      transition: border-color 0.2s ease, background-color 0.2s ease;
     }
 
-    .audience-select:hover, .audience-select:focus {
-      border-color: var(--accent-gold);
-      background-color: var(--bg-primary);
+    .audience-toggle-btn {
+      border: none;
+      outline: none;
+      background: transparent;
+      padding: 0 10px;
+      height: 30px;
+      border-radius: 15px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      white-space: nowrap;
+      transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .audience-toggle-btn:hover:not(.active) {
+      color: var(--text-primary);
+    }
+
+    .audience-toggle-btn.active {
+      background-color: var(--accent-gold);
+      color: #ffffff;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.18);
     }
 
     /* App Main Layout with Sidebar */
@@ -621,21 +642,24 @@
     }
 
     .btn-retry-msg {
-      background: var(--accent-navy);
+      background-color: var(--accent-gold);
       color: #ffffff;
-      border: none;
+      border: 1px solid var(--accent-gold);
       font-size: 0.82rem;
       font-weight: 600;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      padding: 6px 12px;
+      padding: 6px 14px;
       border-radius: var(--radius-sm);
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.15);
+      transition: background-color 0.15s ease, opacity 0.15s ease;
     }
 
     .btn-retry-msg:hover {
-      background: var(--accent-navy-hover);
+      background-color: var(--accent-gold-hover);
+      opacity: 0.95;
     }
 
     /* Typing Indicator Bouncing Dots Animation */
@@ -944,10 +968,25 @@
         color: #ffffff !important;
       }
 
-      .audience-select, .btn-icon {
+      .btn-icon {
         border: 2px solid #000000 !important;
         color: #000000 !important;
         font-weight: 700;
+      }
+
+      .audience-toggle-switch {
+        border: 2px solid #000000 !important;
+      }
+
+      .audience-toggle-btn.active {
+        background-color: #000000 !important;
+        color: #ffffff !important;
+        font-weight: 700;
+      }
+
+      .audience-toggle-btn:not(.active) {
+        color: #000000 !important;
+        font-weight: 600;
       }
     }
   </style>
@@ -967,10 +1006,10 @@
       </div>
     </div>
     <div class="header-actions">
-      <select id="select-audience" class="audience-select" title="切換受眾模式">
-        <option value="general" selected>大眾版</option>
-        <option value="youth">青少版</option>
-      </select>
+      <div class="audience-toggle-switch" id="audience-toggle" role="group" aria-label="受眾版本切換" title="切換受眾模式（大眾版 / 青少版）">
+        <button type="button" class="audience-toggle-btn active" data-value="general" id="btn-audience-general">大眾</button>
+        <button type="button" class="audience-toggle-btn" data-value="youth" id="btn-audience-youth">青少</button>
+      </div>
       <button class="btn-icon" id="btn-install-pwa" title="安裝 App" style="display: none; width: auto; padding: 0 10px; gap: 4px; background: var(--accent-gold-light); color: var(--accent-gold); border-color: var(--accent-gold); font-size: 0.88rem; font-weight: 600;">
         📲 安裝
       </button>
@@ -1091,7 +1130,7 @@
   </div>
 
   <!-- Version Badge -->
-  <div class="app-version-badge">v3.8.0</div>
+  <div class="app-version-badge">v4.0.0</div>
 
   <!-- Toast Notification -->
   <div id="toast"></div>
@@ -1479,20 +1518,48 @@
       });
     }
 
+    /* Target Audience Switch Helpers */
+    function getCurrentTargetAudience() {
+      const activeBtn = document.querySelector('.audience-toggle-btn.active');
+      return activeBtn ? activeBtn.getAttribute('data-value') : 'general';
+    }
+
+    function setTargetAudience(mode) {
+      const btnGeneral = document.getElementById('btn-audience-general');
+      const btnYouth = document.getElementById('btn-audience-youth');
+      if (!btnGeneral || !btnYouth) return;
+
+      if (mode === 'youth') {
+        btnGeneral.classList.remove('active');
+        btnYouth.classList.add('active');
+        localStorage.setItem('logosai_target_audience', 'youth');
+      } else {
+        btnYouth.classList.remove('active');
+        btnGeneral.classList.add('active');
+        localStorage.setItem('logosai_target_audience', 'general');
+      }
+    }
+
     /* Event Listeners Setup */
     function setupEventListeners() {
       // Restore saved target audience preference from localStorage
-      const selectAudience = document.getElementById('select-audience');
-      const savedAudience = localStorage.getItem('logosai_target_audience');
-      if (savedAudience && selectAudience) {
-        selectAudience.value = savedAudience;
-      }
-      if (selectAudience) {
-        selectAudience.addEventListener('change', (e) => {
-          const val = e.target.value;
-          localStorage.setItem('logosai_target_audience', val);
-          const label = val === 'youth' ? '青少版' : '大眾版';
-          showToast(`受眾模式已切換為「${label}」並自動記憶`);
+      const savedAudience = localStorage.getItem('logosai_target_audience') || 'general';
+      setTargetAudience(savedAudience);
+
+      const toggleContainer = document.getElementById('audience-toggle');
+      if (toggleContainer) {
+        toggleContainer.addEventListener('click', (e) => {
+          const btn = e.target.closest('.audience-toggle-btn');
+          if (btn) {
+            const targetMode = btn.getAttribute('data-value');
+            if (targetMode !== getCurrentTargetAudience()) {
+              setTargetAudience(targetMode);
+            }
+          } else {
+            // Clicked container border -> toggle between modes
+            const current = getCurrentTargetAudience();
+            setTargetAudience(current === 'general' ? 'youth' : 'general');
+          }
         });
       }
 
@@ -1779,8 +1846,7 @@
       appendTypingIndicator();
       scrollToBottomSmooth();
 
-      const audienceSelect = document.getElementById('select-audience');
-      const targetAudience = audienceSelect ? audienceSelect.value : 'general';
+      const targetAudience = getCurrentTargetAudience();
 
       try {
         const response = await fetch(proxyUrl, {
@@ -1866,7 +1932,13 @@
 
     /* Retry Last Failed User Message */
     async function retryLastUserMessage() {
-      const lastUserIdx = currentMessages.findLastIndex(m => m.role === 'user');
+      let lastUserIdx = -1;
+      for (let i = currentMessages.length - 1; i >= 0; i--) {
+        if (currentMessages[i].role === 'user') {
+          lastUserIdx = i;
+          break;
+        }
+      }
       if (lastUserIdx === -1) return;
 
       const lastPrompt = currentMessages[lastUserIdx].content;
