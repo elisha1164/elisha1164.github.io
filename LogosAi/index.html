@@ -1,6 +1,6 @@
 <!-- 
-  Version: v4.1.0
-  Summary: Ensured 'Try Again' button only appears on the very latest error response to prevent stale retries.
+  Version: v4.2.0
+  Summary: Fixed horizontal viewport blowout from tables by applying min-width: 0 and overflow containment across the flex layout hierarchy.
 -->
 <!DOCTYPE html>
 <html lang="zh-TW" class="light">
@@ -230,6 +230,9 @@
       height: calc(100dvh - 60px);
       position: relative;
       overflow: hidden;
+      width: 100%;
+      max-width: 100vw;
+      min-width: 0;
     }
 
     /* Sidebar Navigation */
@@ -394,18 +397,25 @@
       height: 100%;
       position: relative;
       background-color: var(--bg-primary);
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      overflow-x: hidden;
     }
 
     #chat-container {
       flex: 1;
       overflow-y: auto;
+      overflow-x: hidden;
       padding: 20px 16px;
       display: flex;
       flex-direction: column;
       gap: 16px;
       max-width: 900px;
       width: 100%;
+      min-width: 0;
       margin: 0 auto;
+      box-sizing: border-box;
     }
 
     /* Welcome / Empty State */
@@ -478,6 +488,9 @@
       display: flex;
       gap: 12px;
       width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
     }
 
     .message-row.user {
@@ -510,14 +523,24 @@
     }
 
     .bubble-content {
-      max-width: 84%;
+      max-width: 86%;
+      min-width: 0;
+      flex-shrink: 1;
       padding: 14px 18px;
       border-radius: var(--radius-md);
       font-size: 0.95rem;
       line-height: 1.65;
       word-break: break-word;
+      overflow-wrap: break-word;
       position: relative;
       box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+      box-sizing: border-box;
+    }
+
+    .msg-text-body {
+      width: 100%;
+      min-width: 0;
+      max-width: 100%;
     }
 
     .message-row.user .bubble-content {
@@ -596,17 +619,19 @@
       max-width: 100%;
       border-collapse: collapse;
       margin: 12px 0;
-      font-size: 0.88rem;
+      font-size: 0.86rem;
       display: block;
       overflow-x: auto;
       -webkit-overflow-scrolling: touch;
+      white-space: normal;
     }
 
     .bubble-content th, .bubble-content td {
       border: 1px solid var(--border-color);
-      padding: 8px 12px;
+      padding: 8px 10px;
       text-align: left;
-      min-width: 90px;
+      min-width: 70px;
+      word-break: break-word;
     }
 
     .bubble-content th {
@@ -894,8 +919,14 @@
       .sidebar-overlay.active {
         display: block;
       }
-      .bubble-content { max-width: 90%; }
+      .bubble-content { 
+        max-width: 88%; 
+        min-width: 0;
+        padding: 12px 14px;
+      }
       .welcome-card { padding: 20px 16px; }
+      #chat-container { padding: 14px 10px; }
+      .input-container { padding: 10px 12px 14px; }
     }
 
     /* =========================================================
@@ -1130,7 +1161,7 @@
   </div>
 
   <!-- Version Badge -->
-  <div class="app-version-badge">v4.1.0</div>
+  <div class="app-version-badge">v4.2.0</div>
 
   <!-- Toast Notification -->
   <div id="toast"></div>
