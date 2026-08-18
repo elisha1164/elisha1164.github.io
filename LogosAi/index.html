@@ -1,6 +1,6 @@
 <!-- 
-  Version: v4.6.0
-  Summary: Expanded question bank to 50 questions with 3 randomized sample prompts on new sessions.
+  Version: v4.6.1
+  Summary: Fixed welcome card sample prompts DOM query reference so 3 random prompts display reliably on new sessions.
 -->
 <!DOCTYPE html>
 <html lang="zh-TW" class="light">
@@ -1150,7 +1150,7 @@
   </div>
 
   <!-- Version Badge -->
-  <div class="app-version-badge">v4.6.0</div>
+  <div class="app-version-badge">v4.6.1</div>
 
   <!-- Toast Notification -->
   <div id="toast"></div>
@@ -1380,7 +1380,7 @@
     ];
 
     function renderWelcomeCardPrompts() {
-      const container = document.getElementById('sample-prompts-container');
+      const container = welcomeCard ? welcomeCard.querySelector('#sample-prompts-container') : document.getElementById('sample-prompts-container');
       if (!container) return;
 
       // 隨機抽取 3 題不重複的問題
@@ -1406,9 +1406,9 @@
     function renderCurrentChatUI() {
       chatContainer.innerHTML = '';
       if (currentMessages.length === 0) {
-        renderWelcomeCardPrompts();
         chatContainer.appendChild(welcomeCard);
         welcomeCard.style.display = 'block';
+        renderWelcomeCardPrompts();
       } else {
         welcomeCard.style.display = 'none';
         currentMessages.forEach((msg, idx) => {
