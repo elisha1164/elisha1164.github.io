@@ -1,6 +1,6 @@
 <!-- 
-  Version: v4.4.0
-  Summary: Simplified input field placeholder text to '請輸入您的問題…'.
+  Version: v4.6.0
+  Summary: Expanded question bank to 50 questions with 3 randomized sample prompts on new sessions.
 -->
 <!DOCTYPE html>
 <html lang="zh-TW" class="light">
@@ -1082,19 +1082,8 @@
           <img src="icon-180.png" alt="LogosAI Logo" class="welcome-card-icon">
           <h2>歡迎使用 LogosAI 聖經神學助手</h2>
           <p>LogosAI 高舉聖經最高權威，結合 AI 科技與聖經經文，為您提供嚴謹、全面且以經文佐證的神學解答。請在下方輸入您的問題。</p>
-          <div class="sample-prompts">
-            <button class="sample-prompt-btn" data-prompt="如果神是全能又愛我們的，為什麼世界上會有苦難與不公平？">
-              <i class="fa-solid fa-circle-question"></i>
-              信仰困惑：苦難與上帝的愛
-            </button>
-            <button class="sample-prompt-btn" data-prompt="讀聖經遇到看不懂或覺得矛盾的地方，應該如何理解？">
-              <i class="fa-solid fa-circle-question"></i>
-              讀經疑難：如何面對難解經文
-            </button>
-            <button class="sample-prompt-btn" data-prompt="基督徒在日常生活與課業/工作中，如何尋求神的旨意？">
-              <i class="fa-solid fa-circle-question"></i>
-              生活實踐：尋求神的旨意
-            </button>
+          <div class="sample-prompts" id="sample-prompts-container">
+            <!-- 3 random sample prompt buttons inserted dynamically from 50-question bank -->
           </div>
         </div>
       </div>
@@ -1161,7 +1150,7 @@
   </div>
 
   <!-- Version Badge -->
-  <div class="app-version-badge">v4.4.0</div>
+  <div class="app-version-badge">v4.6.0</div>
 
   <!-- Toast Notification -->
   <div id="toast"></div>
@@ -1336,9 +1325,88 @@
       renderCurrentChatUI();
     }
 
+    /* 50 題大眾最常面臨的基督教核心信仰困惑與神學難題庫 */
+    const SAMPLE_QUESTION_BANK = [
+      { title: "上帝的存在", prompt: "有什麼理性的證據或聖經根據，可以證明看不見的上帝是真實存在的？" },
+      { title: "三位一體奧秘", prompt: "基督教說上帝是『三位一體』，三個位格卻是一位神，這在邏輯上該如何理解？" },
+      { title: "上帝的預定與自由意志", prompt: "如果上帝早已預定了一切，那我們人類的自由意志與道德責任還有意義嗎？" },
+      { title: "舊約與新約的上帝", prompt: "舊約的上帝看起來嚴厲甚至降災，新約的上帝卻充滿慈愛，兩者是同一位神嗎？" },
+      { title: "神的主權與禱告", prompt: "既然上帝全知全能且早有計畫，為什麼聖經還要我們迫切禱告？" },
+      { title: "神的公義與慈愛", prompt: "上帝如何同時兼顧『絕對的公義』（罪必罰）與『無限的慈愛』（赦免罪人）？" },
+      { title: "上帝創造世界的目的", prompt: "上帝本自豐足無缺，為什麼祂還要創造宇宙和人類？" },
+      { title: "上帝會後悔嗎", prompt: "聖經有的地方說『神絕不後悔』，有的地方又說『耶和華後悔造人』，這該如何解釋？" },
+      { title: "苦難與上帝的愛", prompt: "如果上帝是全能又滿有慈愛的，為什麼祂容許世上有苦難、疾病與不公平？" },
+      { title: "罪惡的起源", prompt: "既然一切受造物都是神造的，那罪惡與撒旦最初是從哪裡來的？是神創造了惡嗎？" },
+      { title: "無辜者的受苦", prompt: "為什麼會有無辜的幼童或善良的人遭遇嚴重的天災人禍與苦難？" },
+      { title: "義人受苦與惡人亨通", prompt: "為什麼現實生活中常看到惡人亨通、義人反而受盡磨難？聖經如何看待這件事？" },
+      { title: "地獄的存在與審判", prompt: "慈愛的上帝為什麼會設立地獄，讓不信的人遭受永遠的刑罰？" },
+      { title: "未聽過福音者的結局", prompt: "那些一輩子生活在偏遠地區、從未有機會聽過耶穌福音就過世的人，他們會下地獄嗎？" },
+      { title: "基督徒面對憂鬱與痛苦", prompt: "基督徒也會罹患憂鬱症或陷入極度痛苦嗎？這代表信心不足或被神離棄嗎？" },
+      { title: "救恩的唯一性", prompt: "為什麼基督教堅稱『唯獨耶穌是唯一的救法』？各宗教難道不是殊途同歸、勸人為善嗎？" },
+      { title: "因信稱義的真諦", prompt: "什麼是『因信稱義』？只要相信就能得救，那好行為和道德生活還重要嗎？" },
+      { title: "基督代贖的本質", prompt: "耶穌被釘十字架的歷史事件，在神學上究竟成就了什麼？為何祂的死能赦免我的罪？" },
+      { title: "耶穌的神性與人性", prompt: "耶穌是完全的神，又是完全的人，這兩個本性在基督裡是如何結合的？" },
+      { title: "救恩會失去嗎", prompt: "一個真正蒙恩得救的基督徒，有沒有可能因為犯罪或跌倒而最終失去救恩？" },
+      { title: "什麼是原罪", prompt: "亞當夏娃吃了善惡果犯罪，為什麼數千年後的我們要承擔原罪的後果？" },
+      { title: "耶穌復活的歷史性", prompt: "耶穌的身體實體復活是真的歷史事實嗎？有什麼可靠的聖經與歷史證據？" },
+      { title: "褻瀆聖靈的罪", prompt: "聖經中提到『褻瀆聖靈總不得赦免』，這到底是指什麼罪？我會不會不小心犯了？" },
+      { title: "聖經無誤與權威", prompt: "聖經是由幾十位人類作者在數千年間寫成的，我們如何確信它是全然無誤的神的話？" },
+      { title: "舊約殘酷經文的理解", prompt: "舊約聖經中以色列人進迦南時滅絕仇敵的記載，該如何從基督救贖的角度去正確理解？" },
+      { title: "面對聖經看似矛盾之處", prompt: "讀四福音書或其他經文時，如果發現記載細節看似有出入或矛盾，應當如何正確解讀？" },
+      { title: "舊約律法與今日信徒", prompt: "舊約的飲食條例、割禮與安息日等律法，今天新約的基督徒還需要遵守嗎？" },
+      { title: "如何正確讀經與靈修", prompt: "平時讀聖經常常覺得枯燥或看不懂，有哪些合乎聖經原則的研讀與靈修方法？" },
+      { title: "啟示錄與預言解讀", prompt: "啟示錄中充滿了象徵與異象，我們應該如何以穩健的神學眼光去理解它，而不陷入末日狂熱？" },
+      { title: "聖經正典的形成", prompt: "聖經 66 卷正典是如何被確立的？我們怎麼知道沒有其他書卷被遺漏或誤加？" },
+      { title: "創造論與演化論", prompt: "創世記的六日創造與現代科學的演化論、宇宙大爆炸理論，在神學上該如何看待？" },
+      { title: "信仰與理性的關係", prompt: "基督信仰是盲目相信嗎？信仰與人類的理性、科學探索之間是衝突還是互補？" },
+      { title: "神蹟在現代還存在嗎", prompt: "聖經中記載了許多神蹟奇事，在今天的現代社會中，上帝還會行神蹟嗎？" },
+      { title: "AI 科技與人類靈魂", prompt: "隨著人工智慧（AI）的高度發展，AI 與上帝照自己形象所造的人類有何本質上的不同？" },
+      { title: "恐龍與史前時代", prompt: "聖經創世記有提到恐龍或史前時代的生物嗎？基督徒該如何看待化石與地質年代？" },
+      { title: "宇宙中若有外星生命", prompt: "如果未來科學發現了外星生命，這會推翻聖經的創世與救贖真理嗎？" },
+      { title: "尋求神的旨意", prompt: "面臨升學、工作、婚姻等重大人生抉擇時，基督徒該如何清楚辨明並尋求神的旨意？" },
+      { title: "禱告未蒙應允", prompt: "如果我長期為一件美事迫切禱告，上帝卻始終沒有照我的心願回應，該如何面對？" },
+      { title: "如何面對罪疚與反覆跌倒", prompt: "信主後依然常常在同一個罪或軟弱中反覆跌倒，感到非常內疚與挫折，該怎麼辦？" },
+      { title: "基督徒的財富觀與奉獻", prompt: "聖經如何看待金錢與財富？十一奉獻在新約時代是律法規定還是恩典中的感恩？" },
+      { title: "職場中的信仰實踐", prompt: "在競爭激烈且充滿妥協誘惑的世俗職場中，基督徒該如何活出信仰並做光做鹽？" },
+      { title: "饒恕傷害我們的人", prompt: "面對深深傷害過我們的人，聖經教導我們要『饒恕七十個七次』，這在實務上該如何做到？" },
+      { title: "基督徒的感情與婚姻觀", prompt: "聖經所啟示的婚姻本質是什麼？信與不信真的不能同負一軛嗎？" },
+      { title: "休閒娛樂與聖潔生活", prompt: "基督徒可以接觸世俗的流行音樂、電玩、電影等娛樂嗎？界線應該如何拿捏？" },
+      { title: "一定要去教會嗎", prompt: "我自己在家讀經、禱告、看網路講道也可以靈修，為什麼一定要加入實體教會聚會？" },
+      { title: "教會中的受傷與失望", prompt: "如果我在教會中遇到人際衝突、偽善或權力濫用而感到受傷失望，該如何面對？" },
+      { title: "洗禮與聖餐的意義", prompt: "洗禮與聖餐（聖禮）在基督徒的信仰中代表什麼意義？它有使人得救的功效嗎？" },
+      { title: "傳福音的負擔與勇氣", prompt: "想向身邊未信主的家人與朋友傳福音，但常常害怕被拒絕或破壞關係，該如何著手？" },
+      { title: "基督再臨與末日審判", prompt: "耶穌基督再來（末世）時會發生什麼事？聖經教導我們應當如何儆醒等候？" },
+      { title: "新天新地與天堂生活", prompt: "信徒死後以及末日復活後，在新天新地中的永恆生活會是怎樣的狀態？" }
+    ];
+
+    function renderWelcomeCardPrompts() {
+      const container = document.getElementById('sample-prompts-container');
+      if (!container) return;
+
+      // 隨機抽取 3 題不重複的問題
+      const shuffled = [...SAMPLE_QUESTION_BANK].sort(() => Math.random() - 0.5);
+      const selected = shuffled.slice(0, 3);
+
+      container.innerHTML = '';
+      selected.forEach(item => {
+        const btn = document.createElement('button');
+        btn.className = 'sample-prompt-btn';
+        btn.setAttribute('data-prompt', item.prompt);
+        btn.innerHTML = `<i class="fa-solid fa-circle-question"></i> <span>${item.title}</span>`;
+        btn.addEventListener('click', () => {
+          userInput.value = item.prompt;
+          userInput.style.height = 'auto';
+          userInput.style.height = Math.min(userInput.scrollHeight, 160) + 'px';
+          sendMessage();
+        });
+        container.appendChild(btn);
+      });
+    }
+
     function renderCurrentChatUI() {
       chatContainer.innerHTML = '';
       if (currentMessages.length === 0) {
+        renderWelcomeCardPrompts();
         chatContainer.appendChild(welcomeCard);
         welcomeCard.style.display = 'block';
       } else {
@@ -1636,17 +1704,6 @@
 
       btnSend.addEventListener('click', sendMessage);
 
-      // Sample prompt buttons
-      document.querySelectorAll('.sample-prompt-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const prompt = btn.getAttribute('data-prompt');
-          userInput.value = prompt;
-          userInput.style.height = 'auto';
-          userInput.style.height = Math.min(userInput.scrollHeight, 160) + 'px';
-          sendMessage();
-        });
-      });
-
       // Share Action
       btnShare.addEventListener('click', () => {
         if (currentMessages.length === 0) {
@@ -1809,7 +1866,7 @@
             copyBtn.className = 'btn-copy-msg';
             copyBtn.innerHTML = '<i class="fa-regular fa-copy"></i> 複製';
             copyBtn.addEventListener('click', () => {
-              navigator.clipboard.writeText(content).then(() => showToast('已複製解答內容'));
+              copySingleAnswer(content);
             });
             actions.appendChild(copyBtn);
             bubble.appendChild(actions);
@@ -1941,7 +1998,7 @@
             copyBtn.className = 'btn-copy-msg';
             copyBtn.innerHTML = '<i class="fa-regular fa-copy"></i> 複製';
             copyBtn.addEventListener('click', () => {
-              navigator.clipboard.writeText(replyText).then(() => showToast('已複製解答內容'));
+              copySingleAnswer(replyText);
             });
             actions.appendChild(copyBtn);
             bubble.appendChild(actions);
@@ -1998,6 +2055,17 @@
       sendMessage();
     }
 
+    /* Share & Copy Helpers */
+    function getShareBrandFooter() {
+      const cleanUrl = window.location.href.split('?')[0].split('#')[0];
+      return `LogosAI - 高舉聖經 ‧ 研討真理\n${cleanUrl}`;
+    }
+
+    function copySingleAnswer(content) {
+      const fullText = `${content}\n\n${getShareBrandFooter()}`;
+      navigator.clipboard.writeText(fullText).then(() => showToast('已複製'));
+    }
+
     /* Share & Export Functions for Current Active Session */
     function openShareModal() {
       if (currentMessages.length === 0) {
@@ -2010,14 +2078,13 @@
     function generateShareText() {
       const currentSession = sessions.find(s => s.id === currentSessionId);
       const title = currentSession ? currentSession.title : 'LogosAI 神學對話';
-      const cleanUrl = window.location.href.replace(/[?&]openExternalBrowser=1/, '').replace(/\?$/, '');
       
       let formatted = `【${title}】\n\n`;
       currentMessages.forEach(msg => {
         const roleLabel = msg.role === 'user' ? '👤 提問：' : '📖 神學解答：';
         formatted += `${roleLabel}\n${msg.content}\n\n`;
       });
-      formatted += `LogosAI - 高舉聖經 ‧ 研討真理\n${cleanUrl}`;
+      formatted += getShareBrandFooter();
       return formatted;
     }
 
