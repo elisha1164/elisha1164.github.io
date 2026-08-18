@@ -517,6 +517,27 @@
         </div>
     </div>
 
+    <!-- 喘口氣救援按鈕與彈出框 -->
+    <button id="takeBreathBtn" class="fixed bottom-6 right-6 bg-stone-800 text-white px-4 py-3 rounded-full shadow-lg hover:bg-stone-700 hover:scale-105 transition-all z-40 hidden flex items-center gap-2 font-medium">
+        <span class="text-xl">☕</span> 喘口氣？
+    </button>
+    <div id="takeBreathModal" class="fixed inset-0 bg-stone-900/60 hidden flex items-center justify-center z-[60] transition-opacity backdrop-blur-sm">
+        <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4">
+            <h4 class="font-bold text-stone-800 text-lg mb-3">☕ 喘口氣？</h4>
+            <p class="text-stone-600 text-sm mb-6 leading-relaxed">
+                讀經是為了認識耶穌，而不是為了跑一場不能落後的馬拉松。如果進度讓您感到疲憊，我們可以重新出發。
+            </p>
+            <div class="flex flex-col gap-2">
+                <button id="takeBreathConfirmBtn" class="w-full bg-stone-800 text-white py-3 rounded-xl hover:bg-stone-700 transition font-bold text-sm shadow-sm">
+                    今日重新出發
+                </button>
+                <button id="takeBreathCancelBtn" class="w-full bg-stone-100 text-stone-600 py-3 rounded-xl hover:bg-stone-200 transition font-medium text-sm mt-1">
+                    取消
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- 🔥 初始設定精靈 (Setup Wizard) Modal 🔥 -->
     <div id="setupWizardModal" class="fixed inset-0 bg-stone-900/60 hidden flex items-center justify-center z-[60] transition-opacity backdrop-blur-sm">
         <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full mx-4 relative overflow-hidden">
