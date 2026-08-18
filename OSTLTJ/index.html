@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v1.56 新增「喘口氣」進度落後救援機制，提供一鍵平移進度至今日的功能 -->
 <!-- v1.55 簡化新手設定精靈，將匯入備份按鈕降級為文字連結，降低初次使用者認知負擔 -->
 <!-- v1.54 優化默想筆記匯出分享格式，加入首尾節經文摘錄，並移除結尾分隔線 -->
 <!-- v1.53 新增默想筆記的分享功能，支援單日純文字與多日匯出，並重構進度標題邏輯 -->
@@ -849,6 +850,10 @@
             congratsResetBtn: document.getElementById('congratsResetBtn'),
             congratsCloseBtn: document.getElementById('congratsCloseBtn'),
             // 🔥 新增：初始設定精靈 DOM 元素 🔥
+            takeBreathBtn: document.getElementById('takeBreathBtn'),
+            takeBreathModal: document.getElementById('takeBreathModal'),
+            takeBreathConfirmBtn: document.getElementById('takeBreathConfirmBtn'),
+            takeBreathCancelBtn: document.getElementById('takeBreathCancelBtn'),
             setupWizardModal: document.getElementById('setupWizardModal'),
             wizardStepWelcome: document.getElementById('wizardStepWelcome'),
             wizardNewPlanBtn: document.getElementById('wizardNewPlanBtn'),
@@ -1619,6 +1624,7 @@
                 readProgress[currentDay] = e.target.checked;
                 localStorage.setItem('gemini_read_progress', JSON.stringify(readProgress));
                 updateHeaderVisuals(currentDay, e.target.checked);
+                checkFallBehind();
                 
                 // 清除之前的跳轉計時器（防連續點擊）
                 if (window._smartRouteTimer) clearTimeout(window._smartRouteTimer);
@@ -1810,6 +1816,24 @@
                 });
             });
 
+            dom.takeBreathBtn.addEventListener('click', () => {
+                dom.takeBreathModal.classList.remove('hidden');
+            });
+            dom.takeBreathCancelBtn.addEventListener('click', () => {
+                dom.takeBreathModal.classList.add('hidden');
+            });
+            dom.takeBreathConfirmBtn.addEventListener('click', () => {
+                const { earliest } = getEarliestUnreadDay();
+                const newStartDate = reverseCalculateStartDate(earliest, restDays);
+                if (newStartDate) {
+                    const yyyy = newStartDate.getFullYear();
+                    const mm = String(newStartDate.getMonth() + 1).padStart(2, '0');
+                    const dd = String(newStartDate.getDate()).padStart(2, '0');
+                    localStorage.setItem('gemini_start_date', `${yyyy}-${mm}-${dd}`);
+                    window.location.reload();
+                }
+            });
+
             dom.wizardFinishBtn.addEventListener('click', () => {
                 const newRestDays = Array.from(dom.wizardRestCheckboxes).filter(cb => cb.checked).map(cb => parseInt(cb.value));
                 completeWizard(newRestDays);
@@ -1943,6 +1967,7 @@
                 
                 // 執行智慧載入定位邏輯
                 changeDay(getSmartTargetDay());
+                checkFallBehind();
 
                 // 🔥 觸發條件改為啟動設定精靈：需同時滿足「未看過導覽」且「非透過 PWA 推廣參數進來」 🔥
                 if (!localStorage.getItem('tour_completed') && !isPwaPromptActive) {
@@ -1957,6 +1982,29 @@
                 } else {
                     dom.statusText.innerHTML = `❌ 載入失敗。<br><span class="text-sm text-red-500">發生錯誤：${error.message}。請確認所有必要的 CSV 與 JSON 檔案皆已上傳。</span>`;
                 }
+            }
+        }
+
+        function getEarliestUnreadDay() {
+            let actualDay = calculateCurrentDay(localStorage.getItem('gemini_start_date'));
+            if (actualDay === null) actualDay = 358;
+            let earliest = actualDay;
+            for (let i = 1; i <= actualDay; i++) {
+                if (!readProgress[i]) {
+                    earliest = i;
+                    break;
+                }
+            }
+            return { actualDay, earliest };
+        }
+
+        function checkFallBehind() {
+            if (!localStorage.getItem('gemini_start_date') || !localStorage.getItem('tour_completed')) return;
+            const { actualDay, earliest } = getEarliestUnreadDay();
+            if (actualDay - earliest > 14) {
+                dom.takeBreathBtn.classList.remove('hidden');
+            } else {
+                dom.takeBreathBtn.classList.add('hidden');
             }
         }
 
@@ -2513,6 +2561,6 @@
 
         window.addEventListener('DOMContentLoaded', init);
     </script>
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.55</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.56</div>
 </body>
 </html>
