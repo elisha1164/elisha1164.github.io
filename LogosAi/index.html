@@ -1,6 +1,6 @@
 <!-- 
-  Version: v4.7.0
-  Summary: Added dual-format clipboard (rich HTML + messaging-friendly plain text) and robust markdown-to-plaintext conversion for copying and sharing.
+  Version: v4.8.0
+  Summary: Added persistent device UUID, session UUID, and full markdown answer dual-logging to Google Sheets and Cloudflare D1.
 -->
 <!DOCTYPE html>
 <html lang="zh-TW" class="light">
@@ -1150,7 +1150,7 @@
   </div>
 
   <!-- Version Badge -->
-  <div class="app-version-badge">v4.7.0</div>
+  <div class="app-version-badge">v4.8.0</div>
 
   <!-- Toast Notification -->
   <div id="toast"></div>
@@ -1159,6 +1159,26 @@
   <script>
     /* Global Variables & State */
     const DEFAULT_PROXY_URL = 'https://logos-ai-proxy.elisha1164.workers.dev';
+    
+    // UUID Generator & Device ID Persistence
+    function generateUUID() {
+      if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+        return crypto.randomUUID();
+      }
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
+    }
+
+    function getOrCreateDeviceId() {
+      let devId = localStorage.getItem('logosai_device_id');
+      if (!devId) {
+        devId = generateUUID();
+        localStorage.setItem('logosai_device_id', devId);
+      }
+      return devId;
+    }
     
     let sessions = []; // [{ id, title, createdAt, updatedAt }]
     let currentSessionId = null;
@@ -1272,7 +1292,7 @@
     }
 
     async function createNewSession(customTitle = '新神學對話') {
-      const newId = 'session_' + Date.now();
+      const newId = generateUUID();
       const newSession = {
         id: newId,
         title: customTitle,
@@ -1954,7 +1974,9 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             messages: currentMessages,
-            targetAudience: targetAudience
+            targetAudience: targetAudience,
+            deviceId: getOrCreateDeviceId(),
+            sessionId: currentSessionId
           })
         });
 

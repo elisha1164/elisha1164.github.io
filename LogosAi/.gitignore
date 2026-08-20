@@ -3,6 +3,12 @@ worker.js
 LogosAi/worker.js
 **/worker.js
 
+# Google Apps Script backup
+apps_script.txt
+LogosAi/apps_script.txt
+**/apps_script.txt
+
 # OS metadata
 .DS_Store
 Thumbs.db
+
