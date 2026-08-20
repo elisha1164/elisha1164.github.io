@@ -1,6 +1,6 @@
 <!-- 
-  Version: v4.6.1
-  Summary: Fixed welcome card sample prompts DOM query reference so 3 random prompts display reliably on new sessions.
+  Version: v4.7.0
+  Summary: Added dual-format clipboard (rich HTML + messaging-friendly plain text) and robust markdown-to-plaintext conversion for copying and sharing.
 -->
 <!DOCTYPE html>
 <html lang="zh-TW" class="light">
@@ -1150,7 +1150,7 @@
   </div>
 
   <!-- Version Badge -->
-  <div class="app-version-badge">v4.6.1</div>
+  <div class="app-version-badge">v4.7.0</div>
 
   <!-- Toast Notification -->
   <div id="toast"></div>
@@ -2061,9 +2061,124 @@
       return `LogosAI - 高舉聖經 ‧ 研討真理\n${cleanUrl}`;
     }
 
-    function copySingleAnswer(content) {
-      const fullText = `${content}\n\n${getShareBrandFooter()}`;
-      navigator.clipboard.writeText(fullText).then(() => showToast('已複製'));
+    // 將 Markdown 轉為通訊軟體（LINE/Messenger/微信）友善之清晰純文字排版
+    function markdownToPlainText(md) {
+      if (!md) return '';
+
+      let text = md;
+
+      // 1. Markdown 表格轉為結構化條列清單
+      text = text.replace(/((?:^[ \t]*\|[^\n]+\|[ \t]*(?:\r?\n|$))+)/gm, (tableBlock) => {
+        const rawLines = tableBlock.trim().split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+        if (rawLines.length < 2) return tableBlock;
+
+        const parseCells = line => line.split('|').slice(1, -1).map(c => c.trim());
+        const headers = parseCells(rawLines[0]);
+        const isSeparator = /^\|[ \t]*:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)*\|$/.test(rawLines[1]);
+        const dataRows = isSeparator ? rawLines.slice(2) : rawLines.slice(1);
+
+        if (dataRows.length === 0) return '';
+
+        const outputList = [];
+        dataRows.forEach(rowLine => {
+          const cells = parseCells(rowLine);
+          if (cells.length === 0 || cells.every(c => !c)) return;
+
+          if (cells.length === 2) {
+            // 雙欄表格簡化：• 標題：內容
+            outputList.push(`• ${cells[0]}：${cells[1]}`);
+          } else {
+            // 多欄表格：【主項】下展開其餘屬性
+            const mainTitle = cells[0] || '項目';
+            let rowText = `【${mainTitle}】\n`;
+            for (let i = 1; i < cells.length; i++) {
+              const headerLabel = headers[i] || `屬性${i}`;
+              if (cells[i]) {
+                rowText += `  • ${headerLabel}：${cells[i]}\n`;
+              }
+            }
+            outputList.push(rowText.trimEnd());
+          }
+        });
+
+        return '\n' + outputList.join('\n\n') + '\n';
+      });
+
+      // 2. 標題轉換：#、##、### 標題 -> 【標題】
+      text = text.replace(/^[ \t]*#{1,6}[ \t]+([^\n]+)/gm, (match, title) => {
+        const cleanTitle = title.trim().replace(/\*\*/g, '').replace(/__/g, '');
+        return `\n【${cleanTitle}】`;
+      });
+
+      // 3. 粗體、斜體、刪除線去除
+      text = text.replace(/\*\*\*([^*]+)\*\*\*/g, '$1');
+      text = text.replace(/\*\*([^*]+)\*\*/g, '$1');
+      text = text.replace(/\*([^*]+)\*/g, '$1');
+      text = text.replace(/___([^_]+)___/g, '$1');
+      text = text.replace(/__([^_]+)__/g, '$1');
+      text = text.replace(/_([^_]+)_/g, '$1');
+      text = text.replace(/~~([^~]+)~~/g, '$1');
+
+      // 4. 引用區塊：> 引用 -> │ 引用
+      text = text.replace(/^[ \t]*>[ \t]?([^\n]+)/gm, '│ $1');
+
+      // 5. 無序清單轉換：*、-、+ 清單 -> • 清單
+      text = text.replace(/^[ \t]*[-*+][ \t]+([^\n]+)/gm, '• $1');
+
+      // 6. 水平分隔線：---、***、___ -> ──────────
+      text = text.replace(/^[ \t]*[-*_]{3,}[ \t]*$/gm, '──────────');
+
+      // 7. 程式碼區塊與行內代碼
+      text = text.replace(/```[a-zA-Z0-9_-]*\n([\s\S]*?)```/g, '$1');
+      text = text.replace(/`([^`]+)`/g, '$1');
+
+      // 8. 連結：[文字](url) -> 文字 (url)
+      text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, linkText, url) => {
+        if (linkText === url) return url;
+        return `${linkText} (${url})`;
+      });
+
+      // 9. 清理多餘空行（最多連續 2 個換行）
+      text = text.replace(/\n{3,}/g, '\n\n').trim();
+
+      return text;
+    }
+
+    // 雙格式剪貼簿寫入器（富文本 HTML + 友善純文字 Plain Text）
+    async function writeDualClipboard(plainText, htmlText) {
+      if (navigator.clipboard && window.ClipboardItem) {
+        try {
+          const blobText = new Blob([plainText], { type: 'text/plain' });
+          const blobHtml = new Blob([htmlText || marked.parse(plainText)], { type: 'text/html' });
+          await navigator.clipboard.write([
+            new ClipboardItem({
+              'text/plain': blobText,
+              'text/html': blobHtml
+            })
+          ]);
+          return true;
+        } catch (e) {
+          console.warn('ClipboardItem write failed, fallback to writeText:', e);
+        }
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(plainText);
+        return true;
+      }
+      return false;
+    }
+
+    async function copySingleAnswer(content) {
+      const footer = getShareBrandFooter();
+      const plainBody = markdownToPlainText(content);
+      const fullPlainText = `${plainBody}\n\n${footer}`;
+      
+      const htmlBody = marked.parse(content);
+      const cleanUrl = window.location.href.split('?')[0].split('#')[0];
+      const fullHtml = `<div>${htmlBody}</div><br><div style="color: #64748b; font-size: 0.9em;"><p>LogosAI - 高舉聖經 ‧ 研討真理</p><p><a href="${cleanUrl}">${cleanUrl}</a></p></div>`;
+
+      await writeDualClipboard(fullPlainText, fullHtml);
+      showToast('已複製');
     }
 
     /* Share & Export Functions for Current Active Session */
@@ -2075,21 +2190,22 @@
       modalShare.classList.add('active');
     }
 
-    function generateShareText() {
+    function generateShareText(isMarkdown = false) {
       const currentSession = sessions.find(s => s.id === currentSessionId);
       const title = currentSession ? currentSession.title : 'LogosAI 神學對話';
       
       let formatted = `【${title}】\n\n`;
       currentMessages.forEach(msg => {
         const roleLabel = msg.role === 'user' ? '👤 提問：' : '📖 神學解答：';
-        formatted += `${roleLabel}\n${msg.content}\n\n`;
+        const bodyText = isMarkdown ? msg.content : markdownToPlainText(msg.content);
+        formatted += `${roleLabel}\n${bodyText}\n\n`;
       });
       formatted += getShareBrandFooter();
       return formatted;
     }
 
     async function triggerNativeShare() {
-      const shareText = generateShareText();
+      const shareText = generateShareText(false);
       const currentSession = sessions.find(s => s.id === currentSessionId);
       const title = currentSession ? currentSession.title : 'LogosAI 聖經神學對話紀錄';
 
@@ -2103,30 +2219,39 @@
           showToast('分享成功！');
         } catch (err) {
           if (err.name !== 'AbortError') {
-            copyConversationToClipboard();
+            await copyConversationToClipboard();
           }
         }
       } else {
-        copyConversationToClipboard();
+        await copyConversationToClipboard();
       }
     }
 
-    function copyConversationToClipboard() {
-      const fullText = generateShareText();
-      navigator.clipboard.writeText(fullText).then(() => {
-        modalShare.classList.remove('active');
-        showToast('對話全文已成功複製至剪貼簿！');
-      }).catch(err => {
-        showToast('複製失敗，請手動全選複製');
+    async function copyConversationToClipboard() {
+      const fullPlainText = generateShareText(false);
+      
+      const currentSession = sessions.find(s => s.id === currentSessionId);
+      const title = currentSession ? currentSession.title : 'LogosAI 神學對話';
+      let htmlParts = `<h2>【${title}】</h2>`;
+      currentMessages.forEach(msg => {
+        const roleLabel = msg.role === 'user' ? '<h3>👤 提問：</h3>' : '<h3>📖 神學解答：</h3>';
+        htmlParts += `${roleLabel}<div>${marked.parse(msg.content)}</div><hr>`;
       });
+      const cleanUrl = window.location.href.split('?')[0].split('#')[0];
+      htmlParts += `<div style="color: #64748b; font-size: 0.9em;"><p>LogosAI - 高舉聖經 ‧ 研討真理</p><p><a href="${cleanUrl}">${cleanUrl}</a></p></div>`;
+
+      await writeDualClipboard(fullPlainText, htmlParts);
+      if (modalShare) modalShare.classList.remove('active');
+      showToast('已複製');
     }
 
     function downloadFile(format) {
       const currentSession = sessions.find(s => s.id === currentSessionId);
       const title = currentSession ? currentSession.title.replace(/[\/\\?%*:|"<>]/g, '_') : 'LogosAI_Chat';
-      const content = generateShareText();
+      const isMd = format === 'md';
+      const content = generateShareText(isMd);
       const filename = `LogosAI_${title}.${format}`;
-      const mimeType = format === 'md' ? 'text/markdown' : 'text/plain';
+      const mimeType = isMd ? 'text/markdown' : 'text/plain';
 
       const blob = new Blob([content], { type: `${mimeType};charset=utf-8` });
       const url = URL.createObjectURL(blob);
