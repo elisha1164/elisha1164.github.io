@@ -1,6 +1,6 @@
 <!-- 
-  Version: v4.8.0
-  Summary: Added persistent device UUID, session UUID, and full markdown answer dual-logging to Google Sheets and Cloudflare D1.
+  Version: v4.8.1
+  Summary: Fixed markdown-to-plaintext regex execution order and single-line constraint to guarantee reliable list bullet conversion.
 -->
 <!DOCTYPE html>
 <html lang="zh-TW" class="light">
@@ -1150,7 +1150,7 @@
   </div>
 
   <!-- Version Badge -->
-  <div class="app-version-badge">v4.8.0</div>
+  <div class="app-version-badge">v4.8.1</div>
 
   <!-- Toast Notification -->
   <div id="toast"></div>
@@ -2128,31 +2128,31 @@
 
       // 2. 標題轉換：#、##、### 標題 -> 【標題】
       text = text.replace(/^[ \t]*#{1,6}[ \t]+([^\n]+)/gm, (match, title) => {
-        const cleanTitle = title.trim().replace(/\*\*/g, '').replace(/__/g, '');
+        const cleanTitle = title.trim().replace(/[*_~`]/g, '');
         return `\n【${cleanTitle}】`;
       });
 
-      // 3. 粗體、斜體、刪除線去除
-      text = text.replace(/\*\*\*([^*]+)\*\*\*/g, '$1');
-      text = text.replace(/\*\*([^*]+)\*\*/g, '$1');
-      text = text.replace(/\*([^*]+)\*/g, '$1');
-      text = text.replace(/___([^_]+)___/g, '$1');
-      text = text.replace(/__([^_]+)__/g, '$1');
-      text = text.replace(/_([^_]+)_/g, '$1');
-      text = text.replace(/~~([^~]+)~~/g, '$1');
+      // 3. 水平分隔線：---、***、___ -> ──────────（先於清單與斜體處理，避免 *** 被誤判）
+      text = text.replace(/^[ \t]*[-*_]{3,}[ \t]*$/gm, '──────────');
 
       // 4. 引用區塊：> 引用 -> │ 引用
       text = text.replace(/^[ \t]*>[ \t]?([^\n]+)/gm, '│ $1');
 
-      // 5. 無序清單轉換：*、-、+ 清單 -> • 清單
-      text = text.replace(/^[ \t]*[-*+][ \t]+([^\n]+)/gm, '• $1');
+      // 5. 無序清單轉換（關鍵：必須在粗體/斜體去除前執行，將開頭的 * 或 - 轉為 •，避免 list 符號被當作斜體吃掉）
+      text = text.replace(/^([ \t]*)[-*+][ \t]+([^\n]+)/gm, '$1• $2');
 
-      // 6. 水平分隔線：---、***、___ -> ──────────
-      text = text.replace(/^[ \t]*[-*_]{3,}[ \t]*$/gm, '──────────');
-
-      // 7. 程式碼區塊與行內代碼
+      // 6. 程式碼區塊與行內代碼
       text = text.replace(/```[a-zA-Z0-9_-]*\n([\s\S]*?)```/g, '$1');
       text = text.replace(/`([^`]+)`/g, '$1');
+
+      // 7. 粗體、斜體、刪除線去除（嚴格限制在單行內 [^\n*]，絕不跨行匹配）
+      text = text.replace(/\*\*\*([^\n*]+)\*\*\*/g, '$1');
+      text = text.replace(/\*\*([^\n*]+)\*\*/g, '$1');
+      text = text.replace(/\*([^\n*]+)\*/g, '$1');
+      text = text.replace(/___([^\n_]+)___/g, '$1');
+      text = text.replace(/__([^\n_]+)__/g, '$1');
+      text = text.replace(/_([^\n_]+)_/g, '$1');
+      text = text.replace(/~~([^\n~]+)~~/g, '$1');
 
       // 8. 連結：[文字](url) -> 文字 (url)
       text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, linkText, url) => {
