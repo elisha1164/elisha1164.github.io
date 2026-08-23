@@ -1,11 +1,8 @@
 <!DOCTYPE html>
 <!-- 
-  版本號：v1.51
+  版本號：v1.52
   修改主旨：
-  1. 更新書卷英文簡稱系統：
-     - 採用全新的書卷英文簡稱標準（如 1Kgs, Phlm, Jas 等）。
-     - 更新選單中不連續縮寫字元的粗體位置邏輯（例如 Kings 顯示為 K..gs 粗體）。
-     - 在 URL 解析器中加入 legacyMap，無縫相容舊版簡稱（如 1Kings, James）的 ?ref= 連結。
+  1. 卡片操作體驗優化：當用戶操作卡片上的經文選擇器（切換書卷、更換章節、或點擊上下章）時，系統會自動平滑捲動將該卡片置頂（考量並預留了動態 Sticky Header 的空間），避免用戶面對長文卡片還需手動向上滑動的困擾。
 -->
 <html lang="zh-TW">
 <head>
@@ -281,7 +278,7 @@
     </div>
 
     <!-- 右下角版本號標示 -->
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.51</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.52</div>
 
     <script>
         // ==========================================
@@ -728,6 +725,18 @@
         // ==========================================
         // 5. 經文多卡片渲染與控制 Engine
         // ==========================================
+        window.scrollToCard = function(cardId) {
+            setTimeout(() => {
+                const el = document.getElementById(cardId);
+                if (el) {
+                    const customOffset = document.documentElement.style.getPropertyValue('--header-height');
+                    const headerOffset = customOffset ? parseInt(customOffset) : (els.mainHeader ? els.mainHeader.offsetHeight : 60);
+                    const top = el.getBoundingClientRect().top + window.scrollY - (headerOffset + 16);
+                    window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+                }
+            }, 50);
+        };
+
         function renderAllCards() {
             if (!els.cardsContainer) return;
             let html = '';
@@ -889,6 +898,7 @@
             stopTTS();
             renderAllCards();
             updateUrlAndTitle();
+            scrollToCard(card.id);
         }
 
         // 新增卡片：一律歸零載入系統預設值（《創世記》第1章全章）
@@ -900,16 +910,7 @@
             stopTTS();
             renderAllCards();
             updateUrlAndTitle();
-
-            // 延遲以保障 DOM 更新後平滑捲動至新卡片
-            setTimeout(() => {
-                const el = document.getElementById(newCard.id);
-                if (el) {
-                    const headerOffset = els.mainHeader ? els.mainHeader.offsetHeight : 60;
-                    const top = el.getBoundingClientRect().top + window.scrollY - (headerOffset + 16);
-                    window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
-                }
-            }, 50);
+            scrollToCard(newCard.id);
         };
 
         // 移除卡片
@@ -972,6 +973,7 @@
             stopTTS();
             renderAllCards();
             updateUrlAndTitle();
+            scrollToCard(activeModalCardId);
         };
 
         window.openCvModalForCard = function(cardId, type) {
@@ -1078,6 +1080,7 @@
             stopTTS();
             renderAllCards();
             updateUrlAndTitle();
+            scrollToCard(activeModalCardId);
         };
 
         // 雙語對照切換
