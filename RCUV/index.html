@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <!-- 
-  版本號：v1.49
+  版本號：v1.51
   修改主旨：
-  1. 修正 PWA 應用程式清單 (manifest.json) 預設啟動路徑：
-     - 將 start_url 由 "./index.html" 改為根目錄 "./"。
-     - 確保透過行動裝置桌面圖示 (Home Screen Icon) 啟動 PWA 時，初始網址即為優雅乾淨的目錄根路徑（無需夾帶 /index.html 贅字）。
+  1. 更新書卷英文簡稱系統：
+     - 採用全新的書卷英文簡稱標準（如 1Kgs, Phlm, Jas 等）。
+     - 更新選單中不連續縮寫字元的粗體位置邏輯（例如 Kings 顯示為 K..gs 粗體）。
+     - 在 URL 解析器中加入 legacyMap，無縫相容舊版簡稱（如 1Kings, James）的 ?ref= 連結。
 -->
 <html lang="zh-TW">
 <head>
@@ -280,7 +281,7 @@
     </div>
 
     <!-- 右下角版本號標示 -->
-    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.49</div>
+    <div class="fixed bottom-2 right-2 text-[10px] text-stone-400/60 pointer-events-none select-none z-50">v1.51</div>
 
     <script>
         // ==========================================
@@ -314,20 +315,20 @@
 
         // 66 卷書中英對照表
         const bookMap = {
-            "Gen": "創世記", "Ex": "出埃及記", "Lev": "利未記", "Num": "民數記", "Deut": "申命記",
+            "Gen": "創世記", "Exod": "出埃及記", "Lev": "利未記", "Num": "民數記", "Deut": "申命記",
             "Josh": "約書亞記", "Judg": "士師記", "1Sam": "撒母耳記上", "2Sam": "撒母耳記下",
-            "1Kings": "列王紀上", "2Kings": "列王紀下", "Isa": "以賽亞書", "Jer": "耶利米書",
+            "1Kgs": "列王紀上", "2Kgs": "列王紀下", "Isa": "以賽亞書", "Jer": "耶利米書",
             "Ezek": "以西結書", "Hos": "何西阿書", "Joel": "約珥書", "Amos": "阿摩司書",
             "Obad": "俄巴底亞書", "Jonah": "約拿書", "Mic": "彌迦書", "Nah": "那鴻書",
             "Hab": "哈巴谷書", "Zeph": "西番雅書", "Hag": "哈該書", "Zech": "撒迦利亞書", "Mal": "瑪拉基書",
             "Ps": "詩篇", "Prov": "箴言", "Job": "約伯記", "Song": "雅歌", "Ruth": "路得記",
-            "Lam": "耶利米哀歌", "Eccles": "傳道書", "Est": "以斯帖記", "Dan": "但以理書",
-            "Ezra": "以斯拉記", "Neh": "尼希米記", "1Chron": "歷代志上", "2Chron": "歷代志下",
+            "Lam": "耶利米哀歌", "Eccl": "傳道書", "Esth": "以斯帖記", "Dan": "但以理書",
+            "Ezra": "以斯拉記", "Neh": "尼希米記", "1Chr": "歷代志上", "2Chr": "歷代志下",
             "Matt": "馬太福音", "Mark": "馬可福音", "Luke": "路加福音", "John": "約翰福音", "Acts": "使徒行傳",
             "Rom": "羅馬書", "1Cor": "哥林多前書", "2Cor": "哥林多後書", "Gal": "加拉太書", "Eph": "以弗所書",
             "Phil": "腓立比書", "Col": "歌羅西書", "1Thess": "帖撒羅尼迦前書", "2Thess": "帖撒羅尼迦後書",
-            "1Tim": "提摩太前書", "2Tim": "提摩太後書", "Titus": "提多書", "Philem": "腓利門書", "Heb": "希伯來書",
-            "James": "雅各書", "1Pet": "彼得前書", "2Pet": "彼得後書", "1John": "約翰一書", "2John": "約翰二書",
+            "1Tim": "提摩太前書", "2Tim": "提摩太後書", "Titus": "提多書", "Phlm": "腓利門書", "Heb": "希伯來書",
+            "Jas": "雅各書", "1Pet": "彼得前書", "2Pet": "彼得後書", "1John": "約翰一書", "2John": "約翰二書",
             "3John": "約翰三書", "Jude": "猶大書", "Rev": "啟示錄"
         };
 
@@ -373,36 +374,38 @@
         ];
 
         const bookAbbrevFormatCh = {
-            "Gen": "<strong>創</strong>世記", "Ex": "<strong>出</strong>埃及記", "Lev": "<strong>利</strong>未記", "Num": "<strong>民</strong>數記", "Deut": "<strong>申</strong>命記",
-            "Josh": "約<strong>書</strong>亞記", "Judg": "<strong>士</strong>師記", "Ruth": "路<strong>得</strong>記", "1Sam": "<strong>撒</strong>母耳記<strong>上</strong>", "2Sam": "<strong>撒</strong>母耳記<strong>下</strong>",
-            "1Kings": "列<strong>王</strong>紀<strong>上</strong>", "2Kings": "列<strong>王</strong>紀<strong>下</strong>", "1Chron": "歷<strong>代</strong>志<strong>上</strong>", "2Chron": "歷<strong>代</strong>志<strong>下</strong>",
-            "Ezra": "以斯<strong>拉</strong>記", "Neh": "<strong>尼</strong>希米記", "Est": "以<strong>斯</strong>帖記", "Job": "約<strong>伯</strong>記", "Ps": "<strong>詩</strong>篇",
-            "Prov": "<strong>箴</strong>言", "Eccles": "<strong>傳</strong>道書", "Song": "雅<strong>歌</strong>", "Isa": "以<strong>賽</strong>亞書", "Jer": "<strong>耶</strong>利米書",
-            "Lam": "耶利米<strong>哀</strong>歌", "Ezek": "以西<strong>結</strong>書", "Dan": "<strong>但</strong>以理書", "Hos": "<strong>何</strong>西阿書", "Joel": "約<strong>珥</strong>書",
-            "Amos": "阿<strong>摩</strong>司書", "Obad": "<strong>俄</strong>巴底亞書", "Jonah": "約<strong>拿</strong>書", "Mic": "<strong>彌</strong>迦書", "Nah": "那<strong>鴻</strong>書",
+            "Gen": "<strong>創</strong>世記", "Exod": "<strong>出</strong>埃及記", "Lev": "<strong>利</strong>未記", "Num": "<strong>民</strong>數記", "Deut": "<strong>申</strong>命記",
+            "Josh": "約<strong>書</strong>亞記", "Judg": "<strong>士</strong>師記", "1Sam": "<strong>撒</strong>母耳記<strong>上</strong>", "2Sam": "<strong>撒</strong>母耳記<strong>下</strong>",
+            "1Kgs": "列<strong>王</strong>紀<strong>上</strong>", "2Kgs": "列<strong>王</strong>紀<strong>下</strong>", "Isa": "以<strong>賽</strong>亞書", "Jer": "<strong>耶</strong>利米書",
+            "Ezek": "以西<strong>結</strong>書", "Hos": "<strong>何</strong>西阿書", "Joel": "約<strong>珥</strong>書", "Amos": "阿<strong>摩</strong>司書",
+            "Obad": "<strong>俄</strong>巴底亞書", "Jonah": "約<strong>拿</strong>書", "Mic": "<strong>彌</strong>迦書", "Nah": "那<strong>鴻</strong>書",
             "Hab": "<strong>哈</strong>巴谷書", "Zeph": "西<strong>番</strong>雅書", "Hag": "哈<strong>該</strong>書", "Zech": "撒迦利<strong>亞</strong>書", "Mal": "<strong>瑪</strong>拉基書",
+            "Ps": "<strong>詩</strong>篇", "Prov": "<strong>箴</strong>言", "Job": "約<strong>伯</strong>記", "Song": "雅<strong>歌</strong>", "Ruth": "路<strong>得</strong>記",
+            "Lam": "耶利米<strong>哀</strong>歌", "Eccl": "<strong>傳</strong>道書", "Esth": "以<strong>斯</strong>帖記", "Dan": "<strong>但</strong>以理書",
+            "Ezra": "以斯<strong>拉</strong>記", "Neh": "<strong>尼</strong>希米記", "1Chr": "歷<strong>代</strong>志<strong>上</strong>", "2Chr": "歷<strong>代</strong>志<strong>下</strong>",
             "Matt": "馬<strong>太</strong>福音", "Mark": "馬<strong>可</strong>福音", "Luke": "<strong>路</strong>加福音", "John": "<strong>約</strong>翰福音", "Acts": "使<strong>徒</strong>行傳",
             "Rom": "<strong>羅</strong>馬書", "1Cor": "哥<strong>林</strong>多<strong>前</strong>書", "2Cor": "哥<strong>林</strong>多<strong>後</strong>書", "Gal": "<strong>加</strong>拉太書", "Eph": "以<strong>弗</strong>所書",
             "Phil": "<strong>腓</strong>立比書", "Col": "歌羅<strong>西</strong>書", "1Thess": "<strong>帖</strong>撒羅尼迦<strong>前</strong>書", "2Thess": "<strong>帖</strong>撒羅尼迦<strong>後</strong>書",
-            "1Tim": "<strong>提</strong>摩太<strong>前</strong>書", "2Tim": "<strong>提</strong>摩太<strong>後</strong>書", "Titus": "提<strong>多</strong>書", "Philem": "腓利<strong>門</strong>書", "Heb": "希伯<strong>來</strong>書",
-            "James": "<strong>雅</strong>各書", "1Pet": "<strong>彼</strong>得<strong>前</strong>書", "2Pet": "<strong>彼</strong>得<strong>後</strong>書", "1John": "<strong>約</strong>翰<strong>一</strong>書", "2John": "<strong>約</strong>翰<strong>二</strong>書",
+            "1Tim": "<strong>提</strong>摩太<strong>前</strong>書", "2Tim": "<strong>提</strong>摩太<strong>後</strong>書", "Titus": "提<strong>多</strong>書", "Phlm": "腓利<strong>門</strong>書", "Heb": "希伯<strong>來</strong>書",
+            "Jas": "<strong>雅</strong>各書", "1Pet": "<strong>彼</strong>得<strong>前</strong>書", "2Pet": "<strong>彼</strong>得<strong>後</strong>書", "1John": "<strong>約</strong>翰<strong>一</strong>書", "2John": "<strong>約</strong>翰<strong>二</strong>書",
             "3John": "<strong>約</strong>翰<strong>三</strong>書", "Jude": "<strong>猶</strong>大書", "Rev": "<strong>啟</strong>示錄"
         };
 
         const bookAbbrevFormatEn = {
-            "Gen": "<strong>Gen</strong>esis", "Ex": "<strong>Ex</strong>odus", "Lev": "<strong>Lev</strong>iticus", "Num": "<strong>Num</strong>bers", "Deut": "<strong>Deut</strong>eronomy",
-            "Josh": "<strong>Josh</strong>ua", "Judg": "<strong>Judg</strong>es", "Ruth": "<strong>Ruth</strong>", "1Sam": "<strong>1 Sam</strong>uel", "2Sam": "<strong>2 Sam</strong>uel",
-            "1Kings": "<strong>1 Kings</strong>", "2Kings": "<strong>2 Kings</strong>", "1Chron": "<strong>1 Chron</strong>icles", "2Chron": "<strong>2 Chron</strong>icles",
-            "Ezra": "<strong>Ezra</strong>", "Neh": "<strong>Neh</strong>emiah", "Est": "<strong>Est</strong>her", "Job": "<strong>Job</strong>", "Ps": "<strong>Ps</strong>alms",
-            "Prov": "<strong>Prov</strong>erbs", "Eccles": "<strong>Eccles</strong>iastes", "Song": "<strong>Song</strong> of Solomon", "Isa": "<strong>Isa</strong>iah", "Jer": "<strong>Jer</strong>emiah",
-            "Lam": "<strong>Lam</strong>entations", "Ezek": "<strong>Ezek</strong>iel", "Dan": "<strong>Dan</strong>iel", "Hos": "<strong>Hos</strong>ea", "Joel": "<strong>Joel</strong>",
-            "Amos": "<strong>Amos</strong>", "Obad": "<strong>Obad</strong>iah", "Jonah": "<strong>Jonah</strong>", "Mic": "<strong>Mic</strong>ah", "Nah": "<strong>Nah</strong>um",
+            "Gen": "<strong>Gen</strong>esis", "Exod": "<strong>Exod</strong>us", "Lev": "<strong>Lev</strong>iticus", "Num": "<strong>Num</strong>bers", "Deut": "<strong>Deut</strong>eronomy",
+            "Josh": "<strong>Josh</strong>ua", "Judg": "<strong>Judg</strong>es", "1Sam": "<strong>1 Sam</strong>uel", "2Sam": "<strong>2 Sam</strong>uel",
+            "1Kgs": "<strong>1 K</strong>in<strong>gs</strong>", "2Kgs": "<strong>2 K</strong>in<strong>gs</strong>", "Isa": "<strong>Isa</strong>iah", "Jer": "<strong>Jer</strong>emiah",
+            "Ezek": "<strong>Ezek</strong>iel", "Hos": "<strong>Hos</strong>ea", "Joel": "<strong>Joel</strong>", "Amos": "<strong>Amos</strong>",
+            "Obad": "<strong>Obad</strong>iah", "Jonah": "<strong>Jonah</strong>", "Mic": "<strong>Mic</strong>ah", "Nah": "<strong>Nah</strong>um",
             "Hab": "<strong>Hab</strong>akkuk", "Zeph": "<strong>Zeph</strong>aniah", "Hag": "<strong>Hag</strong>gai", "Zech": "<strong>Zech</strong>ariah", "Mal": "<strong>Mal</strong>achi",
+            "Ps": "<strong>Ps</strong>alm", "Prov": "<strong>Prov</strong>erbs", "Job": "<strong>Job</strong>", "Song": "<strong>Song</strong> of Solomon", "Ruth": "<strong>Ruth</strong>",
+            "Lam": "<strong>Lam</strong>entations", "Eccl": "<strong>Eccl</strong>esiastes", "Esth": "<strong>Esth</strong>er", "Dan": "<strong>Dan</strong>iel",
+            "Ezra": "<strong>Ezra</strong>", "Neh": "<strong>Neh</strong>emiah", "1Chr": "<strong>1 Chr</strong>onicles", "2Chr": "<strong>2 Chr</strong>onicles",
             "Matt": "<strong>Matt</strong>hew", "Mark": "<strong>Mark</strong>", "Luke": "<strong>Luke</strong>", "John": "<strong>John</strong>", "Acts": "<strong>Acts</strong>",
             "Rom": "<strong>Rom</strong>ans", "1Cor": "<strong>1 Cor</strong>inthians", "2Cor": "<strong>2 Cor</strong>inthians", "Gal": "<strong>Gal</strong>atians", "Eph": "<strong>Eph</strong>esians",
             "Phil": "<strong>Phil</strong>ippians", "Col": "<strong>Col</strong>ossians", "1Thess": "<strong>1 Thess</strong>alonians", "2Thess": "<strong>2 Thess</strong>alonians",
-            "1Tim": "<strong>1 Tim</strong>othy", "2Tim": "<strong>2 Tim</strong>othy", "Titus": "<strong>Titus</strong>", "Philem": "<strong>Philem</strong>on", "Heb": "<strong>Heb</strong>rews",
-            "James": "<strong>James</strong>", "1Pet": "<strong>1 Pet</strong>er", "2Pet": "<strong>2 Pet</strong>er", "1John": "<strong>1 John</strong>", "2John": "<strong>2 John</strong>",
+            "1Tim": "<strong>1 Tim</strong>othy", "2Tim": "<strong>2 Tim</strong>othy", "Titus": "<strong>Titus</strong>", "Phlm": "<strong>Ph</strong>i<strong>l</strong>e<strong>m</strong>on", "Heb": "<strong>Heb</strong>rews",
+            "Jas": "<strong>Ja</strong>me<strong>s</strong>", "1Pet": "<strong>1 Pet</strong>er", "2Pet": "<strong>2 Pet</strong>er", "1John": "<strong>1 John</strong>", "2John": "<strong>2 John</strong>",
             "3John": "<strong>3 John</strong>", "Jude": "<strong>Jude</strong>", "Rev": "<strong>Rev</strong>elation"
         };
 
@@ -564,7 +567,18 @@
             const match = refStr.trim().match(/^(\d?[A-Za-z]+)(.*?)$/);
             if (!match) return null;
             
-            const bAbbrev = match[1];
+            let bAbbrev = match[1];
+            
+            // 舊版 URL 簡稱相容轉換表
+            const legacyMap = {
+                "Ex": "Exod", "1Kings": "1Kgs", "2Kings": "2Kgs",
+                "1Chron": "1Chr", "2Chron": "2Chr", "Est": "Esth",
+                "Eccles": "Eccl", "Philem": "Phlm", "James": "Jas"
+            };
+            if (legacyMap[bAbbrev]) {
+                bAbbrev = legacyMap[bAbbrev];
+            }
+            
             const coords = match[2];
             if (!bookMap[bAbbrev]) return null;
             card.b = bookMap[bAbbrev];
@@ -772,9 +786,9 @@
                 }
 
                 html += `
-                <article class="scripture-card bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden mb-6 flex flex-col" id="${card.id}">
+                <article class="scripture-card bg-white rounded-2xl shadow-sm border border-stone-200 mb-6 flex flex-col" id="${card.id}">
                     <!-- 卡片上方選單控制器，於同一高度最右方放置極簡 ✖ 按鈕 -->
-                    <div class="p-3 sm:p-4 bg-stone-50 border-b border-stone-200 flex justify-between items-center gap-2 shrink-0">
+                    <div class="p-3 sm:p-4 bg-stone-50 rounded-t-2xl border-b border-stone-200 flex justify-between items-center gap-2 shrink-0 sticky top-[var(--header-height,57px)] z-20">
                         <div class="flex flex-wrap items-center gap-1.5 md:gap-2">
                             <button onclick="goToCardPrevChapter('${card.id}')" class="p-1.5 md:p-2 border border-stone-300 rounded-full text-stone-500 hover:bg-stone-100 hover:text-stone-800 transition disabled:opacity-30 disabled:cursor-not-allowed bg-white shadow-sm outline-none focus:ring-2 focus:ring-amber-500 shrink-0" ${isPrevDisabled ? 'disabled' : ''} title="上一章">
                                 <svg class="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"></path></svg>
@@ -1630,9 +1644,17 @@
             }
         }
         
+        // 追蹤主導航列動態高度，以完美定位吸附之卡片標題列
+        const mainHeaderObserver = new ResizeObserver(() => {
+            const mh = document.getElementById('main-header');
+            if (mh) document.documentElement.style.setProperty('--header-height', `${mh.offsetHeight}px`);
+        });
+
         window.addEventListener('DOMContentLoaded', () => {
             initApp();
             checkIosPwaIntent();
+            const mh = document.getElementById('main-header');
+            if (mh) mainHeaderObserver.observe(mh);
         });
 
     </script>
