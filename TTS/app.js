@@ -1,4 +1,4 @@
-// Version: 1.0.0 | Subject: 智慧語音評分選擇器、Markdown 清洗過濾與 TTS 播放循環控制
+// Version: 1.0.1 | Subject: 修復循環播放開關事件冒泡衝突，移除多餘的容器 click 監聽器
 
 /**
  * 紙上聽聲 - 核心語音朗讀與應用邏輯
@@ -426,7 +426,7 @@
       }
     });
 
-    // 循環播放切換
+    // 循環播放切換 (由 label for="loopToggle" 與 input checkbox 原生觸發)
     loopToggle.addEventListener('change', (e) => {
       isLooping = e.target.checked;
       if (isLooping) {
@@ -435,14 +435,6 @@
         loopContainer.classList.remove('is-active');
       }
       localStorage.setItem(STORAGE_KEY_LOOP, isLooping ? 'true' : 'false');
-    });
-
-    // 點擊循環膠囊也能觸發
-    loopContainer.addEventListener('click', (e) => {
-      if (e.target !== loopToggle) {
-        loopToggle.checked = !loopToggle.checked;
-        loopToggle.dispatchEvent(new Event('change'));
-      }
     });
 
     // 輸入文字自動存檔與字數更新

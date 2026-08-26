@@ -1,4 +1,4 @@
-<!-- Version: 1.0.0 | Subject: 建立紙上聽聲 PWA 一頁式語音朗讀應用首頁與 OG 標籤 -->
+<!-- Version: 1.0.1 | Subject: 修復循環播放開關事件冒泡衝突，採用原生 label 語意關聯 -->
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -98,7 +98,7 @@
       </button>
 
       <!-- 循環播放切換開關 -->
-      <div class="loop-control-container" id="loopContainer" title="點擊切換是否在讀完後自動重新循環播放">
+      <label class="loop-control-container" id="loopContainer" for="loopToggle" title="點擊切換是否在讀完後自動重新循環播放">
         <span class="loop-label">
           <svg class="loop-icon" viewBox="0 0 24 24">
             <polyline points="17 1 21 5 17 9"></polyline>
@@ -108,11 +108,11 @@
           </svg>
           循環播放
         </span>
-        <label class="switch">
+        <span class="switch">
           <input type="checkbox" id="loopToggle" aria-label="循環播放開關">
           <span class="slider"></span>
-        </label>
-      </div>
+        </span>
+      </label>
     </section>
 
     <!-- 朗讀動態指示條 -->
