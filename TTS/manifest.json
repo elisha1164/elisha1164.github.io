@@ -1,0 +1,36 @@
+{
+  "name": "紙上聽聲 | Minimal TTS Reader",
+  "short_name": "紙上聽聲",
+  "description": "極簡、優雅且溫暖的紙質風格 PWA 語音朗讀工具，自動過濾 Markdown 語法，跨平台自動適配最自然語音。",
+  "version": "1.0.0",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F9F6F0",
+  "theme_color": "#F9F6F0",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "icons/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

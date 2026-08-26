@@ -1,0 +1,12 @@
+<!-- Version: 1.0.0 | Subject: 瀏覽器 Favicon 向量圖檔 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <rect width="64" height="64" rx="14" fill="#F7F4EE" stroke="#DDD4C4" stroke-width="1.5" />
+  <!-- Mini paper -->
+  <rect x="14" y="10" width="36" height="44" rx="3" fill="#FFFFFF" stroke="#D8CEBD" stroke-width="1.5" />
+  <line x1="20" y1="18" x2="34" y2="18" stroke="#8C5A3C" stroke-width="2" stroke-linecap="round" />
+  <line x1="20" y1="24" x2="42" y2="24" stroke="#C4B7A6" stroke-width="2" stroke-linecap="round" />
+  <!-- Sound Ripple -->
+  <circle cx="32" cy="38" r="3" fill="#8C5A3C" />
+  <path d="M 27 34 A 6 6 0 0 0 27 42" fill="none" stroke="#A66E4E" stroke-width="1.5" stroke-linecap="round" />
+  <path d="M 37 34 A 6 6 0 0 1 37 42" fill="none" stroke="#A66E4E" stroke-width="1.5" stroke-linecap="round" />
+</svg>
