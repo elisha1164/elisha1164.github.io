@@ -1,0 +1,175 @@
+﻿<!-- 版本號: 1.2.0 | 修改主旨: 移除 Squarespace 平台模組、GTM 追蹤碼、SEO/社群中繼資料與外部圖標庫，簡化為純淨獨立之經文背誦測驗頁面 -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ESV Bible Verse Quiz - Flexible Punctuation</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f4f6f8;
+      color: #333;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+    .container {
+      max-width: 700px;
+      width: 100%;
+    }
+    h1 {
+      font-size: 1.8rem;
+      color: #2c3e50;
+      text-align: center;
+      margin-bottom: 25px;
+    }
+    .card {
+      background: white;
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+      margin-bottom: 20px;
+    }
+    .reference {
+      font-size: 1.3rem;
+      font-weight: bold;
+      color: #2b6cb0;
+      margin-bottom: 12px;
+    }
+    textarea {
+      width: 100%;
+      height: 90px;
+      padding: 12px;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      box-sizing: border-box;
+      resize: vertical;
+      font-family: inherit;
+    }
+    textarea:focus {
+      outline: none;
+      border-color: #3182ce;
+    }
+    .feedback {
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 8px;
+      display: none;
+    }
+    .success { background-color: #c6f6d5; color: #22543d; }
+    .error { background-color: #fed7d7; color: #742a2a; }
+    .hint { margin-top: 8px; font-size: 0.88rem; color: #4a5568; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h1>ESV Memory Quiz (All Verses)</h1>
+  <div id="quiz-list"></div>
+</div>
+
+<script>
+  const verses = [
+    { ref: "Psalm 19:1", text: "The heavens declare the glory of God, and the sky above proclaims his handiwork." },
+    { ref: "Isaiah 59:2", text: "but your iniquities have made a separation between you and your God, and your sins have hidden his face from you so that he does not hear." },
+    { ref: "John 3:16", text: "For God so loved the world, that he gave his only Son, that whoever believes in him should not perish but have eternal life." },
+    { ref: "John 3:3", text: "Jesus answered him, 'Truly, truly, I say to you, unless one is born again he cannot see the kingdom of God.'" },
+    { ref: "John 10:10", text: "The thief comes only to steal and kill and destroy. I came that they may have life and have it abundantly." },
+    { ref: "Revelation 4:11", text: "Worthy are you, our Lord and God, to receive glory and honor and power, for you created all things, and by your will they existed and were created." },
+    { ref: "Isaiah 53:6", text: "All we like sheep have gone astray; we have turned—every one—to his own way; and the Lord has laid on him the iniquity of us all." },
+    { ref: "Luke 19:10", text: "For the Son of Man came to seek and to save the lost." },
+    { ref: "John 1:12", text: "But to all who did receive him, who believed in his name, he gave the right to become children of God," },
+    { ref: "John 3:36", text: "Whoever believes in the Son has eternal life; whoever does not obey the Son shall not see life, but the wrath of God remains on him." },
+    { ref: "Matthew 22:37-38", text: "And he said to him, 'You shall love the Lord your God with all your heart and with all your soul and with all your mind. This is the great and first commandment.'" },
+    { ref: "Romans 3:23", text: "for all have sinned and fall short of the glory of God," },
+    { ref: "Romans 5:8", text: "but God shows his love for us in that while we were still sinners, Christ died for us." },
+    { ref: "Matthew 10:28", text: "And do not fear those who kill the body but cannot kill the soul. Rather fear him who can destroy both soul and body in hell." },
+    { ref: "1 John 5:12-13", text: "Whoever has the Son has life; whoever does not have the Son of God does not have life. I write these things to you who believe in the name of the Son of God, that you may know that you have eternal life." },
+    { ref: "Leviticus 19:2", text: "Speak to all the congregation of the people of Israel and say to them, You shall be holy, for I the Lord your God am holy." },
+    { ref: "Romans 6:23", text: "For the wages of sin is death, but the free gift of God is eternal life in Christ Jesus our Lord." },
+    { ref: "1 Peter 2:24", text: "He himself bore our sins in his body on the tree, that we might die to sin and live to righteousness. By his wounds you have been healed." },
+    { ref: "Romans 10:9", text: "because, if you confess with your mouth that Jesus is Lord and believe in your heart that God raised him from the dead, you will be saved." },
+    { ref: "Romans 8:16", text: "The Spirit himself bears witness with our spirit that we are children of God," },
+    { ref: "Hebrews 9:27", text: "And just as it is appointed for man to die once, and after that comes judgment," },
+    { ref: "Isaiah 53:5", text: "But he was wounded for our transgressions; he was crushed for our iniquities; upon him was the chastisement that brought us peace, and with his stripes we are healed." },
+    { ref: "Romans 10:13", text: "For 'everyone who calls on the name of the Lord will be saved.'" },
+    { ref: "1 Timothy 4:16", text: "Keep a close watch on yourself and on the teaching. Persist in this, for by so doing you will save both yourself and your hearers." },
+    { ref: "John 5:24", text: "Truly, truly, I say to you, whoever hears my word and believes him who sent me has eternal life. He does not come into judgment, but has passed from death to life." },
+    { ref: "Acts 16:31", text: "And they said, 'Believe in the Lord Jesus, and you will be saved, you and your household.'" },
+    { ref: "1 Peter 3:18", text: "For Christ also suffered once for sins, the righteous for the unrighteous, that he might bring us to God, being put to death in the flesh but made alive in the spirit," },
+    { ref: "John 14:6", text: "Jesus said to him, 'I am the way, and the truth, and the life. No one comes to the Father except through me.'" },
+    { ref: "Acts 4:12", text: "And there is salvation in no one else, for there is no other name under heaven given among men by which we must be saved." },
+    { ref: "2 Corinthians 5:17", text: "Therefore, if anyone is in Christ, he is a new creation. The old has passed away; behold, the new has come." },
+    { ref: "2 Corinthians 5:21", text: "For our sake he made him to be sin who knew no sin, so that in him we might become the righteousness of God." },
+    { ref: "Luke 13:3", text: "No, I tell you; but unless you repent, you will all likewise perish." },
+    { ref: "Isaiah 55:7", text: "let the wicked forsake his way, and the unrighteous man his thoughts; let him return to the LORD, that he may have compassion on him, and to our God, for he will abundantly pardon." },
+    { ref: "1 John 1:9", text: "If we confess our sins, he is faithful and just to forgive us our sins and to cleanse us from all unrighteousness." },
+    { ref: "2 Timothy 1:12", text: "which is why I suffer as I do. But I am not ashamed, for I know whom I have believed, and I am convinced that he is able to guard until that Day what has been entrusted to me." },
+    { ref: "John 6:37", text: "All that the Father gives me will come to me, and whoever comes to me I will never cast out." },
+    { ref: "Isaiah 1:18", text: "Come now, let us reason together, says the LORD: though your sins are like scarlet, they shall be as white as snow; though they are red like crimson, they shall become like wool." },
+    { ref: "2 Corinthians 6:2", text: "For he says, 'In a favorable time I listened to you, and in a day of salvation I have helped you.' Behold, now is the favorable time; behold, now is the day of salvation." },
+    { ref: "Revelation 3:20", text: "Behold, I stand at the door and knock. If anyone hears my voice and opens the door, I will come in to him and eat with him, and he with me." },
+    { ref: "Ephesians 2:8-9", text: "For by grace you have been saved through faith. And this is not your own doing; it is the gift of God, not a result of works, so that no one may boast." }
+  ];
+
+  function stripPunctuation(str) {
+    return str.toLowerCase().replace(/[^\w\s]/g, "").replace(/\s+/g, " ").trim();
+  }
+
+  function renderQuiz() {
+    const quizList = document.getElementById("quiz-list");
+    quizList.innerHTML = verses.map((verse, index) => `
+      <div class="card">
+        <div class="reference">${verse.ref}</div>
+        <textarea
+          id="user-input-${index}"
+          placeholder="Type the verse here... (press Enter or Tab to check)"
+          onkeydown="handleKeyDown(event, ${index})"
+        ></textarea>
+        <div id="feedback-${index}" class="feedback"></div>
+      </div>
+    `).join('');
+  }
+
+  function checkAnswer(index) {
+    const rawInput = document.getElementById(`user-input-${index}`).value.trim();
+    const targetText = verses[index].text.trim();
+    const feedback = document.getElementById(`feedback-${index}`);
+
+    feedback.style.display = "block";
+
+    // 1. Check for exact match (including punctuation/capitalization)
+    const isExact = rawInput === targetText;
+
+    // 2. Check for match ignoring punctuation and capitalization
+    const isPunctuationFreeMatch = stripPunctuation(rawInput) === stripPunctuation(targetText);
+
+    if (isExact) {
+      feedback.className = "feedback success";
+      feedback.innerHTML = "<strong>Perfect!</strong> Exact match with all punctuation and capitalization.";
+    } else if (isPunctuationFreeMatch) {
+      feedback.className = "feedback success";
+      feedback.innerHTML = "<strong>Correct!</strong> Words match (punctuation skipped or varied).";
+    } else {
+      feedback.className = "feedback error";
+      feedback.innerHTML = `<strong>Not quite word-for-word yet.</strong><div class="hint"><strong>Actual Text:</strong> ${targetText}</div>`;
+    }
+  }
+
+  function handleKeyDown(event, index) {
+    if ((event.key === "Enter" && !event.shiftKey) || event.key === "Tab") {
+      if (event.key === "Enter") {
+        event.preventDefault();
+      }
+      checkAnswer(index);
+    }
+  }
+
+  renderQuiz();
+</script>
+
+</body>
+</html>
