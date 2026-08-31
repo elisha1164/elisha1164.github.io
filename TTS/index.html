@@ -1,4 +1,4 @@
-<!-- Version: 1.0.1 | Subject: 修復循環播放開關事件冒泡衝突，採用原生 label 語意關聯 -->
+<!-- Version: 1.1.0 | Subject: 新增分行 Chunk 朗讀、螢幕防休眠、速度調節 Bar、暫停/繼續控制與 Alex/Ava 語音優化 -->
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -87,37 +87,63 @@
 
     <!-- 控制列區域 -->
     <section class="controls-section">
-      <!-- 播放/停止主要按鈕 -->
-      <button type="button" id="btnPlay" class="btn-play-main" aria-label="開始或停止朗讀">
-        <span class="btn-play-icon" id="playIcon">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-            <path d="M8 5v14l11-7z"/>
-          </svg>
-        </span>
-        <span id="playText">開始朗讀</span>
-      </button>
+      <!-- 主要按鈕列 (播放/暫停主按鈕 + 停止按鈕) -->
+      <div class="main-buttons-group">
+        <!-- 播放 / 暫停主要按鈕 -->
+        <button type="button" id="btnPlay" class="btn-play-main" aria-label="開始或暫停朗讀">
+          <span class="btn-play-icon" id="playIcon">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+              <path d="M8 5v14l11-7z"/>
+            </svg>
+          </span>
+          <span id="playText">開始朗讀</span>
+        </button>
 
-      <!-- 循環播放切換開關 -->
-      <label class="loop-control-container" id="loopContainer" for="loopToggle" title="點擊切換是否在讀完後自動重新循環播放">
-        <span class="loop-label">
-          <svg class="loop-icon" viewBox="0 0 24 24">
-            <polyline points="17 1 21 5 17 9"></polyline>
-            <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
-            <polyline points="7 23 3 19 7 15"></polyline>
-            <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
-          </svg>
-          循環播放
-        </span>
-        <span class="switch">
-          <input type="checkbox" id="loopToggle" aria-label="循環播放開關">
-          <span class="slider"></span>
-        </span>
-      </label>
+        <!-- 停止按鈕 -->
+        <button type="button" id="btnStop" class="btn-stop-main" aria-label="停止朗讀並重置" disabled>
+          <span class="btn-stop-icon">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+              <rect x="5" y="5" width="14" height="14" rx="2" />
+            </svg>
+          </span>
+          <span>停止</span>
+        </button>
+      </div>
+
+      <!-- 次要控制列 (速度調節器 + 循環播放開關) -->
+      <div class="secondary-controls-group">
+        <!-- 速度調節 Bar (- 1.0x +) -->
+        <div class="speed-control-container" id="speedBar" title="調整朗讀語速 (0.5x ~ 2.0x)">
+          <span class="speed-label">語速</span>
+          <div class="speed-stepper">
+            <button type="button" id="btnSpeedDown" class="btn-speed-step" aria-label="減慢語速 0.1x">-</button>
+            <span id="speedValue" class="speed-display" aria-live="polite">1.0x</span>
+            <button type="button" id="btnSpeedUp" class="btn-speed-step" aria-label="加快語速 0.1x">+</button>
+          </div>
+        </div>
+
+        <!-- 循環播放切換開關 -->
+        <label class="loop-control-container" id="loopContainer" for="loopToggle" title="點擊切換是否在讀完後自動重新循環播放">
+          <span class="loop-label">
+            <svg class="loop-icon" viewBox="0 0 24 24">
+              <polyline points="17 1 21 5 17 9"></polyline>
+              <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+              <polyline points="7 23 3 19 7 15"></polyline>
+              <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
+            </svg>
+            循環播放
+          </span>
+          <span class="switch">
+            <input type="checkbox" id="loopToggle" aria-label="循環播放開關">
+            <span class="slider"></span>
+          </span>
+        </label>
+      </div>
     </section>
 
     <!-- 朗讀動態指示條 -->
     <div class="status-indicator is-hidden" id="statusIndicator" aria-live="polite">
-      <div class="sound-waves">
+      <div class="sound-waves" id="soundWaves">
         <span class="sound-wave-bar"></span>
         <span class="sound-wave-bar"></span>
         <span class="sound-wave-bar"></span>

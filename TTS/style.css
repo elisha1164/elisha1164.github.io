@@ -1,4 +1,4 @@
-/* Version: 1.0.0 | Subject: 紙上聽聲 - 溫暖紙質文青風格 UI 樣式定義 */
+/* Version: 1.1.0 | Subject: 紙上聽聲 - 速度調節 Bar、暫停/繼續按鈕與版面優化 */
 
 :root {
   /* 溫暖紙質文青色盤 */
@@ -218,25 +218,31 @@ body {
 /* 控制列區域 */
 .controls-section {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 16px;
   padding-top: 12px;
   border-top: 1px dashed var(--border-color);
 }
 
-/* 播放 / 停止主按鈕 */
+/* 主要按鈕列 (播放/暫停 + 停止) */
+.main-buttons-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+/* 播放 / 暫停主按鈕 */
 .btn-play-main {
   flex: 1;
-  min-width: 180px;
+  min-width: 160px;
   height: 52px;
   border: none;
   border-radius: var(--radius-md);
   background-color: var(--accent-primary);
   color: #FFFFFF;
   font-family: var(--font-serif);
-  font-size: 1.1rem;
+  font-size: 1.08rem;
   font-weight: 600;
   letter-spacing: 0.08em;
   display: inline-flex;
@@ -268,6 +274,119 @@ body {
 
 .btn-play-main.is-playing:hover {
   background-color: #4C6953;
+}
+
+.btn-play-main.is-paused {
+  background-color: #A36841;
+  box-shadow: 0 4px 14px rgba(163, 104, 65, 0.35);
+  animation: none;
+}
+
+/* 停止按鈕 */
+.btn-stop-main {
+  height: 52px;
+  padding: 0 22px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background-color: #F4EFE6;
+  color: var(--text-secondary);
+  font-family: var(--font-serif);
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.btn-stop-main:hover:not(:disabled) {
+  background-color: #EAE1D3;
+  color: var(--accent-primary);
+  border-color: var(--border-focus);
+}
+
+.btn-stop-main:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background-color: #F8F5EE;
+  border-color: #E8E0D4;
+}
+
+/* 次要控制列 (速度調節器 + 循環開關) */
+.secondary-controls-group {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+/* 速度調節器 Bar (- 1.0x +) */
+.speed-control-container {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px;
+  background-color: #F4EFE6;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-full);
+  user-select: none;
+}
+
+.speed-label {
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.speed-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-speed-step {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid var(--border-color);
+  background-color: #FFFFFF;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  outline: none;
+}
+
+.btn-speed-step:hover {
+  background-color: var(--accent-light);
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
+.btn-speed-step:active {
+  transform: scale(0.9);
+}
+
+.speed-display {
+  font-family: var(--font-sans);
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--accent-primary);
+  min-width: 42px;
+  text-align: center;
 }
 
 @keyframes pulseButton {
@@ -452,16 +571,32 @@ input:checked + .slider:before {
   }
 
   .controls-section {
-    flex-direction: column;
-    align-items: stretch;
+    gap: 12px;
+  }
+
+  .main-buttons-group {
+    flex-direction: row;
   }
 
   .btn-play-main {
-    width: 100%;
+    flex: 1;
   }
 
+  .btn-stop-main {
+    padding: 0 16px;
+  }
+
+  .secondary-controls-group {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .speed-control-container,
   .loop-control-container {
-    justify-content: center;
+    justify-content: space-between;
     width: 100%;
+    padding: 8px 16px;
   }
 }
+

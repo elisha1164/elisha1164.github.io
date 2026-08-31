@@ -1,6 +1,6 @@
-// Version: 1.0.0 | Subject: PWA Service Worker 離線快取管理
+// Version: 1.1.0 | Subject: PWA Service Worker 離線快取管理 (升級至 v1.1.0)
 
-const CACHE_NAME = 'light-tts-cache-v1.0.0';
+const CACHE_NAME = 'light-tts-cache-v1.1.0';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',

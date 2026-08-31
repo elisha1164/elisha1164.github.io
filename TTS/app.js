@@ -1,4 +1,4 @@
-// Version: 1.0.1 | Subject: 修復循環播放開關事件冒泡衝突，移除多餘的容器 click 監聽器
+// Version: 1.1.0 | Subject: 實作逐行 Chunk 批次朗讀、螢幕 WakeLock 防休眠、速度調節 Bar、斷點暫停/繼續控制與 Alex/Ava 英語語音評分
 
 /**
  * 紙上聽聲 - 核心語音朗讀與應用邏輯
@@ -11,6 +11,10 @@
   const btnPlay = document.getElementById('btnPlay');
   const playIcon = document.getElementById('playIcon');
   const playText = document.getElementById('playText');
+  const btnStop = document.getElementById('btnStop');
+  const btnSpeedDown = document.getElementById('btnSpeedDown');
+  const btnSpeedUp = document.getElementById('btnSpeedUp');
+  const speedValue = document.getElementById('speedValue');
   const loopToggle = document.getElementById('loopToggle');
   const loopContainer = document.getElementById('loopContainer');
   const charCount = document.getElementById('charCount');
@@ -18,22 +22,26 @@
   const voiceBadgeText = document.getElementById('voiceBadgeText');
   const statusIndicator = document.getElementById('statusIndicator');
   const statusText = document.getElementById('statusText');
+  const soundWaves = document.getElementById('soundWaves');
 
-  // 播放狀態管理
+  // 播放與控制狀態管理
   let isPlaying = false;
+  let isPaused = false;
   let isLooping = false;
+  let currentSpeed = 1.0;
   let currentUtteranceIndex = 0;
   let textChunks = [];
   let availableVoices = [];
   let keepAliveTimer = null;
+  let wakeLockSentinel = null;
 
   // 常數設定
   const STORAGE_KEY_TEXT = 'light_tts_user_text';
   const STORAGE_KEY_LOOP = 'light_tts_loop_state';
+  const STORAGE_KEY_SPEED = 'light_tts_playback_speed';
 
   /**
    * 1. Markdown 語法清洗過濾器
-   * 將使用者輸入的 Markdown 語法轉換為乾淨自然的純文字，供 TTS 引擎朗讀
    */
   function cleanMarkdown(mdText) {
     if (!mdText) return '';
@@ -74,50 +82,81 @@
     // 移除 HTML 標籤
     text = text.replace(/<[^>]+>/g, '');
 
-    // 去除多餘空行與空白
-    text = text.replace(/\n\s*\n/g, '\n');
+    // 整理多餘空行與空白
+    text = text.replace(/\r\n/g, '\n');
+    text = text.replace(/\n{3,}/g, '\n\n');
     text = text.trim();
 
     return text;
   }
 
   /**
-   * 2. 文本語言自動辨識
+   * 2. 逐行 Chunk 批次分割演算法 (防長文本引擎崩潰)
+   */
+  function splitTextIntoLineChunks(text) {
+    if (!text) return [];
+
+    // 先以換行（\n）為首要切分基準
+    const lines = text.split('\n');
+    const chunks = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+
+      // 若單一行長度超過 120 字，進一步依句子標點符號進行子分割
+      if (line.length > 120) {
+        const sentences = line.split(/([。！？!?]+)/g);
+        let subBuffer = '';
+        for (let j = 0; j < sentences.length; j++) {
+          const part = sentences[j];
+          if (!part) continue;
+          subBuffer += part;
+          if (/[。！？!?]/.test(part) || subBuffer.length >= 80) {
+            if (subBuffer.trim().length > 0) {
+              chunks.push(subBuffer.trim());
+            }
+            subBuffer = '';
+          }
+        }
+        if (subBuffer.trim().length > 0) {
+          chunks.push(subBuffer.trim());
+        }
+      } else {
+        chunks.push(line);
+      }
+    }
+
+    return chunks.length > 0 ? chunks : [text];
+  }
+
+  /**
+   * 3. 文本語言自動辨識
    */
   function detectTextLanguage(text) {
     if (!text || text.trim().length === 0) {
       return navigator.language || 'zh-TW';
     }
 
-    // 判斷是否含有中文字元
     const hasChinese = /[\u4e00-\u9fa5]/.test(text);
     if (hasChinese) {
-      // 依使用者瀏覽器語系偏好 zh-TW, zh-HK 或 zh-CN
       const navLang = (navigator.language || '').toLowerCase();
-      if (navLang.includes('cn')) {
-        return 'zh-CN';
-      }
-      if (navLang.includes('hk')) {
-        return 'zh-HK';
-      }
+      if (navLang.includes('cn')) return 'zh-CN';
+      if (navLang.includes('hk')) return 'zh-HK';
       return 'zh-TW';
     }
 
-    // 判斷是否含有日文假名
     const hasJapanese = /[\u3040-\u30ff]/.test(text);
     if (hasJapanese) return 'ja-JP';
 
-    // 判斷是否含有韓文字元
     const hasKorean = /[\uac00-\ud7af]/.test(text);
     if (hasKorean) return 'ko-KR';
 
-    // 預設英語或其他語系
     return 'en-US';
   }
 
   /**
-   * 3. 跨平台頂級自然語音權重評分引擎 (Smart Voice Scorer)
-   * 支援 Windows (Online/Natural), macOS/iOS (Premium/Enhanced/Siri), Android (Google Network)
+   * 4. 跨平台頂級自然語音權重評分引擎 (升級 Alex, Ava, Jenny 等旗艦模型加權)
    */
   function calculateVoiceScore(voice, targetLang) {
     let score = 0;
@@ -125,7 +164,7 @@
     const vName = (voice.name || '').toLowerCase();
     const tLang = targetLang.replace('_', '-');
 
-    // 1. 語言精確匹配 (+100) / 前綴匹配 (+50)
+    // 1. 語言匹配
     if (vLang.toLowerCase() === tLang.toLowerCase()) {
       score += 100;
     } else if (vLang.split('-')[0].toLowerCase() === tLang.split('-')[0].toLowerCase()) {
@@ -134,24 +173,38 @@
       return -1; // 語言完全不符，剔除
     }
 
-    // 2. 頂級神經網路 / 自然音質關鍵字加權 (+50 ~ +90)
+    // 2. 旗艦自然人聲特定模型名稱加權 (特別針對 Alex, Ava, Evan, Jenny 等)
+    if (vName.includes('ava')) score += 95;
+    if (vName.includes('alex')) score += 90; // macOS / iOS 傳奇高自然度呼吸聲模型
+    if (vName.includes('evan')) score += 90;
+    if (vName.includes('jenny')) score += 95; // Windows Edge 頂級神經網路旗艦女聲
+    if (vName.includes('guy')) score += 95;   // Windows Edge 頂級神經網路旗艦男聲
+    if (vName.includes('aria')) score += 90;
+    if (vName.includes('allison')) score += 80;
+    if (vName.includes('nathan')) score += 80;
+    if (vName.includes('tom')) score += 75;
+    if (vName.includes('serena')) score += 75;
+
+    // 3. 頂級神經網路 / 高音質通用標籤加權
     if (vName.includes('natural') || vName.includes('neural')) score += 90;
     if (vName.includes('premium')) score += 80;
-    if (vName.includes('enhanced')) score += 70;
-    if (vName.includes('siri')) score += 65;
+    if (vName.includes('enhanced')) score += 75;
+    if (vName.includes('siri')) score += 70;
     if (vName.includes('online')) score += 50;
 
-    // 3. 雲端神經網路聲音加權 (Edge/Chrome/Android 雲端聲音 localService 為 false)
-    if (voice.localService === false) {
-      score += 40;
-    }
+    // 4. 雲端神經網路聲音加權 (localService 為 false)
+    if (voice.localService === false) score += 40;
 
-    // 4. 品牌優質語音引擎加權
+    // 5. 品牌優質語音引擎加權
     if (vName.includes('google')) score += 25;
     if (vName.includes('microsoft')) score += 20;
     if (vName.includes('apple')) score += 15;
 
-    // 5. 扣分項目：避開傳統生硬壓縮/舊版語音
+    // 6. 降權與避開項目
+    // 針對 Samantha：若非 Enhanced/Premium 則降權，讓 Alex/Ava 絕對優先
+    if (vName.includes('samantha') && !vName.includes('enhanced') && !vName.includes('premium')) {
+      score -= 35;
+    }
     if (vName.includes('compact')) score -= 60;
     if (vName.includes('desktop')) score -= 40;
     if (vName.includes('espeak')) score -= 80;
@@ -184,7 +237,6 @@
       }
     }
 
-    // 若該語言無特定評分，嘗試取預設聲音
     if (!bestVoice) {
       bestVoice = availableVoices.find(v => v.default) || availableVoices[0];
     }
@@ -204,8 +256,11 @@
     const voice = getBestVoiceForText(sampleText || textInput.value);
     if (voice) {
       const isHighQuality = (voice.name.toLowerCase().includes('natural') || 
+                             voice.name.toLowerCase().includes('neural') || 
                              voice.name.toLowerCase().includes('premium') || 
                              voice.name.toLowerCase().includes('enhanced') || 
+                             voice.name.toLowerCase().includes('alex') || 
+                             voice.name.toLowerCase().includes('ava') || 
                              voice.name.toLowerCase().includes('siri') || 
                              voice.localService === false);
       const icon = isHighQuality ? '✨' : '🌿';
@@ -216,102 +271,43 @@
   }
 
   /**
-   * 4. 語意分句演算法 (防瀏覽器行動端長文本超時斷流)
+   * 5. Screen Wake Lock API 螢幕防熄滅管理
    */
-  function splitTextIntoSentences(text) {
-    if (!text) return [];
-
-    // 以標點符號與換行進行分句
-    const sentenceEndings = /([。！？!?\n]+)/g;
-    const parts = text.split(sentenceEndings);
-    const result = [];
-    let buffer = '';
-
-    for (let i = 0; i < parts.length; i++) {
-      const part = parts[i];
-      if (!part) continue;
-
-      buffer += part;
-      // 當累積到句子結尾或字數達到 80 字以上時切割
-      if (sentenceEndings.test(part) || buffer.length >= 80) {
-        if (buffer.trim().length > 0) {
-          result.push(buffer.trim());
+  async function acquireWakeLock() {
+    if ('wakeLock' in navigator) {
+      try {
+        if (wakeLockSentinel === null) {
+          wakeLockSentinel = await navigator.wakeLock.request('screen');
+          wakeLockSentinel.addEventListener('release', () => {
+            wakeLockSentinel = null;
+          });
         }
-        buffer = '';
+      } catch (err) {
+        console.warn('Wake Lock 申請失敗:', err);
       }
     }
-
-    if (buffer.trim().length > 0) {
-      result.push(buffer.trim());
-    }
-
-    return result.length > 0 ? result : [text];
   }
+
+  async function releaseWakeLock() {
+    if (wakeLockSentinel !== null) {
+      try {
+        await wakeLockSentinel.release();
+        wakeLockSentinel = null;
+      } catch (err) {
+        console.warn('Wake Lock 釋放失敗:', err);
+      }
+    }
+  }
+
+  // 監聽分頁能見度切換，返回時若仍朗讀則重新申請鎖定
+  document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState === 'visible' && isPlaying && !isPaused) {
+      await acquireWakeLock();
+    }
+  });
 
   /**
-   * 5. TTS 播放控制
-   */
-  function playTextChunks() {
-    if (currentUtteranceIndex >= textChunks.length) {
-      // 朗讀完整文本完畢
-      if (isLooping) {
-        statusText.textContent = '單輪完畢，準備循環重播...';
-        // 間隔短暫停頓後重新開始
-        setTimeout(() => {
-          if (isPlaying && isLooping) {
-            currentUtteranceIndex = 0;
-            playNextChunk();
-          }
-        }, 800);
-      } else {
-        stopSpeech();
-      }
-      return;
-    }
-
-    playNextChunk();
-  }
-
-  function playNextChunk() {
-    if (!isPlaying) return;
-
-    const chunk = textChunks[currentUtteranceIndex];
-    if (!chunk) {
-      currentUtteranceIndex++;
-      playTextChunks();
-      return;
-    }
-
-    const utterance = new SpeechSynthesisUtterance(chunk);
-    const bestVoice = getBestVoiceForText(chunk);
-
-    if (bestVoice) {
-      utterance.voice = bestVoice;
-      utterance.lang = bestVoice.lang;
-    }
-
-    utterance.rate = 1.0;
-    utterance.pitch = 1.0;
-
-    utterance.onend = () => {
-      currentUtteranceIndex++;
-      playTextChunks();
-    };
-
-    utterance.onerror = (event) => {
-      console.warn('SpeechSynthesis error:', event);
-      if (event.error !== 'canceled' && event.error !== 'interrupted') {
-        currentUtteranceIndex++;
-        playTextChunks();
-      }
-    };
-
-    statusText.textContent = `正在朗讀 (${currentUtteranceIndex + 1}/${textChunks.length})...`;
-    window.speechSynthesis.speak(utterance);
-  }
-
-  /**
-   * 啟動 Keep-Alive 定時器 (解決 Chrome/Android 朗讀逾 15 秒停止之已知 Bug)
+   * 6. Keep-Alive 定時器 (防 Chrome/Android 朗讀超過 15 秒中斷)
    */
   function startKeepAlive() {
     stopKeepAlive();
@@ -331,8 +327,75 @@
   }
 
   /**
-   * 開始朗讀
+   * 7. 逐行 Chunk 批次播放控制器
    */
+  function playTextChunks() {
+    if (currentUtteranceIndex >= textChunks.length) {
+      // 全文朗讀完畢
+      if (isLooping) {
+        statusText.textContent = '單輪完畢，準備循環重播...';
+        setTimeout(() => {
+          if (isPlaying && isLooping) {
+            currentUtteranceIndex = 0;
+            playNextChunk();
+          }
+        }, 800);
+      } else {
+        stopSpeech();
+      }
+      return;
+    }
+
+    playNextChunk();
+  }
+
+  function playNextChunk() {
+    if (!isPlaying || isPaused) return;
+
+    const chunk = textChunks[currentUtteranceIndex];
+    if (!chunk) {
+      currentUtteranceIndex++;
+      playTextChunks();
+      return;
+    }
+
+    const utterance = new SpeechSynthesisUtterance(chunk);
+    const bestVoice = getBestVoiceForText(chunk);
+
+    if (bestVoice) {
+      utterance.voice = bestVoice;
+      utterance.lang = bestVoice.lang;
+    }
+
+    utterance.rate = currentSpeed;
+    utterance.pitch = 1.0;
+
+    utterance.onend = () => {
+      if (isPlaying && !isPaused) {
+        currentUtteranceIndex++;
+        playTextChunks();
+      }
+    };
+
+    utterance.onerror = (event) => {
+      console.warn('SpeechSynthesis error:', event);
+      if (event.error !== 'canceled' && event.error !== 'interrupted') {
+        if (isPlaying && !isPaused) {
+          currentUtteranceIndex++;
+          playTextChunks();
+        }
+      }
+    };
+
+    statusText.textContent = `正在朗讀 (第 ${currentUtteranceIndex + 1} / ${textChunks.length} 行)...`;
+    window.speechSynthesis.speak(utterance);
+  }
+
+  /**
+   * 8. 播放 / 暫停 / 繼續 / 停止 核心狀態轉換
+   */
+
+  // 開始全新朗讀
   function startSpeech() {
     const rawText = textInput.value;
     const cleanedText = cleanMarkdown(rawText);
@@ -348,65 +411,122 @@
       return;
     }
 
-    // 停止先前的朗讀
     window.speechSynthesis.cancel();
 
-    // 準備文本段落
-    textChunks = splitTextIntoSentences(cleanedText);
+    // 產生分行 Chunk
+    textChunks = splitTextIntoLineChunks(cleanedText);
     currentUtteranceIndex = 0;
     isPlaying = true;
+    isPaused = false;
 
-    // 更新 UI 狀態為播放中
-    setPlayButtonUI(true);
-    statusIndicator.classList.remove('is-hidden');
+    updatePlaybackUI('playing');
+    acquireWakeLock();
     startKeepAlive();
 
-    // 開始播放第一個句子
     playTextChunks();
   }
 
-  /**
-   * 停止朗讀
-   */
-  function stopSpeech() {
+  // 暫停朗讀 (記下當前 chunk 斷點)
+  function pauseSpeech() {
+    if (!isPlaying) return;
+
     isPlaying = false;
-    currentUtteranceIndex = 0;
-    textChunks = [];
+    isPaused = true;
+
     stopKeepAlive();
+    releaseWakeLock();
 
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
     }
 
-    setPlayButtonUI(false);
-    statusIndicator.classList.add('is-hidden');
+    updatePlaybackUI('paused');
+  }
+
+  // 繼續朗讀 (從暫停的 chunk 恢復播放)
+  function resumeSpeech() {
+    if (!isPaused) return;
+
+    isPlaying = true;
+    isPaused = false;
+
+    updatePlaybackUI('playing');
+    acquireWakeLock();
+    startKeepAlive();
+
+    playTextChunks();
+  }
+
+  // 完全停止朗讀並重置行進度
+  function stopSpeech() {
+    isPlaying = false;
+    isPaused = false;
+    currentUtteranceIndex = 0;
+    textChunks = [];
+
+    stopKeepAlive();
+    releaseWakeLock();
+
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+
+    updatePlaybackUI('stopped');
   }
 
   /**
-   * 切換播放/停止按鈕 UI
+   * 9. 更新播放控制 UI 狀態
    */
-  function setPlayButtonUI(playing) {
-    if (playing) {
-      btnPlay.classList.add('is-playing');
-      playText.textContent = '停止朗讀';
-      // 停止圖示 (方形)
+  function updatePlaybackUI(state) {
+    if (state === 'playing') {
+      btnPlay.className = 'btn-play-main is-playing';
+      playText.textContent = '暫停朗讀';
+      // 暫停圖示 (雙豎線)
       playIcon.innerHTML = `
         <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-          <rect x="5" y="5" width="14" height="14" rx="2" />
+          <rect x="6" y="4" width="4" height="16" rx="1.5" />
+          <rect x="14" y="4" width="4" height="16" rx="1.5" />
         </svg>`;
-    } else {
-      btnPlay.classList.remove('is-playing');
-      playText.textContent = '開始朗讀';
+      btnStop.disabled = false;
+      statusIndicator.classList.remove('is-hidden');
+      soundWaves.style.display = 'inline-flex';
+    } else if (state === 'paused') {
+      btnPlay.className = 'btn-play-main is-paused';
+      playText.textContent = '繼續朗讀';
       // 播放圖示 (三角形)
       playIcon.innerHTML = `
         <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
           <path d="M8 5v14l11-7z"/>
         </svg>`;
+      btnStop.disabled = false;
+      statusIndicator.classList.remove('is-hidden');
+      soundWaves.style.display = 'none';
+      statusText.textContent = `已暫停於第 ${currentUtteranceIndex + 1} / ${textChunks.length} 行`;
+    } else {
+      // stopped
+      btnPlay.className = 'btn-play-main';
+      playText.textContent = '開始朗讀';
+      playIcon.innerHTML = `
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+          <path d="M8 5v14l11-7z"/>
+        </svg>`;
+      btnStop.disabled = true;
+      statusIndicator.classList.add('is-hidden');
     }
   }
 
   /**
-   * 更新字數統計
+   * 10. 速度調節器控制 (- 0.1x / + 0.1x)
+   */
+  function setSpeed(speed) {
+    const clamped = Math.max(0.5, Math.min(2.0, Math.round(speed * 10) / 10));
+    currentSpeed = clamped;
+    speedValue.textContent = `${currentSpeed.toFixed(1)}x`;
+    localStorage.setItem(STORAGE_KEY_SPEED, currentSpeed.toString());
+  }
+
+  /**
+   * 11. 更新字數統計
    */
   function updateCharCount() {
     const len = textInput.value.length;
@@ -414,19 +534,36 @@
   }
 
   /**
-   * 6. 事件監聽與初始化
+   * 12. 事件監聽與綁定
    */
   function initEvents() {
-    // 播放/停止主按鈕點擊
+    // 播放 / 暫停 / 繼續 主按鈕
     btnPlay.addEventListener('click', () => {
       if (isPlaying) {
-        stopSpeech();
+        pauseSpeech();
+      } else if (isPaused) {
+        resumeSpeech();
       } else {
         startSpeech();
       }
     });
 
-    // 循環播放切換 (由 label for="loopToggle" 與 input checkbox 原生觸發)
+    // 停止按鈕
+    btnStop.addEventListener('click', () => {
+      stopSpeech();
+    });
+
+    // 語速減少按鈕 (-)
+    btnSpeedDown.addEventListener('click', () => {
+      setSpeed(currentSpeed - 0.1);
+    });
+
+    // 語速增加按鈕 (+)
+    btnSpeedUp.addEventListener('click', () => {
+      setSpeed(currentSpeed + 0.1);
+    });
+
+    // 循環播放切換
     loopToggle.addEventListener('change', (e) => {
       isLooping = e.target.checked;
       if (isLooping) {
@@ -437,7 +574,7 @@
       localStorage.setItem(STORAGE_KEY_LOOP, isLooping ? 'true' : 'false');
     });
 
-    // 輸入文字自動存檔與字數更新
+    // 輸入文字即時存檔與字數更新
     textInput.addEventListener('input', () => {
       updateCharCount();
       localStorage.setItem(STORAGE_KEY_TEXT, textInput.value);
@@ -452,11 +589,11 @@
         updateCharCount();
         localStorage.removeItem(STORAGE_KEY_TEXT);
         updateVoiceBadge('');
-        if (isPlaying) stopSpeech();
+        if (isPlaying || isPaused) stopSpeech();
       }
     });
 
-    // 語音清單就緒監聽 (Chrome / Android / Edge 非同步載入機制)
+    // 語音清單非同步載入監聽
     if ('speechSynthesis' in window) {
       window.speechSynthesis.onvoiceschanged = () => {
         availableVoices = window.speechSynthesis.getVoices();
@@ -466,21 +603,21 @@
   }
 
   /**
-   * 載入預設儲存狀態
+   * 13. 載入並還原儲存狀態
    */
   function restoreState() {
-    // 還原使用者輸入的文字
+    // 還原輸入文本
     const savedText = localStorage.getItem(STORAGE_KEY_TEXT);
     if (savedText !== null) {
       textInput.value = savedText;
     } else {
-      // 預設範例文本（包含 Markdown 標記，方便直接體驗）
       textInput.value = `# 紙上聽聲
 歡迎使用**紙上聽聲**，這是一個支援 PWA 離線安裝的極簡朗讀工具。
 
 - 自動過濾 [Markdown 語法](https://example.com)
 - 智慧挑選最佳音質語音
-- 支援單次與循環播放
+- 支援分行批次朗讀與斷點暫停
+- 支援語速調節與循環播放
 
 請點擊下方「開始朗讀」按鈕，聆聽溫暖自然的聲音。`;
     }
@@ -493,13 +630,25 @@
       loopContainer.classList.add('is-active');
     }
 
+    // 還原語速設定
+    const savedSpeed = localStorage.getItem(STORAGE_KEY_SPEED);
+    if (savedSpeed !== null) {
+      const parsedSpeed = parseFloat(savedSpeed);
+      if (!isNaN(parsedSpeed) && parsedSpeed >= 0.5 && parsedSpeed <= 2.0) {
+        setSpeed(parsedSpeed);
+      } else {
+        setSpeed(1.0);
+      }
+    } else {
+      setSpeed(1.0);
+    }
+
     updateCharCount();
 
     // 初始載入語音清單
     if ('speechSynthesis' in window) {
       availableVoices = window.speechSynthesis.getVoices();
       updateVoiceBadge(textInput.value);
-      // 部分瀏覽器延遲加載保護
       setTimeout(() => {
         if (!availableVoices || availableVoices.length === 0) {
           availableVoices = window.speechSynthesis.getVoices();
@@ -510,7 +659,7 @@
   }
 
   /**
-   * 註冊 PWA Service Worker
+   * 14. 註冊 PWA Service Worker
    */
   function registerServiceWorker() {
     if ('serviceWorker' in navigator) {
