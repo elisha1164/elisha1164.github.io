@@ -200,11 +200,18 @@
     if (vName.includes('microsoft')) score += 20;
     if (vName.includes('apple')) score += 15;
 
-    // 6. 降權與避開項目
-    // 針對 Samantha：若非 Enhanced/Premium 則降權，讓 Alex/Ava 絕對優先
-    if (vName.includes('samantha') && !vName.includes('enhanced') && !vName.includes('premium')) {
-      score -= 35;
+    // 6. 降權與避開 macOS 搞怪/特殊音效語音 (Novelty Voices)
+    const noveltyVoices = ['albert', 'bad news', 'bahh', 'bells', 'boing', 'bubbles', 'cellos', 'deranged', 'good news', 'hysterical', 'pipe organ', 'trinoids', 'whisper', 'zarvox', 'jester', 'ralph'];
+    if (noveltyVoices.some(n => vName.includes(n))) {
+      score -= 200;
     }
+
+    // 7. 針對基礎版 Samantha 進行合理定位
+    // 不再嚴厲降權，改給微幅加權 (+10)，確保她能打敗其他未知語音(如尚未被封鎖的冷門語音)，但仍絕對輸給 Alex (+90)
+    if (vName.includes('samantha') && !vName.includes('enhanced') && !vName.includes('premium')) {
+      score += 10;
+    }
+
     if (vName.includes('compact')) score -= 60;
     if (vName.includes('desktop')) score -= 40;
     if (vName.includes('espeak')) score -= 80;
