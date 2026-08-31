@@ -1,6 +1,7 @@
 <!-- 
-  Version: v4.8.1
-  Summary: Fixed markdown-to-plaintext regex execution order and single-line constraint to guarantee reliable list bullet conversion.
+  Version: v4.8.2
+  - 新增: 等待 AI 回應期間輸入框鎖定防呆機制，避免重複點擊送出浪費 token
+  - 新增: 長時間等待 (>10s) 將出現「正在查考...」等安撫提示輪播
 -->
 <!DOCTYPE html>
 <html lang="zh-TW" class="light">
@@ -1149,8 +1150,8 @@
     </div>
   </div>
 
-  <!-- Version Badge -->
-  <div class="app-version-badge">v4.8.1</div>
+  <!-- App Version Badge -->
+  <div class="app-version-badge">v4.8.2</div>
 
   <!-- Toast Notification -->
   <div id="toast"></div>
@@ -1904,6 +1905,8 @@
       return bubble;
     }
 
+    let typingTextTimer = null;
+    
     /* Append Typing Indicator */
     function appendTypingIndicator() {
       const row = document.createElement('div');
@@ -1917,10 +1920,11 @@
       const bubble = document.createElement('div');
       bubble.className = 'bubble-content';
       bubble.innerHTML = `
-        <div class="typing-indicator">
+        <div class="typing-indicator" style="display: flex; align-items: center;">
           <div class="typing-dot"></div>
           <div class="typing-dot"></div>
           <div class="typing-dot"></div>
+          <span id="typing-text" style="font-size: 0.85rem; color: var(--text-muted); margin-left: 8px; transition: opacity 0.3s; opacity: 1;"></span>
         </div>
       `;
 
@@ -1929,9 +1933,32 @@
       chatContainer.appendChild(row);
       appendPrivacyDisclaimer();
       smartScrollToBottom();
+      
+      const texts = ["(正在查考整本聖經)", "(正在整合回應)", "(正在確認回應符合聖經)"];
+      let cycleIndex = 0;
+      
+      // Clear any existing timer just in case
+      if (typingTextTimer) clearInterval(typingTextTimer);
+      
+      // Starts after 10s, then updates every 10s
+      typingTextTimer = setInterval(() => {
+        const textEl = document.getElementById('typing-text');
+        if (textEl) {
+          textEl.style.opacity = 0; // Fade out effect
+          setTimeout(() => {
+            textEl.textContent = texts[cycleIndex % texts.length];
+            textEl.style.opacity = 1;
+            cycleIndex++;
+          }, 300); // Small delay to let opacity transition finish
+        }
+      }, 10000);
     }
 
     function removeTypingIndicator() {
+      if (typingTextTimer) {
+        clearInterval(typingTextTimer);
+        typingTextTimer = null;
+      }
       const indicator = document.getElementById('typing-indicator-row');
       if (indicator) indicator.remove();
     }
@@ -1962,6 +1989,8 @@
       userInput.value = '';
       userInput.style.height = 'auto';
       btnSend.disabled = true;
+      userInput.disabled = true;
+      userInput.placeholder = "LogosAI 思考中，請稍候...";
 
       appendTypingIndicator();
       scrollToBottomSmooth();
@@ -2049,6 +2078,9 @@
         console.error('sendMessage error:', err);
       } finally {
         btnSend.disabled = false;
+        userInput.disabled = false;
+        userInput.placeholder = "對 LogosAI 提出神學或聖經問題... (Enter 發送，Shift+Enter 換行)";
+        userInput.focus();
       }
     }
 
