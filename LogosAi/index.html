@@ -1,5 +1,6 @@
 <!-- 
-  Version: v4.8.2
+  Version: v4.8.3
+  - 修正: 調整免責聲明，因應已建立後台功能，刪除「無後台紀錄」並改為「後台無法協助復原資料」以精準管理使用者期待
   - 新增: 等待 AI 回應期間輸入框鎖定防呆機制，避免重複點擊送出浪費 token
   - 新增: 長時間等待 (>10s) 將出現「正在查考...」等安撫提示輪播
 -->
@@ -1465,7 +1466,7 @@
       const disclaimer = document.createElement('div');
       disclaimer.id = 'chat-privacy-disclaimer';
       disclaimer.className = 'chat-privacy-disclaimer';
-      disclaimer.textContent = 'LogosAI 被設定嚴格按照聖經回答您的問題，但您仍有義務自行查證答案是否符合聖經。對話歷史僅儲存在本裝置，無後台紀錄，請自行複製備份。';
+      disclaimer.textContent = 'LogosAI 已設定嚴格按照聖經回答您的問題，但您仍有義務自行查證答案是否符合聖經。後台無法協助復原資料，請自行複製備份。';
       chatContainer.appendChild(disclaimer);
     }
 
