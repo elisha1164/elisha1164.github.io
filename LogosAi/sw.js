@@ -1,9 +1,9 @@
 /* 
- * Version: v5.0.0
- * Summary: Synchronized Service Worker cache version with main application release v5.0.0 (Streaming API).
+ * Version: v5.0.1
+ * Summary: Fixed SSE JSON parsing for multi-line data payloads.
  */
 
-const CACHE_NAME = 'logosai-v5.0.0';
+const CACHE_NAME = 'logosai-v5.0.1';
 const STATIC_ASSETS = [
   './',
   './index.html',
