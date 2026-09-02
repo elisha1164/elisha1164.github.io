@@ -1,7 +1,5 @@
 <!-- 
-  Version: v5.0.0
-  - 新增: 導入 Server-Sent Events (SSE) 串流傳輸，徹底解決手機網路閒置斷線 (Failed to fetch) 問題
-  - 新增: 導入動態追趕打字機 (Dynamic Catch-up Typewriter)，兼顧平滑吐字體驗與高效 Markdown 渲染
+  Version: v4.8.4
   - 修正: 復原輸入框的預設提示文字（清除錯誤植入的長文字）
 -->
 <!DOCTYPE html>
@@ -1152,7 +1150,7 @@
   </div>
 
   <!-- App Version Badge -->
-  <div class="app-version-badge">v5.0.0</div>
+  <div class="app-version-badge">v4.8.4</div>
 
   <!-- Toast Notification -->
   <div id="toast"></div>
@@ -2006,26 +2004,29 @@
             messages: currentMessages,
             targetAudience: targetAudience,
             deviceId: getOrCreateDeviceId(),
-            sessionId: currentSessionId,
-            stream: true
+            sessionId: currentSessionId
           })
         });
 
+        const data = await response.json();
         if (!response.ok) {
-          let errorText = `HTTP ${response.status}`;
-          try {
-            const errData = await response.json();
-            errorText = errData.error || errorText;
-          } catch (e) {}
-          throw new Error(errorText);
+          throw new Error(data.error || `HTTP ${response.status}`);
         }
+        const replyText = data.choices[0].message.content;
 
         removeTypingIndicator();
 
+        // Typewriter animation effect
+        currentMessages.push({ role: 'assistant', content: replyText });
+        await saveCurrentMessagesToDB();
+
         const bubble = appendMessageUI('assistant', '');
         const textBody = bubble.querySelector('.msg-text-body');
+        // 人類正常閱讀速度打字機效果 (每 30ms 吐 1 字，每秒約 30 字，伴隨自然下捲)
+        let charIndex = 0;
         let isUserScrollingUp = false;
 
+        // 偵測使用者是否主動向上滑動查閱前文（避免打架）
         const scrollCheckHandler = () => {
           const threshold = 90;
           const isAtBottom = (chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight) < threshold;
@@ -2033,90 +2034,35 @@
         };
         chatContainer.addEventListener('scroll', scrollCheckHandler, { passive: true });
         
-        let streamBuffer = "";
-        let renderedCharIndex = 0;
-        let isStreamDone = false;
-        
-        // 動態追趕打字機 (Dynamic Catch-up Typewriter)
         const typeInterval = setInterval(() => {
-          if (renderedCharIndex < streamBuffer.length) {
-            const step = Math.max(1, Math.floor((streamBuffer.length - renderedCharIndex) / 5)); 
-            renderedCharIndex += step;
-            if (textBody) {
-              textBody.innerHTML = marked.parse(streamBuffer.substring(0, renderedCharIndex) + '▌');
-            }
-            if (!isUserScrollingUp) {
-              smartScrollToBottom();
-            }
-          } else if (isStreamDone) {
+          charIndex += 1;
+          if (charIndex >= replyText.length) {
             clearInterval(typeInterval);
             chatContainer.removeEventListener('scroll', scrollCheckHandler);
-            
-            if (textBody) {
-              textBody.innerHTML = marked.parse(streamBuffer);
-            }
-            
+
+            if (textBody) textBody.innerHTML = marked.parse(replyText);
+
             const actions = document.createElement('div');
             actions.className = 'bubble-actions';
             const copyBtn = document.createElement('button');
             copyBtn.className = 'btn-copy-msg';
             copyBtn.innerHTML = '<i class="fa-regular fa-copy"></i> 複製';
             copyBtn.addEventListener('click', () => {
-              copySingleAnswer(streamBuffer);
+              copySingleAnswer(replyText);
             });
             actions.appendChild(copyBtn);
             bubble.appendChild(actions);
-            
+
             if (!isUserScrollingUp) {
               smartScrollToBottom();
             }
-            
-            // 存檔
-            currentMessages.push({ role: 'assistant', content: streamBuffer });
-            saveCurrentMessagesToDB();
+          } else {
+            if (textBody) textBody.innerHTML = marked.parse(replyText.substring(0, charIndex) + '▌');
+            if (!isUserScrollingUp) {
+              smartScrollToBottom();
+            }
           }
         }, 30);
-        
-        // SSE 解析與接收
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder("utf-8");
-        let rawBuffer = "";
-        
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) {
-              break;
-            }
-            
-            rawBuffer += decoder.decode(value, { stream: true });
-            let boundary = rawBuffer.indexOf("\n\n");
-            
-            while (boundary !== -1) {
-              const chunk = rawBuffer.substring(0, boundary).trim();
-              rawBuffer = rawBuffer.substring(boundary + 2);
-              
-              if (chunk.startsWith("data: ")) {
-                const jsonStr = chunk.substring(6);
-                if (jsonStr !== "[DONE]") {
-                  try {
-                    const data = JSON.parse(jsonStr);
-                    if (data.choices && data.choices[0] && data.choices[0].delta && data.choices[0].delta.content) {
-                      streamBuffer += data.choices[0].delta.content;
-                    } else if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) {
-                       streamBuffer += data.candidates[0].content.parts.map(p => p.text).join("");
-                    }
-                  } catch (e) {
-                    console.error("SSE JSON Parse Error", e);
-                  }
-                }
-              }
-              boundary = rawBuffer.indexOf("\n\n");
-            }
-          }
-        } finally {
-          isStreamDone = true;
-        }
 
       } catch (err) {
         removeTypingIndicator();
