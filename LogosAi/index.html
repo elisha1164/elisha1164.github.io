@@ -1,6 +1,6 @@
 <!-- 
-  Version: v4.8.4
-  - 修正: 復原輸入框的預設提示文字（清除錯誤植入的長文字）
+  Version: v4.8.6
+  - 修正: 延遲輸入框解鎖時機，直到打字機效果完成或發生錯誤才解鎖
 -->
 <!DOCTYPE html>
 <html lang="zh-TW" class="light">
@@ -1714,13 +1714,7 @@
         userInput.style.height = Math.min(userInput.scrollHeight, 160) + 'px';
       });
 
-      // Send on Enter
-      userInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-          e.preventDefault();
-          sendMessage();
-        }
-      });
+      // Enter now simply inserts a new line (native textarea behavior)
 
       btnSend.addEventListener('click', sendMessage);
 
@@ -2056,6 +2050,11 @@
             if (!isUserScrollingUp) {
               smartScrollToBottom();
             }
+            // Unlock input after typing finishes
+            btnSend.disabled = false;
+            userInput.disabled = false;
+            userInput.placeholder = "請輸入您的問題…";
+            userInput.focus();
           } else {
             if (textBody) textBody.innerHTML = marked.parse(replyText.substring(0, charIndex) + '▌');
             if (!isUserScrollingUp) {
@@ -2075,7 +2074,7 @@
         appendMessageUI('assistant', errorContent, true);
         await saveCurrentMessagesToDB();
         console.error('sendMessage error:', err);
-      } finally {
+        // Unlock input on error
         btnSend.disabled = false;
         userInput.disabled = false;
         userInput.placeholder = "請輸入您的問題…";
