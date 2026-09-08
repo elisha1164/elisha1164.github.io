@@ -1,6 +1,6 @@
 <!-- 
-  Version: v4.8.6
-  - 修正: 延遲輸入框解鎖時機，直到打字機效果完成或發生錯誤才解鎖
+  Version: v4.8.8
+  - 修正: 新增「深度掃描」還原機制，自動掃描 LocalStorage 中成為孤兒的歷史對話碎片並重建至 IndexedDB，解決清單遭覆蓋時的遺失問題
 -->
 <!DOCTYPE html>
 <html lang="zh-TW" class="light">
@@ -1261,6 +1261,44 @@
           const request = store.getAll();
           request.onsuccess = async () => {
             sessions = request.result || [];
+            
+            // 全域深度掃描：尋找 LocalStorage 中成為孤兒的對話紀錄 (Orphaned Messages)
+            let recoveredCount = 0;
+            try {
+              for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith('logos_msg_')) {
+                  const orphanedSessionId = key.replace('logos_msg_', '');
+                  if (!sessions.some(s => s.id === orphanedSessionId)) {
+                    const msgsRaw = localStorage.getItem(key);
+                    if (msgsRaw) {
+                      const msgs = JSON.parse(msgsRaw) || [];
+                      if (msgs.length > 0) {
+                        const firstUserMsg = msgs.find(m => m.role === 'user');
+                        const titleText = firstUserMsg ? firstUserMsg.content.substring(0, 15) + '...' : '還原的歷史對話';
+                        const recoveredSession = {
+                          id: orphanedSessionId,
+                          title: titleText,
+                          createdAt: msgs[0].timestamp || Date.now(),
+                          updatedAt: msgs[msgs.length - 1].timestamp || Date.now()
+                        };
+                        sessions.push(recoveredSession);
+                        
+                        const writeTx = db.transaction([STORE_SESSIONS, STORE_MESSAGES], 'readwrite');
+                        writeTx.objectStore(STORE_SESSIONS).put(recoveredSession);
+                        msgs.forEach(msg => writeTx.objectStore(STORE_MESSAGES).add({ sessionId: orphanedSessionId, role: msg.role, content: msg.content, timestamp: msg.timestamp || Date.now() }));
+                        recoveredCount++;
+                      }
+                    }
+                  }
+                }
+              }
+            } catch(e) { console.warn("Deep scan failed", e); }
+
+            if (recoveredCount > 0) {
+              saveLocalStorageBackup(); // 更新 index
+            }
+
             sessions.sort((a, b) => b.updatedAt - a.updatedAt);
             if (sessions.length === 0) {
               await createNewSession('新神學對話');
