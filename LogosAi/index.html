@@ -1,6 +1,6 @@
 <!-- 
-  Version: v4.8.8
-  - 修正: 新增「深度掃描」還原機制，自動掃描 LocalStorage 中成為孤兒的歷史對話碎片並重建至 IndexedDB，解決清單遭覆蓋時的遺失問題
+  Version: v4.8.9
+  - 修正: 新增前端鎖定保護，若後端發生錯誤，強制讓「思考中」畫面顯示滿 60 秒，確保不讓使用者因網路短暫錯誤或 Timeout 提早點擊重試，避免造成後端 D1/Gemini 競爭危害。
 -->
 <!DOCTYPE html>
 <html lang="zh-TW" class="light">
@@ -1150,7 +1150,7 @@
   </div>
 
   <!-- App Version Badge -->
-  <div class="app-version-badge">v4.8.8</div>
+  <div class="app-version-badge">v4.8.9</div>
 
   <!-- Toast Notification -->
   <div id="toast"></div>
@@ -2027,6 +2027,8 @@
       scrollToBottomSmooth();
 
       const targetAudience = getCurrentTargetAudience();
+      const sendStartTime = Date.now();
+      const expectedSessionId = currentSessionId;
 
       try {
         const response = await fetch(proxyUrl, {
@@ -2045,6 +2047,8 @@
           throw new Error(data.error || `HTTP ${response.status}`);
         }
         const replyText = data.choices[0].message.content;
+
+        if (currentSessionId !== expectedSessionId) return;
 
         removeTypingIndicator();
 
@@ -2102,6 +2106,15 @@
         }, 30);
 
       } catch (err) {
+        // 前端鎖定保護：確保等待滿 60 秒才顯示錯誤，避免提早重試導致後端重複請求
+        const elapsed = Date.now() - sendStartTime;
+        if (elapsed < 60000) {
+          await new Promise(r => setTimeout(r, 60000 - elapsed));
+        }
+        
+        // 若使用者在等待期間切換了對話，則不處理錯誤顯示
+        if (currentSessionId !== expectedSessionId) return;
+
         removeTypingIndicator();
         let errHint = err.message;
         if (err.message.includes('429')) {
