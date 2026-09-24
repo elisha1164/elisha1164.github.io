@@ -1,4 +1,4 @@
-﻿<!-- 版本號: 1.2.0 | 修改主旨: 移除 Squarespace 平台模組、GTM 追蹤碼、SEO/社群中繼資料與外部圖標庫，簡化為純淨獨立之經文背誦測驗頁面 -->
+<!-- 版本號: 1.3.0 | 修改主旨: 新增頂部分頁導覽（背誦模式、首字提示模式、測驗模式），支援意群重音顯示與首字提示功能 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -62,82 +62,381 @@
     .success { background-color: #c6f6d5; color: #22543d; }
     .error { background-color: #fed7d7; color: #742a2a; }
     .hint { margin-top: 8px; font-size: 0.88rem; color: #4a5568; }
+    .tabs {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 25px;
+      flex-wrap: wrap;
+    }
+    .tab-btn {
+      padding: 10px 22px;
+      font-size: 1rem;
+      font-weight: 600;
+      border: 2px solid #cbd5e0;
+      border-radius: 8px;
+      background: white;
+      color: #4a5568;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .tab-btn:hover {
+      border-color: #3182ce;
+      color: #3182ce;
+    }
+    .tab-btn.active {
+      background: #3182ce;
+      border-color: #3182ce;
+      color: white;
+      box-shadow: 0 2px 6px rgba(49, 130, 206, 0.3);
+    }
+    .recite-box {
+      font-size: 1.15rem;
+      line-height: 1.9;
+      color: #2d3748;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-left: 4px solid #38a169;
+      padding: 18px 20px;
+      border-radius: 8px;
+    }
+    .recite-box strong {
+      color: #1a202c;
+      font-weight: 700;
+      text-decoration: underline;
+      text-decoration-color: #38a169;
+      text-underline-offset: 3px;
+    }
+    .hint-box {
+      background: #ebf8ff;
+      border-left: 4px solid #3182ce;
+      padding: 12px 16px;
+      border-radius: 6px;
+      margin-bottom: 14px;
+      font-family: Consolas, 'SFMono-Regular', Menlo, Monaco, monospace;
+      font-size: 1.05rem;
+      line-height: 1.6;
+      color: #2b6cb0;
+    }
+    .hint-label {
+      font-weight: bold;
+      color: #2c5282;
+      margin-right: 6px;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
   </style>
 </head>
 <body>
 
 <div class="container">
-  <h1>ESV Memory Quiz (All Verses)</h1>
+  <h1 id="quiz-title">ESV Memory (背誦模式)</h1>
+  <div class="tabs">
+    <button class="tab-btn active" data-mode="recite" onclick="switchMode('recite')">背誦模式</button>
+    <button class="tab-btn" data-mode="hint" onclick="switchMode('hint')">首字提示模式</button>
+    <button class="tab-btn" data-mode="quiz" onclick="switchMode('quiz')">測驗模式</button>
+  </div>
   <div id="quiz-list"></div>
 </div>
 
 <script>
   const verses = [
-    { ref: "Psalm 19:1", text: "The heavens declare the glory of God, and the sky above proclaims his handiwork." },
-    { ref: "Isaiah 59:2", text: "but your iniquities have made a separation between you and your God, and your sins have hidden his face from you so that he does not hear." },
-    { ref: "John 3:16", text: "For God so loved the world, that he gave his only Son, that whoever believes in him should not perish but have eternal life." },
-    { ref: "John 3:3", text: "Jesus answered him, 'Truly, truly, I say to you, unless one is born again he cannot see the kingdom of God.'" },
-    { ref: "John 10:10", text: "The thief comes only to steal and kill and destroy. I came that they may have life and have it abundantly." },
-    { ref: "Revelation 4:11", text: "Worthy are you, our Lord and God, to receive glory and honor and power, for you created all things, and by your will they existed and were created." },
-    { ref: "Isaiah 53:6", text: "All we like sheep have gone astray; we have turned—every one—to his own way; and the Lord has laid on him the iniquity of us all." },
-    { ref: "Luke 19:10", text: "For the Son of Man came to seek and to save the lost." },
-    { ref: "John 1:12", text: "But to all who did receive him, who believed in his name, he gave the right to become children of God," },
-    { ref: "John 3:36", text: "Whoever believes in the Son has eternal life; whoever does not obey the Son shall not see life, but the wrath of God remains on him." },
-    { ref: "Matthew 22:37-38", text: "And he said to him, 'You shall love the Lord your God with all your heart and with all your soul and with all your mind. This is the great and first commandment.'" },
-    { ref: "Romans 3:23", text: "for all have sinned and fall short of the glory of God," },
-    { ref: "Romans 5:8", text: "but God shows his love for us in that while we were still sinners, Christ died for us." },
-    { ref: "Matthew 10:28", text: "And do not fear those who kill the body but cannot kill the soul. Rather fear him who can destroy both soul and body in hell." },
-    { ref: "1 John 5:12-13", text: "Whoever has the Son has life; whoever does not have the Son of God does not have life. I write these things to you who believe in the name of the Son of God, that you may know that you have eternal life." },
-    { ref: "Leviticus 19:2", text: "Speak to all the congregation of the people of Israel and say to them, You shall be holy, for I the Lord your God am holy." },
-    { ref: "Romans 6:23", text: "For the wages of sin is death, but the free gift of God is eternal life in Christ Jesus our Lord." },
-    { ref: "1 Peter 2:24", text: "He himself bore our sins in his body on the tree, that we might die to sin and live to righteousness. By his wounds you have been healed." },
-    { ref: "Romans 10:9", text: "because, if you confess with your mouth that Jesus is Lord and believe in your heart that God raised him from the dead, you will be saved." },
-    { ref: "Romans 8:16", text: "The Spirit himself bears witness with our spirit that we are children of God," },
-    { ref: "Hebrews 9:27", text: "And just as it is appointed for man to die once, and after that comes judgment," },
-    { ref: "Isaiah 53:5", text: "But he was wounded for our transgressions; he was crushed for our iniquities; upon him was the chastisement that brought us peace, and with his stripes we are healed." },
-    { ref: "Romans 10:13", text: "For 'everyone who calls on the name of the Lord will be saved.'" },
-    { ref: "1 Timothy 4:16", text: "Keep a close watch on yourself and on the teaching. Persist in this, for by so doing you will save both yourself and your hearers." },
-    { ref: "John 5:24", text: "Truly, truly, I say to you, whoever hears my word and believes him who sent me has eternal life. He does not come into judgment, but has passed from death to life." },
-    { ref: "Acts 16:31", text: "And they said, 'Believe in the Lord Jesus, and you will be saved, you and your household.'" },
-    { ref: "1 Peter 3:18", text: "For Christ also suffered once for sins, the righteous for the unrighteous, that he might bring us to God, being put to death in the flesh but made alive in the spirit," },
-    { ref: "John 14:6", text: "Jesus said to him, 'I am the way, and the truth, and the life. No one comes to the Father except through me.'" },
-    { ref: "Acts 4:12", text: "And there is salvation in no one else, for there is no other name under heaven given among men by which we must be saved." },
-    { ref: "2 Corinthians 5:17", text: "Therefore, if anyone is in Christ, he is a new creation. The old has passed away; behold, the new has come." },
-    { ref: "2 Corinthians 5:21", text: "For our sake he made him to be sin who knew no sin, so that in him we might become the righteousness of God." },
-    { ref: "Luke 13:3", text: "No, I tell you; but unless you repent, you will all likewise perish." },
-    { ref: "Isaiah 55:7", text: "let the wicked forsake his way, and the unrighteous man his thoughts; let him return to the LORD, that he may have compassion on him, and to our God, for he will abundantly pardon." },
-    { ref: "1 John 1:9", text: "If we confess our sins, he is faithful and just to forgive us our sins and to cleanse us from all unrighteousness." },
-    { ref: "2 Timothy 1:12", text: "which is why I suffer as I do. But I am not ashamed, for I know whom I have believed, and I am convinced that he is able to guard until that Day what has been entrusted to me." },
-    { ref: "John 6:37", text: "All that the Father gives me will come to me, and whoever comes to me I will never cast out." },
-    { ref: "Isaiah 1:18", text: "Come now, let us reason together, says the LORD: though your sins are like scarlet, they shall be as white as snow; though they are red like crimson, they shall become like wool." },
-    { ref: "2 Corinthians 6:2", text: "For he says, 'In a favorable time I listened to you, and in a day of salvation I have helped you.' Behold, now is the favorable time; behold, now is the day of salvation." },
-    { ref: "Revelation 3:20", text: "Behold, I stand at the door and knock. If anyone hears my voice and opens the door, I will come in to him and eat with him, and he with me." },
-    { ref: "Ephesians 2:8-9", text: "For by grace you have been saved through faith. And this is not your own doing; it is the gift of God, not a result of works, so that no one may boast." }
+    {
+      ref: "Psalm 19:1",
+      text: "The heavens declare the glory of God, and the sky above proclaims his handiwork.",
+      recite: "[The heavens <strong>declare</strong> the <strong>glory</strong> of God,] [and the sky above <strong>proclaims</strong> his <strong>handiwork</strong>.]"
+    },
+    {
+      ref: "Isaiah 59:2",
+      text: "but your iniquities have made a separation between you and your God, and your sins have hidden his face from you so that he does not hear.",
+      recite: "[but your iniquities have made a <strong>separation</strong>] [between you and your <strong>God</strong>,] [and your sins have <strong>hidden</strong> his <strong>face</strong> from you] [so that he does not <strong>hear</strong>.]"
+    },
+    {
+      ref: "John 3:16",
+      text: "For God so loved the world, that he gave his only Son, that whoever believes in him should not perish but have eternal life.",
+      recite: "[For God so <strong>loved</strong> the <strong>world</strong>,] [that he gave his only <strong>Son</strong>,] [that whoever <strong>believes</strong> in him should not <strong>perish</strong>] [but have eternal <strong>life</strong>.]"
+    },
+    {
+      ref: "John 3:3",
+      text: "Jesus answered him, 'Truly, truly, I say to you, unless one is born again he cannot see the kingdom of God.'",
+      recite: "[Jesus <strong>answered</strong> him,] ['Truly, truly, I <strong>say</strong> to you,] [unless one is <strong>born</strong> <strong>again</strong>] [he cannot <strong>see</strong> the <strong>kingdom</strong> of God.']"
+    },
+    {
+      ref: "John 10:10",
+      text: "The thief comes only to steal and kill and destroy. I came that they may have life and have it abundantly.",
+      recite: "[The thief comes only to <strong>steal</strong> and <strong>kill</strong> and destroy.] [I came that they may have <strong>life</strong>] [and have it <strong>abundantly</strong>.]"
+    },
+    {
+      ref: "Revelation 4:11",
+      text: "Worthy are you, our Lord and God, to receive glory and honor and power, for you created all things, and by your will they existed and were created.",
+      recite: "[<strong>Worthy</strong> are you, our <strong>Lord</strong> and God,] [to receive <strong>glory</strong> and honor and <strong>power</strong>,] [for you <strong>created</strong> all <strong>things</strong>,] [and by your will they <strong>existed</strong> and were <strong>created</strong>.]"
+    },
+    {
+      ref: "Isaiah 53:6",
+      text: "All we like sheep have gone astray; we have turned—every one—to his own way; and the Lord has laid on him the iniquity of us all.",
+      recite: "[All we like sheep have gone <strong>astray</strong>;] [we have <strong>turned</strong>—every one—to his own <strong>way</strong>;] [and the Lord has <strong>laid</strong> on him] [the <strong>iniquity</strong> of us all.]"
+    },
+    {
+      ref: "Luke 19:10",
+      text: "For the Son of Man came to seek and to save the lost.",
+      recite: "[For the Son of Man <strong>came</strong>] [to <strong>seek</strong> and to <strong>save</strong> the lost.]"
+    },
+    {
+      ref: "John 1:12",
+      text: "But to all who did receive him, who believed in his name, he gave the right to become children of God,",
+      recite: "[But to all who did <strong>receive</strong> him,] [who <strong>believed</strong> in his <strong>name</strong>,] [he gave the <strong>right</strong> to become <strong>children</strong> of God,]"
+    },
+    {
+      ref: "John 3:36",
+      text: "Whoever believes in the Son has eternal life; whoever does not obey the Son shall not see life, but the wrath of God remains on him.",
+      recite: "[Whoever <strong>believes</strong> in the Son has eternal <strong>life</strong>;] [whoever does not <strong>obey</strong> the Son shall not <strong>see</strong> life,] [but the <strong>wrath</strong> of God <strong>remains</strong> on him.]"
+    },
+    {
+      ref: "Matthew 22:37-38",
+      text: "And he said to him, 'You shall love the Lord your God with all your heart and with all your soul and with all your mind. This is the great and first commandment.'",
+      recite: "[And he said to him, 'You shall <strong>love</strong> the Lord your <strong>God</strong>] [with all your <strong>heart</strong> and with all your <strong>soul</strong>] [and with all your <strong>mind</strong>.] [This is the <strong>great</strong> and <strong>first</strong> commandment.']"
+    },
+    {
+      ref: "Romans 3:23",
+      text: "for all have sinned and fall short of the glory of God,",
+      recite: "[for all have <strong>sinned</strong>] [and fall <strong>short</strong> of the <strong>glory</strong> of God,]"
+    },
+    {
+      ref: "Romans 5:8",
+      text: "but God shows his love for us in that while we were still sinners, Christ died for us.",
+      recite: "[but God <strong>shows</strong> his <strong>love</strong> for us] [in that while we were still <strong>sinners</strong>,] [Christ <strong>died</strong> for us.]"
+    },
+    {
+      ref: "Matthew 10:28",
+      text: "And do not fear those who kill the body but cannot kill the soul. Rather fear him who can destroy both soul and body in hell.",
+      recite: "[And do not <strong>fear</strong> those who kill the <strong>body</strong>] [but cannot kill the <strong>soul</strong>.] [Rather <strong>fear</strong> him] [who can <strong>destroy</strong> both soul and body in <strong>hell</strong>.]"
+    },
+    {
+      ref: "1 John 5:12-13",
+      text: "Whoever has the Son has life; whoever does not have the Son of God does not have life. I write these things to you who believe in the name of the Son of God, that you may know that you have eternal life.",
+      recite: "[Whoever has the <strong>Son</strong> has <strong>life</strong>;] [whoever does not have the Son of God does not have <strong>life</strong>.] [I write these things to you who <strong>believe</strong> in the name of the Son of God,] [that you may <strong>know</strong> that you have eternal <strong>life</strong>.]"
+    },
+    {
+      ref: "Leviticus 19:2",
+      text: "Speak to all the congregation of the people of Israel and say to them, You shall be holy, for I the Lord your God am holy.",
+      recite: "[Speak to all the congregation of the people of <strong>Israel</strong> and <strong>say</strong> to them,] [You shall be <strong>holy</strong>,] [for I the Lord your God am <strong>holy</strong>.]"
+    },
+    {
+      ref: "Romans 6:23",
+      text: "For the wages of sin is death, but the free gift of God is eternal life in Christ Jesus our Lord.",
+      recite: "[For the <strong>wages</strong> of sin is <strong>death</strong>,] [but the free <strong>gift</strong> of God is eternal <strong>life</strong>] [in Christ <strong>Jesus</strong> our <strong>Lord</strong>.]"
+    },
+    {
+      ref: "1 Peter 2:24",
+      text: "He himself bore our sins in his body on the tree, that we might die to sin and live to righteousness. By his wounds you have been healed.",
+      recite: "[He himself <strong>bore</strong> our <strong>sins</strong> in his body on the tree,] [that we might <strong>die</strong> to sin and <strong>live</strong> to righteousness.] [By his <strong>wounds</strong> you have been <strong>healed</strong>.]"
+    },
+    {
+      ref: "Romans 10:9",
+      text: "because, if you confess with your mouth that Jesus is Lord and believe in your heart that God raised him from the dead, you will be saved.",
+      recite: "[because, if you <strong>confess</strong> with your mouth that Jesus is <strong>Lord</strong>] [and <strong>believe</strong> in your heart that God <strong>raised</strong> him from the dead,] [you will be <strong>saved</strong>.]"
+    },
+    {
+      ref: "Romans 8:16",
+      text: "The Spirit himself bears witness with our spirit that we are children of God,",
+      recite: "[The Spirit himself bears <strong>witness</strong> with our <strong>spirit</strong>] [that we are <strong>children</strong> of <strong>God</strong>,]"
+    },
+    {
+      ref: "Hebrews 9:27",
+      text: "And just as it is appointed for man to die once, and after that comes judgment,",
+      recite: "[And just as it is <strong>appointed</strong> for man to <strong>die</strong> once,] [and after that comes <strong>judgment</strong>,]"
+    },
+    {
+      ref: "Isaiah 53:5",
+      text: "But he was wounded for our transgressions; he was crushed for our iniquities; upon him was the chastisement that brought us peace, and with his stripes we are healed.",
+      recite: "[But he was <strong>wounded</strong> for our <strong>transgressions</strong>;] [he was <strong>crushed</strong> for our <strong>iniquities</strong>;] [upon him was the chastisement that brought us <strong>peace</strong>,] [and with his <strong>stripes</strong> we are <strong>healed</strong>.]"
+    },
+    {
+      ref: "Romans 10:13",
+      text: "For 'everyone who calls on the name of the Lord will be saved.'",
+      recite: "[For 'everyone who <strong>calls</strong> on the <strong>name</strong> of the Lord] [will be <strong>saved</strong>.']"
+    },
+    {
+      ref: "1 Timothy 4:16",
+      text: "Keep a close watch on yourself and on the teaching. Persist in this, for by so doing you will save both yourself and your hearers.",
+      recite: "[Keep a close <strong>watch</strong> on yourself and on the <strong>teaching</strong>.] [<strong>Persist</strong> in this,] [for by so doing you will <strong>save</strong> both yourself and your <strong>hearers</strong>.]"
+    },
+    {
+      ref: "John 5:24",
+      text: "Truly, truly, I say to you, whoever hears my word and believes him who sent me has eternal life. He does not come into judgment, but has passed from death to life.",
+      recite: "[Truly, truly, I <strong>say</strong> to you,] [whoever <strong>hears</strong> my word and <strong>believes</strong> him who sent me has eternal life.] [He does not come into <strong>judgment</strong>,] [but has <strong>passed</strong> from death to <strong>life</strong>.]"
+    },
+    {
+      ref: "Acts 16:31",
+      text: "And they said, 'Believe in the Lord Jesus, and you will be saved, you and your household.'",
+      recite: "[And they said, '<strong>Believe</strong> in the Lord <strong>Jesus</strong>,] [and you will be <strong>saved</strong>, you and your <strong>household</strong>.']"
+    },
+    {
+      ref: "1 Peter 3:18",
+      text: "For Christ also suffered once for sins, the righteous for the unrighteous, that he might bring us to God, being put to death in the flesh but made alive in the spirit,",
+      recite: "[For Christ also <strong>suffered</strong> once for <strong>sins</strong>,] [the <strong>righteous</strong> for the <strong>unrighteous</strong>, that he might bring us to God,] [being put to <strong>death</strong> in the flesh but made <strong>alive</strong> in the spirit,]"
+    },
+    {
+      ref: "John 14:6",
+      text: "Jesus said to him, 'I am the way, and the truth, and the life. No one comes to the Father except through me.'",
+      recite: "[Jesus said to him, 'I am the <strong>way</strong>, and the <strong>truth</strong>, and the life.] [No one <strong>comes</strong> to the Father except through <strong>me</strong>.']"
+    },
+    {
+      ref: "Acts 4:12",
+      text: "And there is salvation in no one else, for there is no other name under heaven given among men by which we must be saved.",
+      recite: "[And there is <strong>salvation</strong> in no one <strong>else</strong>,] [for there is no other <strong>name</strong> under heaven given among men] [by which we must be <strong>saved</strong>.]"
+    },
+    {
+      ref: "2 Corinthians 5:17",
+      text: "Therefore, if anyone is in Christ, he is a new creation. The old has passed away; behold, the new has come.",
+      recite: "[Therefore, if anyone is in <strong>Christ</strong>, he is a <strong>new</strong> creation.] [The <strong>old</strong> has passed away;] [behold, the <strong>new</strong> has <strong>come</strong>.]"
+    },
+    {
+      ref: "2 Corinthians 5:21",
+      text: "For our sake he made him to be sin who knew no sin, so that in him we might become the righteousness of God.",
+      recite: "[For our sake he made him to be <strong>sin</strong> who knew no <strong>sin</strong>,] [so that in him we might become the <strong>righteousness</strong> of <strong>God</strong>.]"
+    },
+    {
+      ref: "Luke 13:3",
+      text: "No, I tell you; but unless you repent, you will all likewise perish.",
+      recite: "[No, I <strong>tell</strong> you;] [but unless you <strong>repent</strong>, you will all likewise <strong>perish</strong>.]"
+    },
+    {
+      ref: "Isaiah 55:7",
+      text: "let the wicked forsake his way, and the unrighteous man his thoughts; let him return to the LORD, that he may have compassion on him, and to our God, for he will abundantly pardon.",
+      recite: "[let the wicked <strong>forsake</strong> his <strong>way</strong>, and the unrighteous man his <strong>thoughts</strong>;] [let him <strong>return</strong> to the <strong>LORD</strong>, that he may have compassion on him,] [and to our <strong>God</strong>, for he will abundantly <strong>pardon</strong>.]"
+    },
+    {
+      ref: "1 John 1:9",
+      text: "If we confess our sins, he is faithful and just to forgive us our sins and to cleanse us from all unrighteousness.",
+      recite: "[If we <strong>confess</strong> our <strong>sins</strong>,] [he is <strong>faithful</strong> and <strong>just</strong> to forgive us our sins] [and to <strong>cleanse</strong> us from all <strong>unrighteousness</strong>.]"
+    },
+    {
+      ref: "2 Timothy 1:12",
+      text: "which is why I suffer as I do. But I am not ashamed, for I know whom I have believed, and I am convinced that he is able to guard until that Day what has been entrusted to me.",
+      recite: "[which is why I <strong>suffer</strong> as I <strong>do</strong>.] [But I am not <strong>ashamed</strong>, for I know whom I have <strong>believed</strong>,] [and I am <strong>convinced</strong> that he is able to <strong>guard</strong> until that Day what has been entrusted to me.]"
+    },
+    {
+      ref: "John 6:37",
+      text: "All that the Father gives me will come to me, and whoever comes to me I will never cast out.",
+      recite: "[All that the Father <strong>gives</strong> me will <strong>come</strong> to me,] [and whoever comes to me I will never <strong>cast</strong> <strong>out</strong>.]"
+    },
+    {
+      ref: "Isaiah 1:18",
+      text: "Come now, let us reason together, says the LORD: though your sins are like scarlet, they shall be as white as snow; though they are red like crimson, they shall become like wool.",
+      recite: "[Come now, let us <strong>reason</strong> together, says the <strong>LORD</strong>:] [though your sins are like <strong>scarlet</strong>, they shall be as <strong>white</strong> as snow;] [though they are red like <strong>crimson</strong>, they shall become like <strong>wool</strong>.]"
+    },
+    {
+      ref: "2 Corinthians 6:2",
+      text: "For he says, 'In a favorable time I listened to you, and in a day of salvation I have helped you.' Behold, now is the favorable time; behold, now is the day of salvation.",
+      recite: "[For he says, 'In a favorable time I <strong>listened</strong> to you, and in a day of salvation I have <strong>helped</strong> you.'] [Behold, now is the <strong>favorable</strong> <strong>time</strong>;] [behold, now is the <strong>day</strong> of <strong>salvation</strong>.]"
+    },
+    {
+      ref: "Revelation 3:20",
+      text: "Behold, I stand at the door and knock. If anyone hears my voice and opens the door, I will come in to him and eat with him, and he with me.",
+      recite: "[Behold, I stand at the <strong>door</strong> and <strong>knock</strong>.] [If anyone hears my <strong>voice</strong> and opens the <strong>door</strong>,] [I will come in to him and <strong>eat</strong> with him, and <strong>he</strong> with me.]"
+    },
+    {
+      ref: "Ephesians 2:8-9",
+      text: "For by grace you have been saved through faith. And this is not your own doing; it is the gift of God, not a result of works, so that no one may boast.",
+      recite: "[For by <strong>grace</strong> you have been saved through <strong>faith</strong>.] [And this is not your own <strong>doing</strong>; it is the <strong>gift</strong> of God,] [not a result of <strong>works</strong>, so that no one may <strong>boast</strong>.]"
+    }
   ];
 
   function stripPunctuation(str) {
     return str.toLowerCase().replace(/[^\w\s]/g, "").replace(/\s+/g, " ").trim();
   }
 
+  function getFirstLetterHint(str) {
+    return str.replace(/\b([a-zA-Z])[a-zA-Z]*\b/g, '$1');
+  }
+
+  let currentMode = 'recite';
+  const userInputs = {};
+  const userFeedback = {};
+
+  const modeTitles = {
+    recite: 'ESV Memory (背誦模式)',
+    hint: 'ESV Memory Quiz (首字提示模式)',
+    quiz: 'ESV Memory Quiz (測驗模式)'
+  };
+
+  function saveCurrentInputs() {
+    if (currentMode === 'hint' || currentMode === 'quiz') {
+      verses.forEach((_, index) => {
+        const el = document.getElementById(`user-input-${index}`);
+        if (el) {
+          userInputs[index] = el.value;
+        }
+        const fb = document.getElementById(`feedback-${index}`);
+        if (fb && fb.style.display === 'block') {
+          userFeedback[index] = {
+            display: 'block',
+            className: fb.className,
+            innerHTML: fb.innerHTML
+          };
+        }
+      });
+    }
+  }
+
+  function switchMode(mode) {
+    saveCurrentInputs();
+    currentMode = mode;
+    document.getElementById('quiz-title').textContent = modeTitles[mode] || 'ESV Memory';
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.mode === mode);
+    });
+    renderQuiz();
+  }
+
   function renderQuiz() {
     const quizList = document.getElementById("quiz-list");
-    quizList.innerHTML = verses.map((verse, index) => `
-      <div class="card">
-        <div class="reference">${verse.ref}</div>
-        <textarea
-          id="user-input-${index}"
-          placeholder="Type the verse here... (press Enter or Tab to check)"
-          onkeydown="handleKeyDown(event, ${index})"
-        ></textarea>
-        <div id="feedback-${index}" class="feedback"></div>
-      </div>
-    `).join('');
+    if (currentMode === 'recite') {
+      quizList.innerHTML = verses.map((verse, index) => `
+        <div class="card">
+          <div class="reference">${verse.ref}</div>
+          <div class="recite-box">${verse.recite}</div>
+        </div>
+      `).join('');
+    } else {
+      quizList.innerHTML = verses.map((verse, index) => `
+        <div class="card">
+          <div class="reference">${verse.ref}</div>
+          ${currentMode === 'hint' ? `
+            <div class="hint-box">
+              <span class="hint-label">首字提示：</span><span class="hint-text">${getFirstLetterHint(verse.text)}</span>
+            </div>
+          ` : ''}
+          <textarea
+            id="user-input-${index}"
+            placeholder="Type the verse here... (press Enter or Tab to check)"
+            onkeydown="handleKeyDown(event, ${index})"
+          >${userInputs[index] || ''}</textarea>
+          <div id="feedback-${index}" class="feedback"></div>
+        </div>
+      `).join('');
+
+      verses.forEach((_, index) => {
+        if (userFeedback[index]) {
+          const fb = document.getElementById(`feedback-${index}`);
+          if (fb) {
+            fb.style.display = userFeedback[index].display;
+            fb.className = userFeedback[index].className;
+            fb.innerHTML = userFeedback[index].innerHTML;
+          }
+        }
+      });
+    }
   }
 
   function checkAnswer(index) {
-    const rawInput = document.getElementById(`user-input-${index}`).value.trim();
+    const el = document.getElementById(`user-input-${index}`);
+    if (!el) return;
+    const rawInput = el.value.trim();
+    userInputs[index] = el.value;
     const targetText = verses[index].text.trim();
     const feedback = document.getElementById(`feedback-${index}`);
+    if (!feedback) return;
 
     feedback.style.display = "block";
 
@@ -157,6 +456,12 @@
       feedback.className = "feedback error";
       feedback.innerHTML = `<strong>Not quite word-for-word yet.</strong><div class="hint"><strong>Actual Text:</strong> ${targetText}</div>`;
     }
+
+    userFeedback[index] = {
+      display: 'block',
+      className: feedback.className,
+      innerHTML: feedback.innerHTML
+    };
   }
 
   function handleKeyDown(event, index) {
