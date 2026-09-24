@@ -1,4 +1,4 @@
-<!-- 版本號: 1.1.0 | 修改主旨: 將頂部分頁 Tab 設定為置頂黏性定位（position: sticky），網頁捲動時保持在畫面頂端 -->
+<!-- 版本號: 1.2.0 | 修改主旨: 將卡片改為水平左右滑動，兩側新增切換按鈕並標註序號 m/n 避免長頁面捲動 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -26,11 +26,30 @@
       margin-bottom: 25px;
     }
     .card {
+      min-width: 100%;
+      width: 100%;
+      box-sizing: border-box;
       background: white;
       padding: 25px;
       border-radius: 12px;
       box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-      margin-bottom: 20px;
+      border: 1px solid #edf2f7;
+      flex-shrink: 0;
+    }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 12px;
+    }
+    .card-header .reference {
+      margin-bottom: 0;
+    }
+    .card-counter {
+      font-size: 0.9rem;
+      color: #a0aec0;
+      font-weight: 600;
+      letter-spacing: 0.5px;
     }
     .reference {
       font-size: 1.35rem;
@@ -156,9 +175,52 @@
       border-radius: 3px;
       margin: 0 2px;
     }
-    .diff-missing u {
-      text-decoration: underline;
-      text-underline-offset: 3px;
+    .carousel-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      margin-bottom: 20px;
+    }
+    .nav-btn {
+      width: 32px;
+      height: 72px;
+      border: 1px solid #cbd5e0;
+      background: white;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1.4rem;
+      font-weight: bold;
+      color: #4a5568;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+      transition: all 0.2s ease;
+      user-select: none;
+    }
+    .nav-btn:hover:not(:disabled) {
+      background: #3182ce;
+      color: white;
+      border-color: #3182ce;
+    }
+    .nav-btn:disabled {
+      opacity: 0.25;
+      cursor: not-allowed;
+    }
+    .card-viewport {
+      overflow: hidden;
+      flex: 1;
+      border-radius: 12px;
+      padding: 8px 0;
+      margin: -8px 0;
+    }
+    .card-track {
+      display: flex;
+      transition: transform 0.35s cubic-bezier(0.25, 1, 0.5, 1);
+      width: 100%;
+      align-items: stretch;
     }
   </style>
 </head>
@@ -171,7 +233,13 @@
     <button class="tab-btn" data-mode="hint" onclick="switchMode('hint')">首字提示模式</button>
     <button class="tab-btn" data-mode="quiz" onclick="switchMode('quiz')">測驗模式</button>
   </div>
-  <div id="quiz-list"></div>
+  <div class="carousel-wrapper">
+    <button class="nav-btn prev-btn" id="prev-btn" onclick="prevCard()" title="上一張 (Alt+Left)">&lt;</button>
+    <div class="card-viewport" id="card-viewport">
+      <div class="card-track" id="quiz-list"></div>
+    </div>
+    <button class="nav-btn next-btn" id="next-btn" onclick="nextCard()" title="下一張 (Alt+Right)">&gt;</button>
+  </div>
 </div>
 
 <script>
@@ -420,19 +488,53 @@
     renderQuiz();
   }
 
+  let currentIndex = 0;
+
+  function goToCard(index) {
+    if (index < 0) index = 0;
+    if (index >= verses.length) index = verses.length - 1;
+    currentIndex = index;
+    const track = document.getElementById("quiz-list");
+    if (track) {
+      track.style.transform = `translateX(-${currentIndex * 100}%)`;
+    }
+    const prevBtn = document.getElementById("prev-btn");
+    const nextBtn = document.getElementById("next-btn");
+    if (prevBtn) prevBtn.disabled = (currentIndex === 0);
+    if (nextBtn) nextBtn.disabled = (currentIndex === verses.length - 1);
+  }
+
+  function prevCard() {
+    if (currentIndex > 0) {
+      goToCard(currentIndex - 1);
+    }
+  }
+
+  function nextCard() {
+    if (currentIndex < verses.length - 1) {
+      goToCard(currentIndex + 1);
+    }
+  }
+
   function renderQuiz() {
     const quizList = document.getElementById("quiz-list");
     if (currentMode === 'recite') {
       quizList.innerHTML = verses.map((verse, index) => `
         <div class="card">
-          <div class="reference">${verse.ref}</div>
+          <div class="card-header">
+            <div class="reference">${verse.ref}</div>
+            <div class="card-counter">${index + 1} / ${verses.length}</div>
+          </div>
           <div class="recite-box">${verse.recite}</div>
         </div>
       `).join('');
     } else {
       quizList.innerHTML = verses.map((verse, index) => `
         <div class="card">
-          <div class="reference">${verse.ref}</div>
+          <div class="card-header">
+            <div class="reference">${verse.ref}</div>
+            <div class="card-counter">${index + 1} / ${verses.length}</div>
+          </div>
           ${currentMode === 'hint' ? `
             <div class="hint-box">
               <span class="hint-label">首字提示：</span><span class="hint-text">${getFirstLetterHint(verse.text)}</span>
@@ -458,6 +560,8 @@
         }
       });
     }
+
+    goToCard(currentIndex);
   }
 
   function computeWordDiff(userInput, targetText) {
@@ -591,6 +695,45 @@
       checkAnswer(index);
     }
   }
+
+  // Touch swipe support for card-viewport
+  (function initTouchSwipe() {
+    let touchStartX = 0;
+    let touchEndX = 0;
+    const viewport = document.getElementById("card-viewport");
+    if (!viewport) return;
+    viewport.addEventListener("touchstart", function (e) {
+      touchStartX = e.changedTouches[0].screenX;
+    }, { passive: true });
+    viewport.addEventListener("touchend", function (e) {
+      touchEndX = e.changedTouches[0].screenX;
+      const diff = touchEndX - touchStartX;
+      if (Math.abs(diff) > 40) {
+        if (diff < 0) nextCard();
+        else prevCard();
+      }
+    }, { passive: true });
+  })();
+
+  // Keyboard navigation support (Alt + ArrowLeft/ArrowRight or ArrowLeft/ArrowRight when not typing)
+  document.addEventListener("keydown", function (e) {
+    const isInput = e.target.tagName === "TEXTAREA" || e.target.tagName === "INPUT";
+    if (isInput) {
+      if (e.altKey && e.key === "ArrowLeft") {
+        prevCard();
+        e.preventDefault();
+      } else if (e.altKey && e.key === "ArrowRight") {
+        nextCard();
+        e.preventDefault();
+      }
+    } else {
+      if (e.key === "ArrowLeft") {
+        prevCard();
+      } else if (e.key === "ArrowRight") {
+        nextCard();
+      }
+    }
+  });
 
   renderQuiz();
 </script>
