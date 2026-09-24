@@ -1,4 +1,4 @@
-<!-- 版本號: 1.4.0 | 修改主旨: 在錯誤提示處增加單字級差異比對（刪除線表示多寫/有誤單字，粗體底線表示少寫單字） -->
+<!-- 版本號: 1.5.0 | 修改主旨: 將頂部分頁 Tab 設定為置頂黏性定位（position: sticky），網頁捲動時保持在畫面頂端 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -63,10 +63,15 @@
     .error { background-color: #fed7d7; color: #742a2a; }
     .hint { margin-top: 8px; font-size: 0.88rem; color: #4a5568; }
     .tabs {
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      background-color: #f4f6f8;
+      padding: 12px 0;
       display: flex;
       justify-content: center;
       gap: 10px;
-      margin-bottom: 25px;
+      margin-bottom: 20px;
       flex-wrap: wrap;
     }
     .tab-btn {
