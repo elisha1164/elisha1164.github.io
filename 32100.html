@@ -1,4 +1,4 @@
-<!-- 版本號: 1.3.0 | 修改主旨: 新增頂部分頁導覽（背誦模式、首字提示模式、測驗模式），支援意群重音顯示與首字提示功能 -->
+<!-- 版本號: 1.4.0 | 修改主旨: 在錯誤提示處增加單字級差異比對（刪除線表示多寫/有誤單字，粗體底線表示少寫單字） -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -123,6 +123,37 @@
       color: #2c5282;
       margin-right: 6px;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    .diff-view {
+      margin-top: 10px;
+      padding: 10px 14px;
+      background: #fff5f5;
+      border-radius: 6px;
+      border: 1px solid #feb2b2;
+      line-height: 1.8;
+      font-size: 0.95rem;
+      color: #4a5568;
+    }
+    .diff-extra {
+      color: #c53030;
+      text-decoration: line-through;
+      background: #fed7d7;
+      padding: 1px 4px;
+      border-radius: 3px;
+      margin: 0 2px;
+      font-weight: 500;
+    }
+    .diff-missing {
+      color: #2b6cb0;
+      font-weight: 700;
+      background: #ebf8ff;
+      padding: 1px 4px;
+      border-radius: 3px;
+      margin: 0 2px;
+    }
+    .diff-missing u {
+      text-decoration: underline;
+      text-underline-offset: 3px;
     }
   </style>
 </head>
@@ -429,6 +460,84 @@
     }
   }
 
+  function computeWordDiff(userInput, targetText) {
+    const userTokens = userInput.trim().split(/\s+/).filter(Boolean);
+    const targetTokens = targetText.trim().split(/\s+/).filter(Boolean);
+
+    const m = userTokens.length;
+    const n = targetTokens.length;
+
+    const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+
+    function wordsEqual(w1, w2) {
+      const norm1 = w1.toLowerCase().replace(/[^\w]/g, '');
+      const norm2 = w2.toLowerCase().replace(/[^\w]/g, '');
+      if (norm1 && norm2) {
+        return norm1 === norm2;
+      }
+      return w1.toLowerCase() === w2.toLowerCase();
+    }
+
+    for (let i = 1; i <= m; i++) {
+      for (let j = 1; j <= n; j++) {
+        if (wordsEqual(userTokens[i - 1], targetTokens[j - 1])) {
+          dp[i][j] = dp[i - 1][j - 1] + 1;
+        } else {
+          dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+        }
+      }
+    }
+
+    let i = m, j = n;
+    const diff = [];
+    while (i > 0 || j > 0) {
+      if (i > 0 && j > 0 && wordsEqual(userTokens[i - 1], targetTokens[j - 1])) {
+        diff.unshift({ type: 'equal', text: targetTokens[j - 1] });
+        i--;
+        j--;
+      } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+        diff.unshift({ type: 'missing', text: targetTokens[j - 1] });
+        j--;
+      } else if (i > 0) {
+        diff.unshift({ type: 'extra', text: userTokens[i - 1] });
+        i--;
+      }
+    }
+
+    const merged = [];
+    let cur = null;
+    for (const item of diff) {
+      if (!cur || cur.type !== item.type) {
+        if (cur) merged.push(cur);
+        cur = { type: item.type, tokens: [item.text] };
+      } else {
+        cur.tokens.push(item.text);
+      }
+    }
+    if (cur) merged.push(cur);
+
+    function escapeHtml(str) {
+      return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    const htmlParts = merged.map(g => {
+      const escaped = g.tokens.map(escapeHtml).join(' ');
+      if (g.type === 'extra') {
+        return `<del class="diff-extra">${escaped}</del>`;
+      } else if (g.type === 'missing') {
+        return `<strong class="diff-missing"><u>${escaped}</u></strong>`;
+      } else {
+        return escaped;
+      }
+    });
+
+    return htmlParts.join(' ');
+  }
+
   function checkAnswer(index) {
     const el = document.getElementById(`user-input-${index}`);
     if (!el) return;
@@ -453,8 +562,18 @@
       feedback.className = "feedback success";
       feedback.innerHTML = "<strong>Correct!</strong> Words match (punctuation skipped or varied).";
     } else {
+      const diffHtml = computeWordDiff(rawInput, targetText);
       feedback.className = "feedback error";
-      feedback.innerHTML = `<strong>Not quite word-for-word yet.</strong><div class="hint"><strong>Actual Text:</strong> ${targetText}</div>`;
+      feedback.innerHTML = `
+        <strong>Not quite word-for-word yet.</strong>
+        <div class="diff-view">
+          <div style="font-size: 0.85rem; color: #742a2a; margin-bottom: 6px;">
+            <strong>差異比對：</strong>（<del class="diff-extra">刪除線</del> 表示多寫/有誤，<strong class="diff-missing"><u>粗體底線</u></strong> 表示少寫漏字）
+          </div>
+          <div>${diffHtml}</div>
+        </div>
+        <div class="hint"><strong>Actual Text:</strong> ${targetText}</div>
+      `;
     }
 
     userFeedback[index] = {
