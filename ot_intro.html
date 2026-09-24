@@ -1,0 +1,594 @@
+<!-- 版本號: 1.0.0 | 修改主旨: 建立舊約 39 卷書主題背誦與測驗頁面，支援背誦、首字提示、測驗三種模式及單字級比對 -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Old Testament Book Themes Memory (舊約各卷主題背誦)</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f4f6f8;
+      color: #333;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+    .container {
+      max-width: 720px;
+      width: 100%;
+    }
+    h1 {
+      font-size: 1.8rem;
+      color: #2c3e50;
+      text-align: center;
+      margin-bottom: 25px;
+    }
+    .card {
+      background: white;
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+      margin-bottom: 20px;
+    }
+    .reference {
+      font-size: 1.35rem;
+      font-weight: bold;
+      color: #2b6cb0;
+      margin-bottom: 12px;
+    }
+    textarea {
+      width: 100%;
+      height: 95px;
+      padding: 12px;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      box-sizing: border-box;
+      resize: vertical;
+      font-family: inherit;
+    }
+    textarea:focus {
+      outline: none;
+      border-color: #3182ce;
+    }
+    .feedback {
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 8px;
+      display: none;
+    }
+    .success { background-color: #c6f6d5; color: #22543d; }
+    .error { background-color: #fed7d7; color: #742a2a; }
+    .hint { margin-top: 8px; font-size: 0.88rem; color: #4a5568; }
+    .tabs {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 25px;
+      flex-wrap: wrap;
+    }
+    .tab-btn {
+      padding: 10px 22px;
+      font-size: 1rem;
+      font-weight: 600;
+      border: 2px solid #cbd5e0;
+      border-radius: 8px;
+      background: white;
+      color: #4a5568;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .tab-btn:hover {
+      border-color: #3182ce;
+      color: #3182ce;
+    }
+    .tab-btn.active {
+      background: #3182ce;
+      border-color: #3182ce;
+      color: white;
+      box-shadow: 0 2px 6px rgba(49, 130, 206, 0.3);
+    }
+    .recite-box {
+      font-size: 1.15rem;
+      line-height: 1.9;
+      color: #2d3748;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-left: 4px solid #38a169;
+      padding: 18px 20px;
+      border-radius: 8px;
+    }
+    .recite-box strong {
+      color: #1a202c;
+      font-weight: 700;
+      text-decoration: underline;
+      text-decoration-color: #38a169;
+      text-underline-offset: 3px;
+    }
+    .hint-box {
+      background: #ebf8ff;
+      border-left: 4px solid #3182ce;
+      padding: 12px 16px;
+      border-radius: 6px;
+      margin-bottom: 14px;
+      font-family: Consolas, 'SFMono-Regular', Menlo, Monaco, monospace;
+      font-size: 1.05rem;
+      line-height: 1.6;
+      color: #2b6cb0;
+    }
+    .hint-label {
+      font-weight: bold;
+      color: #2c5282;
+      margin-right: 6px;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    .diff-view {
+      margin-top: 10px;
+      padding: 10px 14px;
+      background: #fff5f5;
+      border-radius: 6px;
+      border: 1px solid #feb2b2;
+      line-height: 1.8;
+      font-size: 0.95rem;
+      color: #4a5568;
+    }
+    .diff-extra {
+      color: #c53030;
+      text-decoration: line-through;
+      background: #fed7d7;
+      padding: 1px 4px;
+      border-radius: 3px;
+      margin: 0 2px;
+      font-weight: 500;
+    }
+    .diff-missing {
+      color: #2b6cb0;
+      font-weight: 700;
+      background: #ebf8ff;
+      padding: 1px 4px;
+      border-radius: 3px;
+      margin: 0 2px;
+    }
+    .diff-missing u {
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h1 id="quiz-title">Old Testament Themes (背誦模式)</h1>
+  <div class="tabs">
+    <button class="tab-btn active" data-mode="recite" onclick="switchMode('recite')">背誦模式</button>
+    <button class="tab-btn" data-mode="hint" onclick="switchMode('hint')">首字提示模式</button>
+    <button class="tab-btn" data-mode="quiz" onclick="switchMode('quiz')">測驗模式</button>
+  </div>
+  <div id="quiz-list"></div>
+</div>
+
+<script>
+  const verses = [
+    {
+      ref: "Genesis",
+      text: "Beginnings, God's choice of a nation through which He would bless all nations.",
+      recite: "[<strong>Beginnings</strong>,] [God's <strong>choice</strong> of a nation] [through which He would <strong>bless</strong> all <strong>nations</strong>.]"
+    },
+    {
+      ref: "Exodus",
+      text: "Redemption, redemption and deliverance was accomplished through the shedding of blood and by the power of God.",
+      recite: "[<strong>Redemption</strong>,] [redemption and <strong>deliverance</strong> was accomplished] [through the <strong>shedding</strong> of blood] [and by the <strong>power</strong> of God.]"
+    },
+    {
+      ref: "Leviticus",
+      text: "Holiness, one must approach a holy God on the basis of sacrifice and priestly mediation, and one may only walk with God on the basis of sanctification and obedience.",
+      recite: "[<strong>Holiness</strong>,] [one must approach a <strong>holy</strong> God on the basis of <strong>sacrifice</strong> and priestly mediation,] [and one may only <strong>walk</strong> with God] [on the basis of <strong>sanctification</strong> and <strong>obedience</strong>.]"
+    },
+    {
+      ref: "Numbers",
+      text: "Wanderings, the consequences of disbelief and disobedience to the holy God.",
+      recite: "[<strong>Wanderings</strong>,] [the consequences of <strong>disbelief</strong> and <strong>disobedience</strong>] [to the <strong>holy</strong> <strong>God</strong>.]"
+    },
+    {
+      ref: "Deuteronomy",
+      text: "Renewal, emphasizes the danger of forgetting God's covenant.",
+      recite: "[<strong>Renewal</strong>,] [emphasizes the <strong>danger</strong>] [of <strong>forgetting</strong> God's <strong>covenant</strong>.]"
+    },
+    {
+      ref: "Joshua",
+      text: "Conquest, Israel's possession of the Promised Land and enjoyment of God's blessings through obedient faith.",
+      recite: "[<strong>Conquest</strong>,] [Israel's <strong>possession</strong> of the Promised <strong>Land</strong>] [and enjoyment of God's <strong>blessings</strong> through obedient <strong>faith</strong>.]"
+    },
+    {
+      ref: "Judges",
+      text: "Cycles, makes a clear contrast between the unfaithfulness of Israel and the LORD's covenant faithfulness and gracious deliverance of the people.",
+      recite: "[<strong>Cycles</strong>,] [makes a clear <strong>contrast</strong> between the unfaithfulness of <strong>Israel</strong>] [and the LORD's covenant <strong>faithfulness</strong>] [and gracious <strong>deliverance</strong> of the people.]"
+    },
+    {
+      ref: "Ruth",
+      text: "Kinsman-Redeemer, it reveals the LORD's gracious character and sovereign care for His people during a time of anarchy.",
+      recite: "[<strong>Kinsman-Redeemer</strong>,] [it reveals the LORD's gracious <strong>character</strong> and sovereign <strong>care</strong> for His people] [during a time of <strong>anarchy</strong>.]"
+    },
+    {
+      ref: "1 Samuel",
+      text: "Saul, Saul becomes the first king of Israel, the people's choice.",
+      recite: "[<strong>Saul</strong>,] [Saul becomes the <strong>first</strong> <strong>king</strong> of Israel,] [the people's <strong>choice</strong>.]"
+    },
+    {
+      ref: "2 Samuel",
+      text: "David, David's rule over Israel, God's choice.",
+      recite: "[<strong>David</strong>,] [David's <strong>rule</strong> over Israel,] [God's <strong>choice</strong>.]"
+    },
+    {
+      ref: "1 Kings",
+      text: "Division of the Kingdom, the nation divides into two kingdoms, Israel to the north and Judah to the south.",
+      recite: "[<strong>Division</strong> of the <strong>Kingdom</strong>,] [the nation <strong>divides</strong> into two <strong>kingdoms</strong>,] [Israel to the <strong>north</strong> and Judah to the <strong>south</strong>.]"
+    },
+    {
+      ref: "2 Kings",
+      text: "Captivities of the Kingdoms, disobedience and rebellion against God lead to the failure and overthrows of the monarchy.",
+      recite: "[<strong>Captivities</strong> of the <strong>Kingdoms</strong>,] [disobedience and <strong>rebellion</strong> against God] [lead to the <strong>failure</strong> and <strong>overthrows</strong> of the monarchy.]"
+    },
+    {
+      ref: "1 Chronicles",
+      text: "Davidic Covenant, the LORD is still with the people and will keep His covenant with David.",
+      recite: "[<strong>Davidic</strong> <strong>Covenant</strong>,] [the LORD is <strong>still</strong> with the people] [and will keep His <strong>covenant</strong> with <strong>David</strong>.]"
+    },
+    {
+      ref: "2 Chronicles",
+      text: "Priestly View of Judah, a divine editorial on the positive spiritual characteristics of the Davidic dynasty.",
+      recite: "[<strong>Priestly</strong> <strong>View</strong> of Judah,] [a divine <strong>editorial</strong> on the positive spiritual characteristics] [of the <strong>Davidic</strong> <strong>dynasty</strong>.]"
+    },
+    {
+      ref: "Ezra",
+      text: "Temple, the spiritual, moral, and social restoration of the returned remnant centered on the rebuilding of the temple.",
+      recite: "[<strong>Temple</strong>,] [the spiritual, moral, and social <strong>restoration</strong> of the returned remnant] [centered on the <strong>rebuilding</strong> of the <strong>temple</strong>.]"
+    },
+    {
+      ref: "Nehemiah",
+      text: "Jerusalem Walls, leadership in building the broken down walls of Jerusalem as well as the broken down spiritual walls of the people.",
+      recite: "[<strong>Jerusalem</strong> <strong>Walls</strong>,] [leadership in building the broken down <strong>walls</strong> of <strong>Jerusalem</strong>] [as well as the broken down spiritual <strong>walls</strong> of the <strong>people</strong>.]"
+    },
+    {
+      ref: "Esther",
+      text: "Providence, the preservation of God's people in exile.",
+      recite: "[<strong>Providence</strong>,] [the <strong>preservation</strong> of God's people in <strong>exile</strong>.]"
+    },
+    {
+      ref: "Job",
+      text: "Sovereignty, God is sovereign, His ways are sometimes incomprehensible, yet He can always be trusted.",
+      recite: "[<strong>Sovereignty</strong>,] [God is <strong>sovereign</strong>, His ways are sometimes <strong>incomprehensible</strong>,] [yet He can always be <strong>trusted</strong>.]"
+    },
+    {
+      ref: "Psalms",
+      text: "Worship, God is worthy of all praise because of who He is, what He has done, and what He will do.",
+      recite: "[<strong>Worship</strong>,] [God is <strong>worthy</strong> of all <strong>praise</strong>] [because of who He <strong>is</strong>, what He has <strong>done</strong>, and what He will <strong>do</strong>.]"
+    },
+    {
+      ref: "Proverbs",
+      text: "Wisdom, to impart moral discernment and discretion and to develop mental clarity and perception.",
+      recite: "[<strong>Wisdom</strong>,] [to impart moral <strong>discernment</strong> and <strong>discretion</strong>] [and to develop mental <strong>clarity</strong> and <strong>perception</strong>.]"
+    },
+    {
+      ref: "Ecclesiastes",
+      text: "Vanity, all earthly goals as ends in themselves apart from God lead to frustration and dissatisfaction.",
+      recite: "[<strong>Vanity</strong>,] [all earthly <strong>goals</strong> as ends in themselves apart from God] [lead to <strong>frustration</strong> and <strong>dissatisfaction</strong>.]"
+    },
+    {
+      ref: "Song of Songs",
+      text: "Love, a bold and positive endorsement by God of marital love in all its physical and emotional beauty, anticipating Christ's love for His bride, the church.",
+      recite: "[<strong>Love</strong>,] [a bold and positive <strong>endorsement</strong> by God of marital <strong>love</strong> in all its physical and emotional beauty,] [anticipating Christ's <strong>love</strong> for His <strong>bride</strong>, the church.]"
+    },
+    {
+      ref: "Hosea",
+      text: "God's Loyal Love for Israel, God has been faithful to Israel even though she has been unfaithful to Him.",
+      recite: "[God's <strong>Loyal</strong> <strong>Love</strong> for Israel,] [God has been <strong>faithful</strong> to Israel] [even though she has been <strong>unfaithful</strong> to <strong>Him</strong>.]"
+    },
+    {
+      ref: "Amos",
+      text: "Judgment of Israel, Israel will be judged because the LORD is holy and Israel is sinful.",
+      recite: "[<strong>Judgment</strong> of <strong>Israel</strong>,] [Israel will be <strong>judged</strong>] [because the LORD is <strong>holy</strong> and Israel is <strong>sinful</strong>.]"
+    },
+    {
+      ref: "Jonah",
+      text: "God's Worldview, God's plan of salvation includes all people, not just Israel.",
+      recite: "[God's <strong>Worldview</strong>,] [God's plan of <strong>salvation</strong> includes all <strong>people</strong>,] [not just <strong>Israel</strong>.]"
+    },
+    {
+      ref: "Isaiah",
+      text: "Salvation, the Savior will come out of Judah and accomplish the twin work of redemption and restoration.",
+      recite: "[<strong>Salvation</strong>,] [the <strong>Savior</strong> will come out of <strong>Judah</strong>] [and accomplish the twin work of <strong>redemption</strong> and <strong>restoration</strong>.]"
+    },
+    {
+      ref: "Micah",
+      text: "Judgment and Restoration of Judah, the injustice of Judah is exposed along with the righteousness and justice of the LORD.",
+      recite: "[<strong>Judgment</strong> and <strong>Restoration</strong> of Judah,] [the <strong>injustice</strong> of Judah is <strong>exposed</strong>] [along with the <strong>righteousness</strong> and <strong>justice</strong> of the LORD.]"
+    },
+    {
+      ref: "Zephaniah",
+      text: "The Day of the LORD, a day of judgment and restoration.",
+      recite: "[The <strong>Day</strong> of the <strong>LORD</strong>,] [a day of <strong>judgment</strong> and <strong>restoration</strong>.]"
+    },
+    {
+      ref: "Nahum",
+      text: "Judgment of Nineveh, God will judge the nations.",
+      recite: "[<strong>Judgment</strong> of <strong>Nineveh</strong>,] [God will <strong>judge</strong> the <strong>nations</strong>.]"
+    },
+    {
+      ref: "Jeremiah",
+      text: "Judah's Last Hour, Judah's time for repentance was running out.",
+      recite: "[Judah's <strong>Last</strong> <strong>Hour</strong>,] [Judah's time for <strong>repentance</strong> was <strong>running</strong> out.]"
+    },
+    {
+      ref: "Lamentations",
+      text: "Lamentations, mourning, confession, and hope of future restoration.",
+      recite: "[<strong>Lamentations</strong>,] [<strong>mourning</strong>, confession, and <strong>hope</strong> of future restoration.]"
+    },
+    {
+      ref: "Ezekiel",
+      text: "Judah's Babylonian Exile and the Destruction of the Temple, a message of perversion, destruction, and restoration.",
+      recite: "[Judah's <strong>Babylonian</strong> <strong>Exile</strong> and the Destruction of the Temple,] [a message of <strong>perversion</strong>, <strong>destruction</strong>, and <strong>restoration</strong>.]"
+    },
+    {
+      ref: "Daniel",
+      text: "God's Plan for Israel, encouragement to the exiled Jews revealing God's sovereign program for Israel.",
+      recite: "[God's <strong>Plan</strong> for <strong>Israel</strong>,] [encouragement to the <strong>exiled</strong> Jews] [revealing God's sovereign <strong>program</strong> for <strong>Israel</strong>.]"
+    },
+    {
+      ref: "Obadiah",
+      text: "Judgment of Edom, judgment on Edom because of its cruelty to Judah.",
+      recite: "[<strong>Judgment</strong> of <strong>Edom</strong>,] [judgment on <strong>Edom</strong> because of its <strong>cruelty</strong> to Judah.]"
+    },
+    {
+      ref: "Habakkuk",
+      text: "Faith, in spite of appearances to the contrary, God is still on His throne and in control of His creation.",
+      recite: "[<strong>Faith</strong>,] [in spite of appearances to the <strong>contrary</strong>,] [God is still on His <strong>throne</strong> and in <strong>control</strong> of His creation.]"
+    },
+    {
+      ref: "Joel",
+      text: "Locusts, God's impending judgment will come like a plague of locusts.",
+      recite: "[<strong>Locusts</strong>,] [God's impending <strong>judgment</strong> will come like a <strong>plague</strong> of <strong>locusts</strong>.]"
+    },
+    {
+      ref: "Haggai",
+      text: "Reconstruction of the Temple, the remnant must reorder its priorities and complete the temple before they can expect God's blessing.",
+      recite: "[<strong>Reconstruction</strong> of the <strong>Temple</strong>,] [the remnant must reorder its <strong>priorities</strong>] [and complete the <strong>temple</strong> before they can expect God's <strong>blessing</strong>.]"
+    },
+    {
+      ref: "Zechariah",
+      text: "Preparation for the Messiah, the LORD will keep His covenant with Israel through the Messiah.",
+      recite: "[<strong>Preparation</strong> for the <strong>Messiah</strong>,] [the LORD will keep His <strong>covenant</strong> with Israel] [through the <strong>Messiah</strong>.]"
+    },
+    {
+      ref: "Malachi",
+      text: "Appeal to Backsliders, repent and turn to God with sincere hearts.",
+      recite: "[<strong>Appeal</strong> to <strong>Backsliders</strong>,] [<strong>repent</strong> and turn to God with <strong>sincere</strong> <strong>hearts</strong>.]"
+    }
+  ];
+
+  function stripPunctuation(str) {
+    return str.toLowerCase().replace(/[^\w\s]/g, "").replace(/\s+/g, " ").trim();
+  }
+
+  function getFirstLetterHint(str) {
+    return str.replace(/\b([a-zA-Z])[a-zA-Z]*\b/g, '$1');
+  }
+
+  let currentMode = 'recite';
+  const userInputs = {};
+  const userFeedback = {};
+
+  const modeTitles = {
+    recite: 'Old Testament Themes (背誦模式)',
+    hint: 'Old Testament Themes Quiz (首字提示模式)',
+    quiz: 'Old Testament Themes Quiz (測驗模式)'
+  };
+
+  function saveCurrentInputs() {
+    if (currentMode === 'hint' || currentMode === 'quiz') {
+      verses.forEach((_, index) => {
+        const el = document.getElementById(`user-input-${index}`);
+        if (el) {
+          userInputs[index] = el.value;
+        }
+        const fb = document.getElementById(`feedback-${index}`);
+        if (fb && fb.style.display === 'block') {
+          userFeedback[index] = {
+            display: 'block',
+            className: fb.className,
+            innerHTML: fb.innerHTML
+          };
+        }
+      });
+    }
+  }
+
+  function switchMode(mode) {
+    saveCurrentInputs();
+    currentMode = mode;
+    document.getElementById('quiz-title').textContent = modeTitles[mode] || 'Old Testament Themes';
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.mode === mode);
+    });
+    renderQuiz();
+  }
+
+  function renderQuiz() {
+    const quizList = document.getElementById("quiz-list");
+    if (currentMode === 'recite') {
+      quizList.innerHTML = verses.map((verse, index) => `
+        <div class="card">
+          <div class="reference">${verse.ref}</div>
+          <div class="recite-box">${verse.recite}</div>
+        </div>
+      `).join('');
+    } else {
+      quizList.innerHTML = verses.map((verse, index) => `
+        <div class="card">
+          <div class="reference">${verse.ref}</div>
+          ${currentMode === 'hint' ? `
+            <div class="hint-box">
+              <span class="hint-label">首字提示：</span><span class="hint-text">${getFirstLetterHint(verse.text)}</span>
+            </div>
+          ` : ''}
+          <textarea
+            id="user-input-${index}"
+            placeholder="Type the theme and summary here... (press Enter or Tab to check)"
+            onkeydown="handleKeyDown(event, ${index})"
+          >${userInputs[index] || ''}</textarea>
+          <div id="feedback-${index}" class="feedback"></div>
+        </div>
+      `).join('');
+
+      verses.forEach((_, index) => {
+        if (userFeedback[index]) {
+          const fb = document.getElementById(`feedback-${index}`);
+          if (fb) {
+            fb.style.display = userFeedback[index].display;
+            fb.className = userFeedback[index].className;
+            fb.innerHTML = userFeedback[index].innerHTML;
+          }
+        }
+      });
+    }
+  }
+
+  function computeWordDiff(userInput, targetText) {
+    const userTokens = userInput.trim().split(/\s+/).filter(Boolean);
+    const targetTokens = targetText.trim().split(/\s+/).filter(Boolean);
+
+    const m = userTokens.length;
+    const n = targetTokens.length;
+
+    const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+
+    function wordsEqual(w1, w2) {
+      const norm1 = w1.toLowerCase().replace(/[^\w]/g, '');
+      const norm2 = w2.toLowerCase().replace(/[^\w]/g, '');
+      if (norm1 && norm2) {
+        return norm1 === norm2;
+      }
+      return w1.toLowerCase() === w2.toLowerCase();
+    }
+
+    for (let i = 1; i <= m; i++) {
+      for (let j = 1; j <= n; j++) {
+        if (wordsEqual(userTokens[i - 1], targetTokens[j - 1])) {
+          dp[i][j] = dp[i - 1][j - 1] + 1;
+        } else {
+          dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+        }
+      }
+    }
+
+    let i = m, j = n;
+    const diff = [];
+    while (i > 0 || j > 0) {
+      if (i > 0 && j > 0 && wordsEqual(userTokens[i - 1], targetTokens[j - 1])) {
+        diff.unshift({ type: 'equal', text: targetTokens[j - 1] });
+        i--;
+        j--;
+      } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+        diff.unshift({ type: 'missing', text: targetTokens[j - 1] });
+        j--;
+      } else if (i > 0) {
+        diff.unshift({ type: 'extra', text: userTokens[i - 1] });
+        i--;
+      }
+    }
+
+    const merged = [];
+    let cur = null;
+    for (const item of diff) {
+      if (!cur || cur.type !== item.type) {
+        if (cur) merged.push(cur);
+        cur = { type: item.type, tokens: [item.text] };
+      } else {
+        cur.tokens.push(item.text);
+      }
+    }
+    if (cur) merged.push(cur);
+
+    function escapeHtml(str) {
+      return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    const htmlParts = merged.map(g => {
+      const escaped = g.tokens.map(escapeHtml).join(' ');
+      if (g.type === 'extra') {
+        return `<del class="diff-extra">${escaped}</del>`;
+      } else if (g.type === 'missing') {
+        return `<strong class="diff-missing"><u>${escaped}</u></strong>`;
+      } else {
+        return escaped;
+      }
+    });
+
+    return htmlParts.join(' ');
+  }
+
+  function checkAnswer(index) {
+    const el = document.getElementById(`user-input-${index}`);
+    if (!el) return;
+    const rawInput = el.value.trim();
+    userInputs[index] = el.value;
+    const targetText = verses[index].text.trim();
+    const feedback = document.getElementById(`feedback-${index}`);
+    if (!feedback) return;
+
+    feedback.style.display = "block";
+
+    // 1. Check for exact match (including punctuation/capitalization)
+    const isExact = rawInput === targetText;
+
+    // 2. Check for match ignoring punctuation and capitalization
+    const isPunctuationFreeMatch = stripPunctuation(rawInput) === stripPunctuation(targetText);
+
+    if (isExact) {
+      feedback.className = "feedback success";
+      feedback.innerHTML = "<strong>Perfect!</strong> Exact match with all punctuation and capitalization.";
+    } else if (isPunctuationFreeMatch) {
+      feedback.className = "feedback success";
+      feedback.innerHTML = "<strong>Correct!</strong> Words match (punctuation skipped or varied).";
+    } else {
+      const diffHtml = computeWordDiff(rawInput, targetText);
+      feedback.className = "feedback error";
+      feedback.innerHTML = `
+        <strong>Not quite word-for-word yet.</strong>
+        <div class="diff-view">
+          <div style="font-size: 0.85rem; color: #742a2a; margin-bottom: 6px;">
+            <strong>差異比對：</strong>（<del class="diff-extra">刪除線</del> 表示多寫/有誤，<strong class="diff-missing"><u>粗體底線</u></strong> 表示少寫漏字）
+          </div>
+          <div>${diffHtml}</div>
+        </div>
+        <div class="hint"><strong>Actual Text:</strong> ${targetText}</div>
+      `;
+    }
+
+    userFeedback[index] = {
+      display: 'block',
+      className: feedback.className,
+      innerHTML: feedback.innerHTML
+    };
+  }
+
+  function handleKeyDown(event, index) {
+    if ((event.key === "Enter" && !event.shiftKey) || event.key === "Tab") {
+      if (event.key === "Enter") {
+        event.preventDefault();
+      }
+      checkAnswer(index);
+    }
+  }
+
+  renderQuiz();
+</script>
+
+</body>
+</html>
