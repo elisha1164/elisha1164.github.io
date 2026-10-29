@@ -1,3 +1,4 @@
+<!-- v3.39: 支援 Markdown (.md) 檔案與網址載入，動態轉為 EPUB 閱讀 -->
 <!-- v3.38: 新增彩蛋，連按標題 5 次解鎖網址載入功能 -->
 <!DOCTYPE html>
 <html lang="zh-TW">
@@ -23,6 +24,8 @@
     <script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"></script>
     <!-- v3.18 修正：改用 full.js 確保 OpenCC 核心正確載入 -->
     <script src="https://cdn.jsdelivr.net/npm/opencc-js@1.0.5/dist/umd/full.js"></script>
+    <!-- v3.39: 引入 marked.js 支援 GFM Markdown 解析 -->
+    <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
     
     <style>
         body {
@@ -413,8 +416,8 @@
                 <!-- 本機載入 -->
                 <div class="tab-pane active" id="pane-local">
                     <div class="input-group">
-                        <label for="file-input">📂 本機檔案載入</label>
-                        <input type="file" id="file-input" accept=".epub">
+                        <label for="file-input">📂 本機檔案載入 (.epub / .md)</label>
+                        <input type="file" id="file-input" accept=".epub,.md,.markdown">
                     </div>
                 </div>
 
@@ -422,7 +425,7 @@
                 <div class="tab-pane" id="pane-url">
                     <div class="input-group">
                         <label for="url-input">🌐 透過網址載入</label>
-                        <div class="url-row"><input type="text" id="url-input" placeholder="輸入 EPUB 網址 (需支援 CORS)"><button id="load-url-btn" class="btn-primary">載入</button></div>
+                        <div class="url-row"><input type="text" id="url-input" placeholder="輸入 EPUB 或 Markdown 網址 (需支援 CORS)"><button id="load-url-btn" class="btn-primary">載入</button></div>
                     </div>
                 </div>
             </div>
@@ -946,7 +949,7 @@
                 const title = document.createElement('div');
                 title.className = 'recent-title';
                 // 過濾掉可能殘留的 .epub/.lzbk 副檔名
-                title.textContent = (bookRecord.title || '未知書名').replace(/\.(epub|lzbk)$/i, '');
+                title.textContent = (bookRecord.title || '未知書名').replace(/\.(epub|lzbk|md|markdown)$/i, '');
                 
                 const meta = document.createElement('div');
                 meta.className = 'recent-meta';
@@ -1724,6 +1727,312 @@
         // ==========================================
         // 載入與列印邏輯
         // ==========================================
+        // ==========================================
+        // Markdown 轉 EPUB 核心邏輯 (v3.39)
+        // ==========================================
+        function escapeXml(text) {
+            if (!text) return '';
+            return String(text)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&apos;');
+        }
+
+        async function convertMarkdownToEpub(markdownText, defaultTitle = '未命名文件') {
+            if (typeof JSZip === 'undefined') {
+                throw new Error('JSZip 程式庫未載入');
+            }
+
+            if (typeof marked !== 'undefined') {
+                if (typeof marked.use === 'function') {
+                    marked.use({ gfm: true, breaks: true });
+                } else if (typeof marked.setOptions === 'function') {
+                    marked.setOptions({ gfm: true, breaks: true });
+                }
+            }
+
+            // 1. 解析 YAML Front-matter
+            let title = null;
+            let author = null;
+            let content = markdownText || '';
+            const fmMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
+            if (fmMatch) {
+                const fmBody = fmMatch[1];
+                content = content.slice(fmMatch[0].length);
+                const lines = fmBody.split(/\r?\n/);
+                for (const line of lines) {
+                    const tMatch = line.match(/^title:\s*(.*)$/i);
+                    if (tMatch) title = tMatch[1].trim().replace(/^['"]|['"]$/g, '');
+                    const aMatch = line.match(/^(?:author|creator):\s*(.*)$/i);
+                    if (aMatch) author = aMatch[1].trim().replace(/^['"]|['"]$/g, '');
+                }
+            }
+
+            // 2. 書名提取：若無 front-matter 標題，以第一個 H1 作為書名；若皆無則使用檔名
+            if (!title) {
+                const h1Match = content.match(/^#\s+(.+)$/m);
+                if (h1Match) {
+                    title = h1Match[1].trim();
+                } else {
+                    title = defaultTitle || '未命名文件';
+                }
+            }
+            title = title.trim();
+            if (!author) {
+                author = 'Markdown Document';
+            }
+
+            // 3. 智慧切分章節（依 H1~H6 標題，忽略程式碼區塊內部的 #）
+            const lines = content.split(/\r?\n/);
+            let inCodeBlock = false;
+            const sections = [];
+            let currentSection = {
+                title: title,
+                level: 1,
+                lines: []
+            };
+
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                const trimmed = line.trim();
+                if (trimmed.startsWith('```') || trimmed.startsWith('~~~')) {
+                    inCodeBlock = !inCodeBlock;
+                    currentSection.lines.push(line);
+                    continue;
+                }
+
+                if (!inCodeBlock) {
+                    const headerMatch = line.match(/^(#{1,6})\s+(.+)$/);
+                    if (headerMatch) {
+                        const level = headerMatch[1].length;
+                        const headerTitle = headerMatch[2].trim();
+
+                        if (currentSection.lines.some(l => l.trim().length > 0)) {
+                            sections.push(currentSection);
+                        }
+                        currentSection = {
+                            title: headerTitle,
+                            level: level,
+                            lines: [line]
+                        };
+                        continue;
+                    }
+                }
+
+                currentSection.lines.push(line);
+            }
+
+            if (currentSection.lines.some(l => l.trim().length > 0) || sections.length === 0) {
+                sections.push(currentSection);
+            }
+
+            // 4. 將 Markdown 轉為 XHTML 內容
+            const parser = new DOMParser();
+            const serializer = new XMLSerializer();
+
+            function renderXhtmlBody(mdSource) {
+                let rawHtml = '';
+                if (typeof marked !== 'undefined') {
+                    if (typeof marked.parse === 'function') {
+                        rawHtml = marked.parse(mdSource);
+                    } else if (typeof marked === 'function') {
+                        rawHtml = marked(mdSource);
+                    }
+                }
+                if (!rawHtml) {
+                    rawHtml = '<p>' + escapeXml(mdSource).replace(/\n/g, '<br/>') + '</p>';
+                }
+                const doc = parser.parseFromString(`<!DOCTYPE html><html><body>${rawHtml}</body></html>`, 'text/html');
+                const bodyXml = serializer.serializeToString(doc.body);
+                return bodyXml.replace(/^<body[^>]*>/i, '<body>');
+            }
+
+            // 5. 構建章節檔案與階層式 TOC 樹狀結構
+            const root = { level: 0, children: [] };
+            const stack = [root];
+            sections.forEach((sec, idx) => {
+                sec.filename = `chapter_${idx + 1}.xhtml`;
+                sec.id = `chapter_${idx + 1}`;
+                while (stack.length > 1 && stack[stack.length - 1].level >= sec.level) {
+                    stack.pop();
+                }
+                const node = {
+                    title: sec.title,
+                    level: sec.level,
+                    filename: sec.filename,
+                    children: []
+                };
+                stack[stack.length - 1].children.push(node);
+                stack.push(node);
+            });
+
+            let playOrder = 1;
+            function buildNavPoints(nodes) {
+                let xml = '';
+                for (const node of nodes) {
+                    const navId = `navPoint-${playOrder}`;
+                    xml += `\n    <navPoint id="${navId}" playOrder="${playOrder++}">`;
+                    xml += `\n      <navLabel><text>${escapeXml(node.title)}</text></navLabel>`;
+                    xml += `\n      <content src="${node.filename}"/>`;
+                    if (node.children && node.children.length > 0) {
+                        xml += buildNavPoints(node.children);
+                    }
+                    xml += `\n    </navPoint>`;
+                }
+                return xml;
+            }
+
+            const navPointsXml = buildNavPoints(root.children);
+            const bookUuid = 'urn:uuid:' + (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : ('md-' + Date.now()));
+
+            const styleCss = `body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+  padding: 10px 15px;
+  color: inherit;
+}
+h1, h2, h3, h4, h5, h6 {
+  margin-top: 1.2em;
+  margin-bottom: 0.6em;
+  line-height: 1.3;
+  color: inherit;
+}
+p {
+  margin: 0.8em 0;
+}
+pre {
+  background-color: rgba(0, 0, 0, 0.05);
+  padding: 12px;
+  border-radius: 6px;
+  overflow-x: auto;
+  font-family: Consolas, Monaco, 'Courier New', monospace;
+  font-size: 0.9em;
+}
+code {
+  font-family: Consolas, Monaco, 'Courier New', monospace;
+  background-color: rgba(0, 0, 0, 0.05);
+  padding: 2px 5px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+pre code {
+  background: transparent;
+  padding: 0;
+}
+blockquote {
+  margin: 1em 0;
+  padding: 8px 16px;
+  border-left: 4px solid #0056b3;
+  background-color: rgba(0, 86, 179, 0.03);
+  color: inherit;
+  opacity: 0.85;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1.2em 0;
+  font-size: 0.95em;
+}
+th, td {
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  padding: 8px 12px;
+  text-align: left;
+}
+th {
+  background-color: rgba(0, 0, 0, 0.04);
+  font-weight: bold;
+}
+ul, ol {
+  padding-left: 24px;
+  margin: 0.8em 0;
+}
+li {
+  margin: 0.3em 0;
+}
+hr {
+  border: none;
+  border-top: 1px solid rgba(0, 0, 0, 0.15);
+  margin: 1.5em 0;
+}
+img {
+  max-width: 100%;
+  height: auto;
+}`;
+
+            const containerXml = `<?xml version="1.0" encoding="UTF-8"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles>
+    <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
+  </rootfiles>
+</container>`;
+
+            const manifestItems = sections.map(s => `<item id="${s.id}" href="${s.filename}" media-type="application/xhtml+xml"/>`).join('\n    ');
+            const spineItems = sections.map(s => `  <itemref idref="${s.id}"/>`).join('\n  ');
+
+            const contentOpf = `<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" unique-identifier="BookId" version="2.0">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
+    <dc:title>${escapeXml(title)}</dc:title>
+    <dc:language>zh-TW</dc:language>
+    <dc:identifier id="BookId">${bookUuid}</dc:identifier>
+    <dc:creator>${escapeXml(author)}</dc:creator>
+  </metadata>
+  <manifest>
+    <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
+    <item id="style" href="style.css" media-type="text/css"/>
+    ${manifestItems}
+  </manifest>
+  <spine toc="ncx">
+  ${spineItems}
+  </spine>
+</package>`;
+
+            const tocNcx = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE ncx PUBLIC "-//NISO//DTD ncx 2005-1//EN" "http://www.daisy.org/z3986/2005/ncx-2005-1.dtd">
+<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
+  <head>
+    <meta name="dtb:uid" content="${bookUuid}"/>
+    <meta name="dtb:depth" content="6"/>
+    <meta name="dtb:totalPageCount" content="0"/>
+    <meta name="dtb:maxPageNumber" content="0"/>
+  </head>
+  <docTitle><text>${escapeXml(title)}</text></docTitle>
+  <navMap>${navPointsXml}
+  </navMap>
+</ncx>`;
+
+            // 6. 使用 JSZip 打包為 EPUB 格式
+            const zip = new JSZip();
+            zip.file('mimetype', 'application/epub+zip', { compression: "STORE" });
+            zip.folder('META-INF').file('container.xml', containerXml);
+            const oebps = zip.folder('OEBPS');
+            oebps.file('style.css', styleCss);
+            oebps.file('content.opf', contentOpf);
+            oebps.file('toc.ncx', tocNcx);
+
+            sections.forEach(sec => {
+                const secMd = sec.lines.join('\n');
+                const bodyXml = renderXhtmlBody(secMd);
+                const xhtml = `<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8"/>
+  <title>${escapeXml(sec.title)}</title>
+  <link rel="stylesheet" type="text/css" href="style.css"/>
+</head>
+${bodyXml}
+</html>`;
+                oebps.file(sec.filename, xhtml);
+            });
+
+            const arrayBuffer = await zip.generateAsync({ type: "arraybuffer", mimeType: "application/epub+zip" });
+            return { arrayBuffer, title };
+        }
+
         async function loadLzbkFromUrl(url, savedLocation = null) {
             showLoading(true, '正在線上同步書本...');
             let fileName = 'LZBK 檔案';
@@ -1784,7 +2093,7 @@
             showLoading(true, '正在下載電子書...');
             
             // v3.30 新增：智能解析網址檔名，含防呆與過濾參數
-            let fileName = 'EPUB 檔案';
+            let fileName = '電子書檔案';
             try {
                 const urlObj = new URL(url);
                 const extracted = urlObj.pathname.split('/').pop();
@@ -1792,16 +2101,31 @@
                     fileName = decodeURIComponent(extracted);
                 }
             } catch (e) {
-                fileName = url.split('/').pop() || 'EPUB 檔案';
+                fileName = url.split('/').pop() || '電子書檔案';
                 try { fileName = decodeURIComponent(fileName).split('?')[0]; } catch(e2){}
             }
+
+            const isMd = /\.(md|markdown)(\?.*)?$/i.test(url) || /\.(md|markdown)$/i.test(fileName);
 
             try {
                 const response = await fetch(url);
                 if (!response.ok) throw new Error(`伺服器回應錯誤: ${response.status}`);
-                const arrayBuffer = await response.arrayBuffer();
+                
+                let arrayBuffer;
+                let titleName;
+                if (isMd) {
+                    showLoading(true, '正在解析 Markdown 並生成電子書...');
+                    const mdText = await response.text();
+                    const defaultTitle = fileName.replace(/\.(md|markdown)$/i, '');
+                    const converted = await convertMarkdownToEpub(mdText, defaultTitle);
+                    arrayBuffer = converted.arrayBuffer;
+                    titleName = converted.title;
+                } else {
+                    arrayBuffer = await response.arrayBuffer();
+                    titleName = fileName.replace(/\.epub$/i, ''); // v3.30：複用已解析過濾的檔名
+                }
+
                 const id = url;
-                let titleName = fileName.replace(/\.epub$/i, ''); // v3.30：複用已解析過濾的檔名
                 await saveBookToDB(id, arrayBuffer, titleName);
                 initBook(arrayBuffer);
             } catch (error) {
@@ -1812,7 +2136,7 @@
                     actionText: '⬇️ 手動下載',
                     onAction: () => {
                         const link = document.createElement('a'); link.href = url; link.target = '_blank';
-                        link.download = fileName !== 'EPUB 檔案' ? fileName : 'download.epub'; 
+                        link.download = fileName !== '電子書檔案' ? fileName : (isMd ? 'download.md' : 'download.epub'); 
                         document.body.appendChild(link); link.click(); document.body.removeChild(link);
                         switchTab('local');
                     }
@@ -1830,6 +2154,31 @@
             const newUrl = new URL(window.location);
             if (newUrl.searchParams.has('src')) { newUrl.searchParams.delete('src'); window.history.pushState({}, '', newUrl); }
             urlInput.value = '';
+
+            const isMd = /\.(md|markdown)$/i.test(file.name);
+            if (isMd) {
+                if (window.FileReader) {
+                    const reader = new FileReader();
+                    reader.onload = async (event) => {
+                        showLoading(true, '正在解析 Markdown 並生成電子書...');
+                        try {
+                            const mdText = event.target.result;
+                            const defaultTitle = file.name.replace(/\.(md|markdown)$/i, '');
+                            const converted = await convertMarkdownToEpub(mdText, defaultTitle);
+                            const id = file.name + '_' + file.size;
+                            await saveBookToDB(id, converted.arrayBuffer, converted.title);
+                            initBook(converted.arrayBuffer);
+                        } catch (err) {
+                            showLoading(false);
+                            console.error('Markdown 轉換失敗:', err);
+                            alert('Markdown 轉換失敗：' + (err.message || err));
+                        }
+                    };
+                    reader.readAsText(file);
+                }
+                return;
+            }
+
             if (window.FileReader) {
                 const reader = new FileReader();
                 reader.onload = async (event) => {
