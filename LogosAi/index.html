@@ -1,6 +1,6 @@
 <!-- 
-  Version: v4.8.9
-  - 修正: 新增前端鎖定保護，若後端發生錯誤，強制讓「思考中」畫面顯示滿 60 秒，確保不讓使用者因網路短暫錯誤或 Timeout 提早點擊重試，避免造成後端 D1/Gemini 競爭危害。
+  Version: v5.0.1
+  - 升級: 全面改採 Gemini streamGenerateContent + SSE 即時串流架構，搭配 requestAnimationFrame 平滑渲染、防重入鎖、跨會話切換即時續傳、IndexedDB 同步快照與 Marked CDN 斷網安全降級。
 -->
 <!DOCTYPE html>
 <html lang="zh-TW" class="light">
@@ -1150,7 +1150,7 @@
   </div>
 
   <!-- App Version Badge -->
-  <div class="app-version-badge">v4.8.9</div>
+  <div class="app-version-badge">v5.0.1</div>
 
   <!-- Toast Notification -->
   <div id="toast"></div>
@@ -1183,6 +1183,19 @@
     let sessions = []; // [{ id, title, createdAt, updatedAt }]
     let currentSessionId = null;
     let currentMessages = []; // [{ id, sessionId, role, content }]
+    let isSending = false;
+
+    function renderMarkdownSafe(mdText) {
+      const raw = String(mdText || '');
+      if (typeof marked !== 'undefined' && marked && typeof marked.parse === 'function') {
+        return marked.parse(raw);
+      }
+      return raw
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\n/g, '<br>');
+    }
     
     let db = null;
     const DB_NAME = 'LogosAIChatDB_v2';
@@ -1488,13 +1501,6 @@
       }
     }
 
-    function smartScrollToBottom() {
-      const distanceToBottom = chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight;
-      if (distanceToBottom < 160) {
-        chatContainer.scrollTop = chatContainer.scrollHeight;
-      }
-    }
-
     function appendPrivacyDisclaimer() {
       const existing = document.getElementById('chat-privacy-disclaimer');
       if (existing) existing.remove();
@@ -1507,25 +1513,29 @@
     }
 
     async function saveCurrentMessagesToDB() {
+      const snapshotSessionId = currentSessionId;
+      const snapshotMessages = currentMessages.map(m => ({ role: m.role, content: m.content }));
+      if (!snapshotSessionId) return;
+
       if (db) {
         try {
           const tx = db.transaction([STORE_MESSAGES, STORE_SESSIONS], 'readwrite');
           const msgStore = tx.objectStore(STORE_MESSAGES);
           const sessionStore = tx.objectStore(STORE_SESSIONS);
 
-          // Clear old messages for this session
+          // Clear old messages for this session using synchronous snapshot
           const index = msgStore.index('sessionId');
-          const request = index.getAllKeys(currentSessionId);
+          const request = index.getAllKeys(snapshotSessionId);
           request.onsuccess = () => {
             const keys = request.result || [];
             keys.forEach(k => msgStore.delete(k));
-            currentMessages.forEach(msg => {
-              msgStore.add({ sessionId: currentSessionId, role: msg.role, content: msg.content, timestamp: Date.now() });
+            snapshotMessages.forEach(msg => {
+              msgStore.add({ sessionId: snapshotSessionId, role: msg.role, content: msg.content, timestamp: Date.now() });
             });
           };
 
           // Update session updatedAt timestamp
-          const targetSession = sessions.find(s => s.id === currentSessionId);
+          const targetSession = sessions.find(s => s.id === snapshotSessionId);
           if (targetSession) {
             targetSession.updatedAt = Date.now();
             sessionStore.put(targetSession);
@@ -1535,7 +1545,7 @@
 
       // LocalStorage Backup
       try {
-        localStorage.setItem(`logos_msg_${currentSessionId}`, JSON.stringify(currentMessages));
+        localStorage.setItem(`logos_msg_${snapshotSessionId}`, JSON.stringify(snapshotMessages));
       } catch(e) {}
       saveLocalStorageBackup();
     }
@@ -1544,6 +1554,39 @@
       try {
         localStorage.setItem('logos_sessions_backup', JSON.stringify(sessions));
       } catch(e) {}
+    }
+
+    async function saveAssistantMessageForSession(targetSessionId, replyContent) {
+      if (currentSessionId === targetSessionId && currentMessages.length > 0) {
+        currentMessages.push({ role: 'assistant', content: replyContent });
+        await saveCurrentMessagesToDB();
+        return;
+      }
+
+      const targetSession = sessions.find(s => s.id === targetSessionId);
+      if (!targetSession) return;
+      targetSession.updatedAt = Date.now();
+
+      if (db) {
+        try {
+          const tx = db.transaction([STORE_MESSAGES, STORE_SESSIONS], 'readwrite');
+          tx.objectStore(STORE_MESSAGES).add({
+            sessionId: targetSessionId,
+            role: 'assistant',
+            content: replyContent,
+            timestamp: Date.now()
+          });
+          tx.objectStore(STORE_SESSIONS).put(targetSession);
+        } catch(e) {}
+      }
+
+      try {
+        const raw = localStorage.getItem(`logos_msg_${targetSessionId}`);
+        const msgs = raw ? (JSON.parse(raw) || []) : [];
+        msgs.push({ role: 'assistant', content: replyContent });
+        localStorage.setItem(`logos_msg_${targetSessionId}`, JSON.stringify(msgs));
+      } catch(e) {}
+      saveLocalStorageBackup();
     }
 
     async function renameSession(sessionId) {
@@ -1870,6 +1913,10 @@
     }
 
     function smartScrollToBottom() {
+      if (currentScrollAnimationId) {
+        cancelAnimationFrame(currentScrollAnimationId);
+        currentScrollAnimationId = null;
+      }
       chatContainer.scrollTop = chatContainer.scrollHeight;
     }
 
@@ -1892,7 +1939,7 @@
       if (role === 'assistant') {
         const textWrapper = document.createElement('div');
         textWrapper.className = 'msg-text-body';
-        textWrapper.innerHTML = marked.parse(content || '');
+        textWrapper.innerHTML = renderMarkdownSafe(content || '');
         bubble.appendChild(textWrapper);
 
         if (content) {
@@ -1994,10 +2041,18 @@
       if (indicator) indicator.remove();
     }
 
-    /* Send Message Handler */
+    /* Send Message Handler (SSE Streaming + Legacy JSON Fallback) */
     async function sendMessage() {
+      if (isSending) return;
       const text = userInput.value.trim();
       if (!text) return;
+
+      isSending = true;
+      userInput.value = '';
+      userInput.style.height = 'auto';
+      btnSend.disabled = true;
+      userInput.disabled = true;
+      userInput.placeholder = "LogosAI 思考中，請稍候...";
 
       // Clear any prior retry buttons on screen upon sending a new message
       document.querySelectorAll('.btn-retry-msg').forEach(btn => btn.remove());
@@ -2017,119 +2072,340 @@
       scrollToBottomSmooth();
       await saveCurrentMessagesToDB();
 
-      userInput.value = '';
-      userInput.style.height = 'auto';
-      btnSend.disabled = true;
-      userInput.disabled = true;
-      userInput.placeholder = "LogosAI 思考中，請稍候...";
-
       appendTypingIndicator();
       scrollToBottomSmooth();
 
       const targetAudience = getCurrentTargetAudience();
       const sendStartTime = Date.now();
       const expectedSessionId = currentSessionId;
+      const outboundMessages = currentMessages.map(m => ({ role: m.role, content: m.content }));
+
+      let receivedText = '';
+      let displayedLen = 0;
+      let bubble = null;
+      let textBody = null;
+      let rafId = null;
+      let lastRenderTs = 0;
+      let isUserScrollingUp = false;
+      let isServerExplicitError = false;
+
+      // 偵測使用者是否主動向上滑動查閱前文（避免自動捲動搶奪視角）
+      const scrollCheckHandler = () => {
+        const threshold = 90;
+        const isAtBottom = (chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight) < threshold;
+        isUserScrollingUp = !isAtBottom;
+      };
+      chatContainer.addEventListener('scroll', scrollCheckHandler, { passive: true });
+
+      const cleanupStreamListeners = () => {
+        if (rafId) {
+          cancelAnimationFrame(rafId);
+          rafId = null;
+        }
+        chatContainer.removeEventListener('scroll', scrollCheckHandler);
+        removeTypingIndicator();
+      };
+
+      const unlockInputUI = () => {
+        isSending = false;
+        btnSend.disabled = false;
+        userInput.disabled = false;
+        userInput.placeholder = "請輸入您的問題…";
+        userInput.focus();
+      };
+
+      const ensureAssistantBubble = () => {
+        if (currentSessionId !== expectedSessionId) return;
+        if (!bubble || !bubble.isConnected) {
+          removeTypingIndicator();
+          bubble = appendMessageUI('assistant', '');
+          textBody = bubble.querySelector('.msg-text-body');
+        }
+      };
+
+      // requestAnimationFrame 自適應平滑串流渲染器（節流避免高頻 DOM 重排，背景分頁自動同步）
+      const scheduleSmoothRender = () => {
+        if (currentSessionId !== expectedSessionId) return;
+        if (document.hidden) {
+          displayedLen = receivedText.length;
+          return;
+        }
+        if (rafId) return;
+
+        const renderTick = (now) => {
+          rafId = null;
+          if (currentSessionId !== expectedSessionId) return;
+          if (document.hidden) {
+            displayedLen = receivedText.length;
+            return;
+          }
+
+          const pending = receivedText.length - displayedLen;
+          if (pending <= 0) return;
+
+          if (now - lastRenderTs >= 28) {
+            lastRenderTs = now;
+            const step = Math.max(2, Math.ceil(pending / 4));
+            displayedLen = Math.min(receivedText.length, displayedLen + step);
+            ensureAssistantBubble();
+            if (textBody) {
+              textBody.innerHTML = renderMarkdownSafe(receivedText.slice(0, displayedLen) + '▌');
+            }
+            if (!isUserScrollingUp) {
+              smartScrollToBottom();
+            }
+          }
+
+          if (displayedLen < receivedText.length) {
+            rafId = requestAnimationFrame(renderTick);
+          }
+        };
+
+        rafId = requestAnimationFrame(renderTick);
+      };
 
       try {
         const response = await fetch(proxyUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            messages: currentMessages,
+            messages: outboundMessages,
             targetAudience: targetAudience,
             deviceId: getOrCreateDeviceId(),
-            sessionId: currentSessionId
+            sessionId: expectedSessionId,
+            stream: true
           })
         });
 
-        const data = await response.json();
         if (!response.ok) {
-          throw new Error(data.error || `HTTP ${response.status}`);
+          isServerExplicitError = true;
+          const rawErrText = await response.text();
+          let parsedErrMsg = '';
+          try {
+            const errJson = JSON.parse(rawErrText);
+            parsedErrMsg = errJson.error || '';
+          } catch (_) {}
+          const httpErr = new Error(parsedErrMsg || `HTTP ${response.status}`);
+          httpErr.status = response.status;
+          throw httpErr;
         }
-        const replyText = data.choices[0].message.content;
 
-        if (currentSessionId !== expectedSessionId) return;
+        const contentType = (response.headers.get('content-type') || '').toLowerCase();
 
-        removeTypingIndicator();
+        if (contentType.includes('text/event-stream') && response.body) {
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder('utf-8');
+          let sseBuffer = '';
+          let streamDoneSignal = false;
 
-        // Typewriter animation effect
-        currentMessages.push({ role: 'assistant', content: replyText });
-        await saveCurrentMessagesToDB();
+          const handleSseEventBlock = (rawEvent) => {
+            if (!rawEvent) return;
+            const lines = rawEvent.split('\n');
+            const dataLines = [];
+            for (const line of lines) {
+              if (!line || line.startsWith(':')) continue; // 忽略 SSE 心跳註解 (: connected / : ping)
+              if (line.startsWith('data:')) {
+                const val = line.slice(5);
+                dataLines.push(val.startsWith(' ') ? val.slice(1) : val);
+              }
+            }
+            if (dataLines.length === 0) return;
 
-        const bubble = appendMessageUI('assistant', '');
-        const textBody = bubble.querySelector('.msg-text-body');
-        // 人類正常閱讀速度打字機效果 (每 30ms 吐 1 字，每秒約 30 字，伴隨自然下捲)
-        let charIndex = 0;
-        let isUserScrollingUp = false;
+            const payloadStr = dataLines.join('\n').trim();
+            if (!payloadStr) return;
+            if (payloadStr === '[DONE]') {
+              streamDoneSignal = true;
+              return;
+            }
 
-        // 偵測使用者是否主動向上滑動查閱前文（避免打架）
-        const scrollCheckHandler = () => {
-          const threshold = 90;
-          const isAtBottom = (chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight) < threshold;
-          isUserScrollingUp = !isAtBottom;
-        };
-        chatContainer.addEventListener('scroll', scrollCheckHandler, { passive: true });
-        
-        const typeInterval = setInterval(() => {
-          charIndex += 1;
-          if (charIndex >= replyText.length) {
-            clearInterval(typeInterval);
-            chatContainer.removeEventListener('scroll', scrollCheckHandler);
+            let parsed;
+            try {
+              parsed = JSON.parse(payloadStr);
+            } catch (_) {
+              return;
+            }
 
-            if (textBody) textBody.innerHTML = marked.parse(replyText);
+            if (parsed && parsed.error) {
+              isServerExplicitError = true;
+              const sseErr = new Error(parsed.error);
+              if (parsed.status) sseErr.status = parsed.status;
+              throw sseErr;
+            }
 
+            if (parsed && typeof parsed.text === 'string' && parsed.text.length > 0) {
+              receivedText += parsed.text;
+              ensureAssistantBubble();
+              scheduleSmoothRender();
+            }
+          };
+
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) {
+                sseBuffer += decoder.decode();
+                break;
+              }
+              sseBuffer += decoder.decode(value, { stream: true });
+
+              let trailingCR = false;
+              if (sseBuffer.endsWith('\r')) {
+                sseBuffer = sseBuffer.slice(0, -1);
+                trailingCR = true;
+              }
+              sseBuffer = sseBuffer.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+              let boundaryIdx;
+              while ((boundaryIdx = sseBuffer.indexOf('\n\n')) !== -1) {
+                const rawEvent = sseBuffer.slice(0, boundaryIdx);
+                sseBuffer = sseBuffer.slice(boundaryIdx + 2);
+                handleSseEventBlock(rawEvent);
+                if (streamDoneSignal) break;
+              }
+
+              if (trailingCR) {
+                sseBuffer += '\r';
+              }
+              if (streamDoneSignal) break;
+            }
+
+            if (!streamDoneSignal && sseBuffer.trim()) {
+              const remaining = sseBuffer.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+              const restEvents = remaining.split('\n\n');
+              for (const evt of restEvents) {
+                if (evt.trim()) {
+                  handleSseEventBlock(evt);
+                }
+              }
+            }
+          } finally {
+            try {
+              reader.releaseLock();
+            } catch (_) {}
+          }
+        } else {
+          // 向下相容：處理舊版非串流 application/json 回應
+          const data = await response.json();
+          if (data && data.error) {
+            isServerExplicitError = true;
+            throw new Error(data.error);
+          }
+          receivedText =
+            (data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) ||
+            '';
+        }
+
+        if (!receivedText) {
+          receivedText = '（系統無法生成回應，請再試一次。）';
+        }
+
+        // 第一時間將完整回答持久化寫入 IndexedDB 與 LocalStorage，防止重整或背景切換遺失
+        await saveAssistantMessageForSession(expectedSessionId, receivedText);
+
+        // 若仍在當前會話，快速收尾剩餘緩衝字元（設有 350ms 安全上限，背景分頁不阻塞）
+        if (currentSessionId === expectedSessionId) {
+          ensureAssistantBubble();
+          if (!document.hidden && displayedLen < receivedText.length) {
+            await new Promise((resolve) => {
+              if (rafId) {
+                cancelAnimationFrame(rafId);
+                rafId = null;
+              }
+              const maxDrainTimer = setTimeout(resolve, 350);
+              const drainTick = () => {
+                if (document.hidden || currentSessionId !== expectedSessionId) {
+                  clearTimeout(maxDrainTimer);
+                  resolve();
+                  return;
+                }
+                const pending = receivedText.length - displayedLen;
+                if (pending <= 0) {
+                  clearTimeout(maxDrainTimer);
+                  resolve();
+                  return;
+                }
+                const step = Math.max(4, Math.ceil(pending / 3));
+                displayedLen = Math.min(receivedText.length, displayedLen + step);
+                if (textBody) {
+                  textBody.innerHTML = renderMarkdownSafe(receivedText.slice(0, displayedLen) + '▌');
+                }
+                if (!isUserScrollingUp) {
+                  smartScrollToBottom();
+                }
+                if (displayedLen >= receivedText.length) {
+                  clearTimeout(maxDrainTimer);
+                  resolve();
+                } else {
+                  rafId = requestAnimationFrame(drainTick);
+                }
+              };
+              rafId = requestAnimationFrame(drainTick);
+            });
+          }
+        }
+
+        cleanupStreamListeners();
+
+        if (currentSessionId === expectedSessionId) {
+          ensureAssistantBubble();
+          if (textBody) {
+            textBody.innerHTML = renderMarkdownSafe(receivedText);
+          }
+          if (bubble && !bubble.querySelector('.bubble-actions')) {
             const actions = document.createElement('div');
             actions.className = 'bubble-actions';
             const copyBtn = document.createElement('button');
             copyBtn.className = 'btn-copy-msg';
             copyBtn.innerHTML = '<i class="fa-regular fa-copy"></i> 複製';
+            const finalCopyText = receivedText;
             copyBtn.addEventListener('click', () => {
-              copySingleAnswer(replyText);
+              copySingleAnswer(finalCopyText);
             });
             actions.appendChild(copyBtn);
             bubble.appendChild(actions);
-
-            if (!isUserScrollingUp) {
-              smartScrollToBottom();
-            }
-            // Unlock input after typing finishes
-            btnSend.disabled = false;
-            userInput.disabled = false;
-            userInput.placeholder = "請輸入您的問題…";
-            userInput.focus();
-          } else {
-            if (textBody) textBody.innerHTML = marked.parse(replyText.substring(0, charIndex) + '▌');
-            if (!isUserScrollingUp) {
-              smartScrollToBottom();
-            }
           }
-        }, 30);
-
-      } catch (err) {
-        // 前端鎖定保護：確保等待滿 60 秒才顯示錯誤，避免提早重試導致後端重複請求
-        const elapsed = Date.now() - sendStartTime;
-        if (elapsed < 60000) {
-          await new Promise(r => setTimeout(r, 60000 - elapsed));
+          if (!isUserScrollingUp) {
+            smartScrollToBottom();
+          }
         }
-        
-        // 若使用者在等待期間切換了對話，則不處理錯誤顯示
-        if (currentSessionId !== expectedSessionId) return;
 
-        removeTypingIndicator();
-        let errHint = err.message;
-        if (err.message.includes('429')) {
+        unlockInputUI();
+      } catch (err) {
+        cleanupStreamListeners();
+
+        // 若為前端自身網路瞬斷（非後端明確回傳之 API 錯誤），保留 5 秒短暫緩衝讓後端 waitUntil 完成 D1 快取寫入
+        if (!isServerExplicitError) {
+          const elapsed = Date.now() - sendStartTime;
+          if (elapsed < 5000) {
+            await new Promise(r => setTimeout(r, 5000 - elapsed));
+          }
+        }
+
+        let errHint = (err && err.message) ? err.message : '連線發生異常';
+        if (errHint.includes('429') || (err && err.status === 429)) {
           errHint = '請求速率達到上限 (429 Too Many Requests)，Gemini API 每分鐘發送次數已達限制。請稍候 30 秒，然後點擊下方「再試一次」按鈕。';
         }
-        const errorContent = `⚠️ **請求發生錯誤**\n\n${errHint}`;
+        const errorContent = receivedText.trim()
+          ? `${receivedText}\n\n---\n\n⚠️ **請求發生錯誤（連線中斷）**\n\n${errHint}`
+          : `⚠️ **請求發生錯誤**\n\n${errHint}`;
+
+        // 若使用者在等待期間切換了會話，將錯誤寫入原會話並解鎖輸入框，避免新會話輸入框永久鎖死
+        if (currentSessionId !== expectedSessionId) {
+          await saveAssistantMessageForSession(expectedSessionId, errorContent);
+          unlockInputUI();
+          return;
+        }
+
+        removeTypingIndicator();
+        if (bubble && bubble.isConnected && bubble.parentElement) {
+          bubble.parentElement.remove();
+        }
+
         currentMessages.push({ role: 'assistant', content: errorContent });
         appendMessageUI('assistant', errorContent, true);
         await saveCurrentMessagesToDB();
         console.error('sendMessage error:', err);
-        // Unlock input on error
-        btnSend.disabled = false;
-        userInput.disabled = false;
-        userInput.placeholder = "請輸入您的問題…";
-        userInput.focus();
+        unlockInputUI();
       }
     }
 
@@ -2252,7 +2528,7 @@
       if (navigator.clipboard && window.ClipboardItem) {
         try {
           const blobText = new Blob([plainText], { type: 'text/plain' });
-          const blobHtml = new Blob([htmlText || marked.parse(plainText)], { type: 'text/html' });
+          const blobHtml = new Blob([htmlText || renderMarkdownSafe(plainText)], { type: 'text/html' });
           await navigator.clipboard.write([
             new ClipboardItem({
               'text/plain': blobText,
@@ -2276,7 +2552,7 @@
       const plainBody = markdownToPlainText(content);
       const fullPlainText = `${plainBody}\n\n${footer}`;
       
-      const htmlBody = marked.parse(content);
+      const htmlBody = renderMarkdownSafe(content);
       const cleanUrl = window.location.href.split('?')[0].split('#')[0];
       const fullHtml = `<div>${htmlBody}</div><br><div style="color: #64748b; font-size: 0.9em;"><p>LogosAI - 高舉聖經 ‧ 研討真理</p><p><a href="${cleanUrl}">${cleanUrl}</a></p></div>`;
 
@@ -2338,7 +2614,7 @@
       let htmlParts = `<h2>【${title}】</h2>`;
       currentMessages.forEach(msg => {
         const roleLabel = msg.role === 'user' ? '<h3>👤 提問：</h3>' : '<h3>📖 神學解答：</h3>';
-        htmlParts += `${roleLabel}<div>${marked.parse(msg.content)}</div><hr>`;
+        htmlParts += `${roleLabel}<div>${renderMarkdownSafe(msg.content)}</div><hr>`;
       });
       const cleanUrl = window.location.href.split('?')[0].split('#')[0];
       htmlParts += `<div style="color: #64748b; font-size: 0.9em;"><p>LogosAI - 高舉聖經 ‧ 研討真理</p><p><a href="${cleanUrl}">${cleanUrl}</a></p></div>`;

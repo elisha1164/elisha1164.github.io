@@ -1,28 +1,34 @@
 /* 
- * Version: v5.0.1
- * Summary: Fixed SSE JSON parsing for multi-line data payloads.
+ * Version: v5.1.1
+ * Summary: 更新 PWA 快取版本並為 HTML 導覽請求改採 Network-First（離線退回快取）且預快取時繞過瀏覽器 HTTP 磁碟快取，確保新版部署立即生效。
  */
 
-const CACHE_NAME = 'logosai-v5.0.1';
-const STATIC_ASSETS = [
+const CACHE_NAME = 'logosai-v5.1.1';
+const LOCAL_SHELL_ASSETS = [
   './',
   './index.html',
   './manifest.json',
   './icon-180.png',
   './icon-192.png',
-  './icon-512.png',
+  './icon-512.png'
+];
+const CDN_STATIC_ASSETS = [
   'https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Noto+Sans+TC:wght@300;400;500;600;700&family=Noto+Serif+TC:wght@400;600;700&display=swap',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css',
   'https://cdn.jsdelivr.net/npm/marked/marked.min.js'
 ];
 
-// Install Event: Cache essential static resources
+// Install Event: Cache essential static resources (bypassing stale HTTP disk cache for local shell)
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
+    caches.open(CACHE_NAME).then(async (cache) => {
       console.log('[LogosAI SW] Pre-caching static assets');
-      return cache.addAll(STATIC_ASSETS).catch((err) => {
-        console.warn('[LogosAI SW] Non-critical assets precache warning:', err);
+      const localRequests = LOCAL_SHELL_ASSETS.map((url) => new Request(url, { cache: 'reload' }));
+      await cache.addAll(localRequests).catch((err) => {
+        console.warn('[LogosAI SW] Local shell precache warning:', err);
+      });
+      await cache.addAll(CDN_STATIC_ASSETS).catch((err) => {
+        console.warn('[LogosAI SW] Non-critical CDN assets precache warning:', err);
       });
     })
   );
@@ -64,6 +70,29 @@ self.addEventListener('fetch', (event) => {
           { headers: { 'Content-Type': 'application/json' } }
         );
       })
+    );
+    return;
+  }
+
+  // Network-first for HTML navigation / index.html so new deployments take effect on first load
+  const isHtmlNavigation =
+    event.request.mode === 'navigate' ||
+    url.pathname.endsWith('/') ||
+    url.pathname.endsWith('/index.html');
+
+  if (isHtmlNavigation && url.origin === self.location.origin) {
+    event.respondWith(
+      fetch(event.request, { cache: 'no-cache' })
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseToCache));
+          }
+          return networkResponse;
+        })
+        .catch(() => {
+          return caches.match(event.request).then((cached) => cached || caches.match('./index.html'));
+        })
     );
     return;
   }
