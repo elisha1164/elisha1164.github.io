@@ -1,0 +1,320 @@
+<!-- v1.0.0 - KeepVerse 主頁面、PWA 與完整 OG 中繼資料 -->
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>KeepVerse — 聖經金句背誦</title>
+  <meta name="description" content="極簡手機聖經金句背誦工具，支援離線 PWA、四階段記憶測驗（全顯示、隨機挖空、注音聲母、全空白）、打字即時批改與自建匯入匯出 Deck。">
+
+  <!-- Theme & Mobile PWA -->
+  <meta name="theme-color" content="#FAF8F3" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#171614" media="(prefers-color-scheme: dark)">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="KeepVerse">
+
+  <!-- Icons & Manifest -->
+  <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="./icons/icon-512.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="canonical" href="https://elisha1164.github.io/KeepVerse/">
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="KeepVerse">
+  <meta property="og:locale" content="zh_TW">
+  <meta property="og:url" content="https://elisha1164.github.io/KeepVerse/">
+  <meta property="og:title" content="KeepVerse — 聖經金句背誦">
+  <meta property="og:description" content="極簡手機聖經金句背誦工具，支援離線 PWA、四階段記憶測驗（全顯示、隨機挖空、注音聲母、全空白）、打字即時批改與自建匯入匯出 Deck。">
+  <meta property="og:image" content="https://elisha1164.github.io/KeepVerse/og-image.png">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="KeepVerse 聖經金句背誦卡">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="KeepVerse — 聖經金句背誦">
+  <meta name="twitter:description" content="極簡手機聖經金句背誦工具，支援離線 PWA、四階段記憶測驗（全顯示、隨機挖空、注音聲母、全空白）、打字即時批改與自建匯入匯出 Deck。">
+  <meta name="twitter:image" content="https://elisha1164.github.io/KeepVerse/og-image.png">
+
+  <link rel="stylesheet" href="./css/style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <!-- 頁頂單列工具列：左四程度圖示 + 右 Deck 選單圖示 -->
+    <header class="top-bar" aria-label="背誦程度與功能列">
+      <div class="level-group" role="tablist" aria-label="背誦程度">
+        <button type="button" class="icon-btn level-btn is-active" data-level="1" role="tab" aria-selected="true" aria-label="全顯示" title="全顯示">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <line x1="4" y1="6" x2="20" y2="6" />
+            <line x1="4" y1="12" x2="20" y2="12" />
+            <line x1="4" y1="18" x2="15" y2="18" />
+          </svg>
+        </button>
+        <button type="button" class="icon-btn level-btn" data-level="2" role="tab" aria-selected="false" aria-label="隨機挖空" title="隨機挖空">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <line x1="4" y1="6" x2="9" y2="6" />
+            <line x1="12" y1="6" x2="20" y2="6" stroke-dasharray="2.5 2.5" />
+            <line x1="4" y1="12" x2="13" y2="12" stroke-dasharray="2.5 2.5" />
+            <line x1="16" y1="12" x2="20" y2="12" />
+            <line x1="4" y1="18" x2="10" y2="18" />
+            <line x1="13" y1="18" x2="18" y2="18" stroke-dasharray="2.5 2.5" />
+          </svg>
+        </button>
+        <button type="button" class="icon-btn level-btn" data-level="3" role="tab" aria-selected="false" aria-label="剩注音聲母" title="剩注音聲母">
+          <span class="glyph-icon" aria-hidden="true">ㄅ</span>
+        </button>
+        <button type="button" class="icon-btn level-btn" data-level="4" role="tab" aria-selected="false" aria-label="全空白" title="全空白">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="4" y="5" width="16" height="14" rx="3" stroke-dasharray="3.2 2.8" />
+          </svg>
+        </button>
+      </div>
+
+      <button type="button" id="menuBtn" class="icon-btn menu-btn" aria-label="Deck 與功能選單" title="Deck 與功能選單">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <polygon points="12 3 3 8 12 13 21 8 12 3" />
+          <polyline points="3 12.5 12 17.5 21 12.5" />
+          <polyline points="3 17 12 22 21 17" />
+        </svg>
+        <span id="shuffleDot" class="shuffle-dot" hidden></span>
+      </button>
+    </header>
+
+    <!-- 主經文卡片區 -->
+    <main class="stage">
+      <article class="card" aria-live="polite">
+        <div class="card-header">
+          <h1 id="cardRef" class="card-ref">載入中…</h1>
+          <span id="cardCounter" class="card-counter">-/-</span>
+        </div>
+
+        <div id="cardBody" class="card-body">
+          <p id="verseFull" class="verse-full"></p>
+
+          <div id="quizArea" class="quiz-area" hidden>
+            <p id="hintText" class="hint-text" hidden></p>
+
+            <div class="input-wrap">
+              <textarea
+                id="recallInput"
+                class="recall-input"
+                rows="4"
+                enterkeyhint="done"
+                autocomplete="off"
+                autocorrect="off"
+                autocapitalize="off"
+                spellcheck="false"
+                placeholder="輸入完整經文，按 Enter 檢查…"
+                aria-label="經文輸入框"
+              ></textarea>
+              <button type="button" id="submitBtn" class="submit-icon-btn" aria-label="檢查經文" title="檢查經文">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div id="checkResult" class="check-result" hidden></div>
+          </div>
+        </div>
+
+        <footer class="card-footer">
+          <span id="cardMastery" class="card-mastery">上次背熟：尚未背熟</span>
+        </footer>
+      </article>
+    </main>
+
+    <!-- 頁底極簡 nav plane：僅左右翻頁鍵 -->
+    <nav class="nav-plane" aria-label="經文卡片導覽">
+      <button type="button" id="prevBtn" class="nav-btn" aria-label="上一張" title="上一張">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <polyline points="15 18 9 12 15 6" />
+        </svg>
+      </button>
+      <button type="button" id="nextBtn" class="nav-btn" aria-label="下一張" title="下一張">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <polyline points="9 18 15 12 9 6" />
+        </svg>
+      </button>
+    </nav>
+  </div>
+
+  <!-- Deck 功能選單抽屜 -->
+  <div id="drawerBackdrop" class="drawer-backdrop" hidden></div>
+  <aside id="drawer" class="drawer" role="dialog" aria-modal="true" aria-label="Deck 與功能選單" hidden>
+    <div class="drawer-topbar">
+      <div class="drawer-title-wrap">
+        <span id="drawerDeckName" class="drawer-deck-name">福音核心</span>
+        <span id="drawerShuffleBadge" class="shuffle-badge" hidden>已洗牌</span>
+      </div>
+      <div class="drawer-actions">
+        <button type="button" id="shuffleBtn" class="icon-btn" aria-label="洗牌" title="洗牌（不更動原 JSON）">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <polyline points="16 3 21 3 21 8" />
+            <line x1="4" y1="20" x2="21" y2="3" />
+            <polyline points="21 16 21 21 16 21" />
+            <line x1="15" y1="15" x2="21" y2="21" />
+            <line x1="4" y1="4" x2="9" y2="9" />
+          </svg>
+        </button>
+        <button type="button" id="unshuffleBtn" class="icon-btn" aria-label="恢復原順序" title="恢復原順序" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <polyline points="1 4 1 10 7 10" />
+            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+          </svg>
+        </button>
+        <button type="button" id="themeBtn" class="icon-btn theme-btn" aria-label="切換深淺色模式" title="深淺色：跟隨系統">
+          <svg id="themeIcon" viewBox="0 0 24 24" aria-hidden="true"></svg>
+        </button>
+        <button type="button" id="closeDrawerBtn" class="icon-btn" aria-label="關閉選單" title="關閉">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- 主分頁視圖（卡片清單 / Deck 管理） -->
+    <div id="drawerMainView" class="drawer-view">
+      <div class="drawer-tabs" role="tablist">
+        <button type="button" id="tabCards" class="drawer-tab is-active" role="tab" aria-selected="true">卡片清單</button>
+        <button type="button" id="tabDecks" class="drawer-tab" role="tab" aria-selected="false">所有 Deck</button>
+      </div>
+
+      <div id="panelCards" class="drawer-panel">
+        <ul id="cardList" class="item-list"></ul>
+      </div>
+
+      <div id="panelDecks" class="drawer-panel" hidden>
+        <div class="deck-toolbar">
+          <button type="button" id="newDeckBtn" class="pill-btn primary-pill">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            <span>自建 Deck</span>
+          </button>
+          <button type="button" id="openImportBtn" class="pill-btn">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            <span>匯入 JSON</span>
+          </button>
+        </div>
+        <ul id="deckList" class="item-list"></ul>
+      </div>
+    </div>
+
+    <!-- 自建／編輯 Deck 子視圖 -->
+    <div id="editorView" class="drawer-view" hidden>
+      <div class="subview-header">
+        <button type="button" id="editorBackBtn" class="icon-btn" aria-label="返回" title="返回">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+        </button>
+        <h2 id="editorTitle" class="subview-title">自建 Deck</h2>
+      </div>
+
+      <div class="subview-body">
+        <label class="field-label" for="editorNameInput">Deck 名稱</label>
+        <input id="editorNameInput" class="text-input" type="text" maxlength="40" placeholder="例如：每日禱告金句">
+
+        <div class="picker-box">
+          <div class="field-label">新增經文（限同章起迄）</div>
+          <div class="picker-grid">
+            <select id="pickBook" class="select-input" aria-label="書卷"></select>
+            <select id="pickChapter" class="select-input" aria-label="章"></select>
+            <select id="pickStartVerse" class="select-input" aria-label="起節"></select>
+            <select id="pickEndVerse" class="select-input" aria-label="迄節"></select>
+          </div>
+          <p id="pickerPreview" class="picker-preview"></p>
+          <button type="button" id="addCardBtn" class="pill-btn full-btn">加入此經文卡片</button>
+        </div>
+
+        <div class="field-label">卡片順序（<span id="editorCardCount">0</span> 張）</div>
+        <ul id="editorCardList" class="item-list compact-list"></ul>
+      </div>
+
+      <div class="subview-footer">
+        <p id="editorError" class="form-error" hidden></p>
+        <button type="button" id="saveDeckBtn" class="pill-btn primary-pill full-btn">儲存 Deck</button>
+      </div>
+    </div>
+
+    <!-- 匯出／匯入 JSON 子視圖 -->
+    <div id="ioView" class="drawer-view" hidden>
+      <div class="subview-header">
+        <button type="button" id="ioBackBtn" class="icon-btn" aria-label="返回" title="返回">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+        </button>
+        <h2 id="ioTitle" class="subview-title">匯出 Deck</h2>
+      </div>
+
+      <div id="exportPane" class="subview-body" hidden>
+        <p class="io-hint">匯出格式皆保留 Deck 原始順序，不受暫時洗牌影響。</p>
+        <textarea id="exportTextarea" class="json-textarea" readonly aria-label="匯出 JSON 內容"></textarea>
+        <div class="io-actions">
+          <button type="button" id="copyJsonBtn" class="pill-btn">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="9" y="9" width="13" height="13" rx="2" />
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+            </svg>
+            <span>複製 JSON</span>
+          </button>
+          <button type="button" id="downloadJsonBtn" class="pill-btn primary-pill">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            <span>下載 .json</span>
+          </button>
+        </div>
+      </div>
+
+      <div id="importPane" class="subview-body" hidden>
+        <label class="pill-btn full-btn file-label" for="importFileInput">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="17 8 12 3 7 8" />
+            <line x1="12" y1="3" x2="12" y2="15" />
+          </svg>
+          <span>選擇 .json 檔案匯入</span>
+        </label>
+        <input id="importFileInput" type="file" accept=".json,application/json" hidden>
+
+        <label class="field-label" for="importTextarea">或直接貼上 Deck JSON</label>
+        <textarea
+          id="importTextarea"
+          class="json-textarea"
+          placeholder='{&#10;  "name": "我的金句",&#10;  "cards": [&#10;    "約翰福音 3:16",&#10;    "羅馬書 8:28-29"&#10;  ]&#10;}'
+        ></textarea>
+        <p id="importError" class="form-error" hidden></p>
+        <button type="button" id="confirmImportBtn" class="pill-btn primary-pill full-btn">驗證並匯入 Deck</button>
+      </div>
+    </div>
+  </aside>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <script type="module" src="./js/app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      });
+    }
+  </script>
+</body>
+</html>
