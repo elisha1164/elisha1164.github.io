@@ -1,4 +1,9 @@
-/* v1.1.0 - 中英文聖經資料庫 (../rcuv.json, ../esv2016.json) 讀取、註釋清理與雙語出處解析 */
+/* v1.2.2 - 中英文聖經資料庫讀取、註釋清理、詩篇第一節標題濾除與雙語出處解析 */
+
+const ESV_PSALM_HEADING_RE = /^(?:[^a-z]*?(?:[.?!]"|[.:])\s*)+/;
+const RCUV_PSALM_VOL_RE = /^第[一二三四五]卷（[^）]*）/;
+const RCUV_PSALM_HEADING_RE =
+  /^(?:(?:「[^」]*」|[^。「])+(?:詩|歌|祈禱|聖詠團長[^。]*|教誨人|向耶和華說話|殺了一萬二千人)。)+/;
 
 const BOOK_PAIRS = [
   ['創世記', 'Genesis'],
@@ -267,8 +272,18 @@ export function formatRef(parsed) {
   return parsed.endVerse > parsed.startVerse ? `${base}-${parsed.endVerse}` : base;
 }
 
+function stripPsalmHeading(text, lang) {
+  if (lang === 'en') {
+    return text.replace(ESV_PSALM_HEADING_RE, '').trim();
+  }
+  return text
+    .replace(RCUV_PSALM_VOL_RE, '')
+    .replace(RCUV_PSALM_HEADING_RE, '')
+    .trim();
+}
+
 /**
- * 取得指定出處範圍的純淨連接經文（不含節號與註釋）。
+ * 取得指定出處範圍的純淨連接經文（不含節號、註釋與詩篇第一節標題）。
  * @param {string} refStr
  * @returns {string}
  */
@@ -279,7 +294,11 @@ export function getPassageText(refStr) {
   const chapObj = dataset[parsed.zhBook][String(parsed.chapter)];
   const parts = [];
   for (let v = parsed.startVerse; v <= parsed.endVerse; v += 1) {
-    parts.push(cleanVerseText(chapObj[String(v)], parsed.lang));
+    let cleaned = cleanVerseText(chapObj[String(v)], parsed.lang);
+    if (parsed.zhBook === '詩篇' && v === 1) {
+      cleaned = stripPsalmHeading(cleaned, parsed.lang);
+    }
+    parts.push(cleaned);
   }
   return parts.join(parsed.lang === 'en' ? ' ' : '');
 }
