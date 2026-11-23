@@ -1,4 +1,4 @@
-/* v1.0.0 - 內建與自建 Deck 載入、JSON 格式驗證匯入匯出與非破壞性洗牌 */
+/* v1.2.4 - 內建與自建卡組載入、JSON 格式驗證匯入匯出與非破壞性洗牌 */
 
 import { formatRef, parseRef } from './bible.js';
 import { loadCustomDecks } from './storage.js';
@@ -28,7 +28,7 @@ function normalizeCardList(rawCards) {
 export async function loadBuiltinDecks() {
   const indexRes = await fetch('./decks/index.json');
   if (!indexRes.ok) {
-    throw new Error(`無法載入內建 Deck 清單 (${indexRes.status})`);
+    throw new Error(`無法載入內建卡組清單 (${indexRes.status})`);
   }
   const filenames = await indexRes.json();
   if (!Array.isArray(filenames)) return [];
@@ -36,7 +36,7 @@ export async function loadBuiltinDecks() {
   const loaded = await Promise.all(
     filenames.map(async (filename) => {
       const res = await fetch(`./decks/${filename}`);
-      if (!res.ok) throw new Error(`無法載入 Deck: ${filename}`);
+      if (!res.ok) throw new Error(`無法載入卡組：${filename}`);
       const data = await res.json();
       const name = typeof data?.name === 'string' && data.name.trim() ? data.name.trim() : filename;
       const rawCards = Array.isArray(data?.cards) ? data.cards : [];
@@ -83,12 +83,12 @@ export function validateDeckJson(rawInput) {
   }
 
   if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
-    return { ok: false, error: 'Deck 格式須為包含 name 與 cards 的 JSON 物件。' };
+    return { ok: false, error: '卡組格式須為包含 name 與 cards 的 JSON 物件。' };
   }
 
   const name = typeof obj.name === 'string' ? obj.name.trim() : '';
   if (!name) {
-    return { ok: false, error: '請提供非空白的 Deck 名稱 (name)。' };
+    return { ok: false, error: '請提供非空白的卡組名稱 (name)。' };
   }
 
   if (!Array.isArray(obj.cards) || obj.cards.length === 0) {

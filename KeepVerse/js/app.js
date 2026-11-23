@@ -1,4 +1,4 @@
-/* v1.2.3 - KeepVerse 主應用控制器：第 1 級下個難度按鈕、PWA 安裝引導與雙語背誦 */
+/* v1.2.4 - KeepVerse 主應用控制器：介面用語統一為「卡組」與雙語背誦 */
 
 import {
   formatRef,
@@ -380,20 +380,20 @@ function renderDeckList() {
 
     if (deck.builtin) {
       actions.appendChild(
-        createIconActionButton(SVG.copy, '複製成自建 Deck', () => copyDeckToCustom(deck))
+        createIconActionButton(SVG.copy, '複製成自建卡組', () => copyDeckToCustom(deck))
       );
       actions.appendChild(
         createIconActionButton(SVG.export, '匯出 JSON', () => openExportView(deck))
       );
     } else {
       actions.appendChild(
-        createIconActionButton(SVG.edit, '編輯 Deck', () => openEditorView(deck))
+        createIconActionButton(SVG.edit, '編輯卡組', () => openEditorView(deck))
       );
       actions.appendChild(
         createIconActionButton(SVG.export, '匯出 JSON', () => openExportView(deck))
       );
       actions.appendChild(
-        createIconActionButton(SVG.trash, '刪除 Deck', () => deleteCustomDeck(deck))
+        createIconActionButton(SVG.trash, '刪除卡組', () => deleteCustomDeck(deck))
       );
     }
 
@@ -570,7 +570,7 @@ function shuffleCurrentDeck() {
   restoreCardContext();
   clearRecallSession();
   renderAll();
-  showToast('已洗牌（不更動原 Deck 順序）');
+  showToast('已洗牌（不更動原卡組順序）');
 }
 
 function unshuffleCurrentDeck() {
@@ -583,7 +583,7 @@ function unshuffleCurrentDeck() {
   showToast('已恢復原本順序');
 }
 
-/* 複製／刪除自建 Deck */
+/* 複製／刪除自建卡組 */
 function copyDeckToCustom(deck) {
   const custom = loadCustomDecks();
   const newDeck = {
@@ -596,7 +596,7 @@ function copyDeckToCustom(deck) {
   state.decks = getAllDecks(state.builtinDecks);
   selectDeck(newDeck.id);
   setDrawerTab('decks');
-  showToast('已複製為自建 Deck');
+  showToast('已複製為自建卡組');
 }
 
 function deleteCustomDeck(deck) {
@@ -609,10 +609,10 @@ function deleteCustomDeck(deck) {
   } else {
     renderAll();
   }
-  showToast('已刪除 Deck');
+  showToast('已刪除卡組');
 }
 
-/* 自建／編輯 Deck 與同章起迄經文選取器 */
+/* 自建／編輯卡組與同章起迄經文選取器 */
 function fillSelect(selectEl, items, suffix = '') {
   selectEl.innerHTML = '';
   items.forEach((item) => {
@@ -748,7 +748,7 @@ function renderEditorCards() {
 function openEditorView(deck = null) {
   state.editor.editingDeckId = deck ? deck.id : null;
   state.editor.cards = deck ? [...deck.cards] : [];
-  el.editorTitle.textContent = deck ? '編輯 Deck' : '自建 Deck';
+  el.editorTitle.textContent = deck ? '編輯卡組' : '自建卡組';
   el.editorNameInput.value = deck ? deck.name : '';
   el.editorError.hidden = true;
   renderEditorCards();
@@ -758,7 +758,7 @@ function openEditorView(deck = null) {
 function saveEditorDeck() {
   const name = el.editorNameInput.value.trim();
   if (!name) {
-    el.editorError.textContent = '請輸入 Deck 名稱。';
+    el.editorError.textContent = '請輸入卡組名稱。';
     el.editorError.hidden = false;
     return;
   }
@@ -786,7 +786,7 @@ function saveEditorDeck() {
   selectDeck(targetId);
   setDrawerTab('decks');
   showDrawerView('main');
-  showToast('已儲存 Deck');
+  showToast('已儲存卡組');
 }
 
 /* 匯出／匯入 */
@@ -800,7 +800,7 @@ function openExportView(deck) {
 }
 
 function openImportView() {
-  el.ioTitle.textContent = '匯入 Deck';
+  el.ioTitle.textContent = '匯入卡組';
   el.importTextarea.value = '';
   el.importFileInput.value = '';
   el.importError.hidden = true;
