@@ -1,4 +1,4 @@
-/* v1.0.0 - KeepVerse 極簡紙感樣式與深淺色主題 */
+/* v1.1.0 - KeepVerse 極簡紙感樣式、雙語排版與練習操作列 */
 
 :root {
   --bg: #FAF8F3;
@@ -333,6 +333,25 @@ svg {
   color: var(--success);
   font-size: 0.94rem;
   font-weight: 600;
+}
+
+.verse-full.is-english,
+.hint-text.is-english,
+.check-result.is-english,
+.picker-preview.is-english {
+  font-family: Georgia, 'Noto Serif TC', serif;
+  letter-spacing: 0;
+}
+
+.post-check-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.post-check-actions .pill-btn {
+  flex: 1 1 0;
+  min-width: 120px;
 }
 
 .card-footer {
@@ -689,6 +708,34 @@ svg {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.lang-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+
+.lang-btn {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  border-radius: 7px;
+  padding: 6px 8px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.lang-btn.is-active {
+  background: var(--surface);
+  color: var(--accent);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
 .picker-grid {

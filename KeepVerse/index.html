@@ -1,4 +1,4 @@
-<!-- v1.0.0 - KeepVerse 主頁面、PWA 與完整 OG 中繼資料 -->
+<!-- v1.1.0 - KeepVerse 主頁面、雙語測驗控制項與語言選取器 -->
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
@@ -65,8 +65,8 @@
             <line x1="13" y1="18" x2="18" y2="18" stroke-dasharray="2.5 2.5" />
           </svg>
         </button>
-        <button type="button" class="icon-btn level-btn" data-level="3" role="tab" aria-selected="false" aria-label="剩注音聲母" title="剩注音聲母">
-          <span class="glyph-icon" aria-hidden="true">ㄅ</span>
+        <button type="button" id="level3Btn" class="icon-btn level-btn" data-level="3" role="tab" aria-selected="false" aria-label="剩注音聲母" title="剩注音聲母">
+          <span id="level3Glyph" class="glyph-icon" aria-hidden="true">ㄅ</span>
         </button>
         <button type="button" class="icon-btn level-btn" data-level="4" role="tab" aria-selected="false" aria-label="全空白" title="全空白">
           <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -120,6 +120,7 @@
             </div>
 
             <div id="checkResult" class="check-result" hidden></div>
+            <div id="postCheckActions" class="post-check-actions" hidden></div>
           </div>
         </div>
 
@@ -230,6 +231,10 @@
 
         <div class="picker-box">
           <div class="field-label">新增經文（限同章起迄）</div>
+          <div class="lang-switch" role="group" aria-label="經文語言">
+            <button type="button" id="pickLangZh" class="lang-btn is-active" aria-pressed="true">中文 RCUV</button>
+            <button type="button" id="pickLangEn" class="lang-btn" aria-pressed="false">英文 ESV</button>
+          </div>
           <div class="picker-grid">
             <select id="pickBook" class="select-input" aria-label="書卷"></select>
             <select id="pickChapter" class="select-input" aria-label="章"></select>
@@ -298,7 +303,7 @@
         <textarea
           id="importTextarea"
           class="json-textarea"
-          placeholder='{&#10;  "name": "我的金句",&#10;  "cards": [&#10;    "約翰福音 3:16",&#10;    "羅馬書 8:28-29"&#10;  ]&#10;}'
+          placeholder='{&#10;  "name": "我的金句",&#10;  "cards": [&#10;    "約翰福音 3:16",&#10;    "John 3:16"&#10;  ]&#10;}'
         ></textarea>
         <p id="importError" class="form-error" hidden></p>
         <button type="button" id="confirmImportBtn" class="pill-btn primary-pill full-btn">驗證並匯入 Deck</button>

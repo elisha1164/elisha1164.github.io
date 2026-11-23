@@ -1,12 +1,15 @@
-/* v1.0.0 - 經文隨機挖空演算法與嚴格逐字比對（LCS 差異標註） */
+/* v1.1.0 - 中英文經文隨機挖空、首字母提示與保留原標點之嚴格 LCS 差異批改 */
 
 const PUNCT_SPACE_RE = /[\p{P}\p{S}\s]+/gu;
+const SINGLE_PUNCT_SPACE_RE = /^[\p{P}\p{S}\s]$/u;
 const TOKEN_SPLIT_RE = /[\p{P}\p{S}\s]+|[^\p{P}\p{S}\s]+/gu;
+const EN_WORD_RE = /[A-Za-z0-9]+(?:['’][A-Za-z0-9]+)*/g;
 const BLANK_CHAR = '＿';
+const EN_BLANK_WORD = '____';
 const TARGET_BLANK_RATIO = 0.6;
 
 /**
- * 移除所有標點符號與空白，保留嚴格字元供背誦比對（不做異體字轉換）。
+ * 移除所有標點符號與空白，保留嚴格字元供中文背誦比對（不做異體字轉換）。
  * @param {string} text
  * @returns {string}
  */
@@ -14,23 +17,7 @@ export function stripForCheck(text) {
   return String(text || '').replace(PUNCT_SPACE_RE, '');
 }
 
-/**
- * 嚴格逐字比對經文（僅忽略標點與空白），產出分段差異。
- * extra 表示使用者多打或打錯的字；missing 表示少打或應有的字。
- * @param {string} expectedRaw
- * @param {string} inputRaw
- * @returns {{ ok: boolean, segments: Array<{ type: 'equal' | 'extra' | 'missing', text: string }> }}
- */
-export function compareVerse(expectedRaw, inputRaw) {
-  const expected = stripForCheck(expectedRaw);
-  const actual = stripForCheck(inputRaw);
-
-  if (expected === actual) {
-    return { ok: true, segments: [] };
-  }
-
-  const a = Array.from(actual);
-  const b = Array.from(expected);
+function computeLcsOps(a, b, isEqual) {
   const m = a.length;
   const n = b.length;
   const cols = n + 1;
@@ -40,7 +27,7 @@ export function compareVerse(expectedRaw, inputRaw) {
     const rowOff = i * cols;
     const prevOff = (i - 1) * cols;
     for (let j = 1; j <= n; j += 1) {
-      if (a[i - 1] === b[j - 1]) {
+      if (isEqual(a[i - 1], b[j - 1])) {
         dp[rowOff + j] = dp[prevOff + j - 1] + 1;
       } else {
         const up = dp[prevOff + j];
@@ -54,31 +41,138 @@ export function compareVerse(expectedRaw, inputRaw) {
   let i = m;
   let j = n;
   while (i > 0 || j > 0) {
-    if (i > 0 && j > 0 && a[i - 1] === b[j - 1]) {
-      revOps.push({ type: 'equal', text: a[i - 1] });
+    if (i > 0 && j > 0 && isEqual(a[i - 1], b[j - 1])) {
+      revOps.push({ type: 'equal', actIdx: i - 1, expIdx: j - 1 });
       i -= 1;
       j -= 1;
     } else if (j > 0 && (i === 0 || dp[i * cols + (j - 1)] >= dp[(i - 1) * cols + j])) {
-      revOps.push({ type: 'missing', text: b[j - 1] });
+      revOps.push({ type: 'missing', actIdx: null, expIdx: j - 1 });
       j -= 1;
     } else {
-      revOps.push({ type: 'extra', text: a[i - 1] });
+      revOps.push({ type: 'extra', actIdx: i - 1, expIdx: null });
       i -= 1;
     }
   }
 
+  return revOps.reverse();
+}
+
+function createSegmentAccumulator() {
   const segments = [];
-  for (let k = revOps.length - 1; k >= 0; k -= 1) {
-    const op = revOps[k];
+  let tailChar = '';
+
+  const push = (type, text) => {
+    if (!text) return;
     const last = segments[segments.length - 1];
-    if (last && last.type === op.type) {
-      last.text += op.text;
+    if (last && last.type === type) {
+      last.text += text;
     } else {
-      segments.push({ type: op.type, text: op.text });
+      segments.push({ type, text });
+    }
+    tailChar = text[text.length - 1];
+  };
+
+  return { segments, push, getTailChar: () => tailChar };
+}
+
+function compareChineseVerse(expectedRaw, inputRaw) {
+  const b = [];
+  const punctSlots = [''];
+  for (const ch of Array.from(String(expectedRaw || ''))) {
+    if (SINGLE_PUNCT_SPACE_RE.test(ch)) {
+      punctSlots[punctSlots.length - 1] += ch;
+    } else {
+      b.push(ch);
+      punctSlots.push('');
     }
   }
 
-  return { ok: false, segments };
+  const a = Array.from(stripForCheck(inputRaw));
+  if (a.length === b.length && a.every((ch, idx) => ch === b[idx])) {
+    return { ok: true, segments: [] };
+  }
+
+  const ops = computeLcsOps(a, b, (x, y) => x === y);
+  const acc = createSegmentAccumulator();
+  acc.push('equal', punctSlots[0]);
+
+  for (const op of ops) {
+    if (op.type === 'extra') {
+      acc.push('extra', a[op.actIdx]);
+    } else {
+      acc.push(op.type, b[op.expIdx]);
+      acc.push('equal', punctSlots[op.expIdx + 1]);
+    }
+  }
+
+  return { ok: false, segments: acc.segments };
+}
+
+function extractEnglishTokens(text) {
+  const src = String(text || '');
+  const words = [];
+  const slots = [];
+  let lastIdx = 0;
+
+  for (const match of src.matchAll(EN_WORD_RE)) {
+    slots.push(src.slice(lastIdx, match.index));
+    const raw = match[0];
+    words.push({
+      raw,
+      norm: raw.replace(/['’]/g, '').toLowerCase(),
+    });
+    lastIdx = match.index + raw.length;
+  }
+  slots.push(src.slice(lastIdx));
+
+  return { words, slots };
+}
+
+function compareEnglishVerse(expectedRaw, inputRaw) {
+  const { words: b, slots: punctSlots } = extractEnglishTokens(expectedRaw);
+  const { words: a } = extractEnglishTokens(inputRaw);
+
+  if (a.length === b.length && a.every((w, idx) => w.norm === b[idx].norm)) {
+    return { ok: true, segments: [] };
+  }
+
+  const ops = computeLcsOps(a, b, (x, y) => x.norm === y.norm);
+  const acc = createSegmentAccumulator();
+  acc.push('equal', punctSlots[0]);
+
+  let pendingExtraSpace = false;
+  for (const op of ops) {
+    if (op.type === 'extra') {
+      const tail = acc.getTailChar();
+      if (tail && !/[\s“‘"'(\[-]$/.test(tail)) {
+        acc.push('equal', ' ');
+      }
+      acc.push('extra', a[op.actIdx].raw);
+      pendingExtraSpace = true;
+    } else {
+      if (pendingExtraSpace) {
+        acc.push('equal', ' ');
+        pendingExtraSpace = false;
+      }
+      acc.push(op.type, b[op.expIdx].raw);
+      acc.push('equal', punctSlots[op.expIdx + 1]);
+    }
+  }
+
+  return { ok: false, segments: acc.segments };
+}
+
+/**
+ * 依語言比對經文（忽略標點與空白，於錯誤批改結果中保留原文標點以利閱讀）。
+ * @param {string} expectedRaw
+ * @param {string} inputRaw
+ * @param {'zh' | 'en'} [lang]
+ * @returns {{ ok: boolean, segments: Array<{ type: 'equal' | 'extra' | 'missing', text: string }> }}
+ */
+export function compareVerse(expectedRaw, inputRaw, lang = 'zh') {
+  return lang === 'en'
+    ? compareEnglishVerse(expectedRaw, inputRaw)
+    : compareChineseVerse(expectedRaw, inputRaw);
 }
 
 function randInt(min, max) {
@@ -118,7 +212,7 @@ function buildClauseMask(len, processedBefore, blankedBefore) {
     const curRatio = (blankedBefore + localBlanks) / Math.max(1, processedBefore + pos);
 
     if (nextIsBlank) {
-      if (rem < 2) break; // Keep trailing 1 char visible so blanks stay 2..4 long
+      if (rem < 2) break;
       const bLen = pickBlankLength(rem, curRatio);
       for (let k = 0; k < bLen; k += 1) {
         mask[pos + k] = true;
@@ -142,12 +236,7 @@ function buildClauseMask(len, processedBefore, blankedBefore) {
   return { mask, blanks: localBlanks };
 }
 
-/**
- * 產生隨機挖空提示字串：隱藏約 60% 國字，以 2-4 個相鄰「＿」組成空白區塊並保留標點。
- * @param {string} text
- * @returns {string}
- */
-export function generateRandomBlanks(text) {
+function generateChineseRandomBlanks(text) {
   const rawTokens = String(text || '').match(TOKEN_SPLIT_RE);
   if (!rawTokens) return '';
 
@@ -175,7 +264,6 @@ export function generateRandomBlanks(text) {
     blankedChars += blanks;
   }
 
-  // Fallback guard: ensure at least one 2-4 char blank block exists when verse has >= 2 chars
   if (totalChars >= 2 && blankedChars === 0 && longestIdx !== -1 && tokens[longestIdx].chars.length >= 2) {
     const target = tokens[longestIdx];
     const span = Math.min(3, target.chars.length);
@@ -188,4 +276,63 @@ export function generateRandomBlanks(text) {
       return tok.chars.map((ch, idx) => (tok.mask[idx] ? BLANK_CHAR : ch)).join('');
     })
     .join('');
+}
+
+function generateEnglishRandomBlanks(text) {
+  const { words, slots } = extractEnglishTokens(text);
+  const count = words.length;
+  if (count === 0) return String(text || '');
+
+  const mask = new Array(count).fill(false);
+  let pos = 0;
+  let blanked = 0;
+  let nextIsBlank = Math.random() < 0.65;
+
+  while (pos < count) {
+    const rem = count - pos;
+    const curRatio = pos > 0 ? blanked / pos : 0.45;
+
+    if (nextIsBlank) {
+      const span = Math.min(rem, randInt(1, curRatio < TARGET_BLANK_RATIO ? 3 : 2));
+      for (let k = 0; k < span; k += 1) {
+        mask[pos + k] = true;
+      }
+      blanked += span;
+      pos += span;
+      nextIsBlank = false;
+    } else {
+      const vSpan = Math.min(rem, curRatio < TARGET_BLANK_RATIO - 0.1 ? 1 : randInt(1, 2));
+      pos += vSpan;
+      nextIsBlank = true;
+    }
+  }
+
+  if (blanked === 0) {
+    mask[Math.floor(count / 2)] = true;
+  }
+
+  let out = slots[0];
+  for (let i = 0; i < count; i += 1) {
+    out += (mask[i] ? EN_BLANK_WORD : words[i].raw) + slots[i + 1];
+  }
+  return out;
+}
+
+/**
+ * 產生隨機挖空提示字串（中文隱藏 2–4 字，英文隱藏 1–3 個單字，皆約 60% 並保留標點）。
+ * @param {string} text
+ * @param {'zh' | 'en'} [lang]
+ * @returns {string}
+ */
+export function generateRandomBlanks(text, lang = 'zh') {
+  return lang === 'en' ? generateEnglishRandomBlanks(text) : generateChineseRandomBlanks(text);
+}
+
+/**
+ * 將英文經文轉換為各單字首字母提示（保留大小寫與標點）。
+ * @param {string} text
+ * @returns {string}
+ */
+export function toEnglishInitials(text) {
+  return String(text || '').replace(EN_WORD_RE, (word) => word[0]);
 }

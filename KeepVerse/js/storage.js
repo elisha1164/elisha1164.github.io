@@ -1,9 +1,11 @@
-/* v1.0.0 - 本機 localStorage 持久化：自建 Deck、全空白背熟時間與偏好設定 */
+/* v1.1.0 - 本機 localStorage 持久化：自建 Deck、背熟時間、最後卡片與各卡難度記憶 */
 
 const KEYS = {
   customDecks: 'keepverse_custom_decks_v1',
   mastery: 'keepverse_mastery_v1',
   prefs: 'keepverse_prefs_v1',
+  cardLevels: 'keepverse_card_levels_v1',
+  lastCards: 'keepverse_last_cards_v1',
 };
 
 function readJson(key, fallback) {
@@ -119,4 +121,54 @@ export function loadPrefs() {
  */
 export function savePrefs(prefs) {
   writeJson(KEYS.prefs, prefs);
+}
+
+/**
+ * 取得指定經文卡片上次停留的難度（1–4，預設為 1）。
+ * @param {string} canonicalRef
+ * @returns {1 | 2 | 3 | 4}
+ */
+export function getCardLevel(canonicalRef) {
+  if (!canonicalRef) return 1;
+  const map = readJson(KEYS.cardLevels, {});
+  const lv = map?.[canonicalRef];
+  return lv === 1 || lv === 2 || lv === 3 || lv === 4 ? lv : 1;
+}
+
+/**
+ * 記錄指定經文卡片的目前難度（1–4）。
+ * @param {string} canonicalRef
+ * @param {1 | 2 | 3 | 4} level
+ */
+export function saveCardLevel(canonicalRef, level) {
+  if (!canonicalRef) return;
+  const map = readJson(KEYS.cardLevels, {});
+  const safeMap = map && typeof map === 'object' && !Array.isArray(map) ? map : {};
+  safeMap[canonicalRef] = level;
+  writeJson(KEYS.cardLevels, safeMap);
+}
+
+/**
+ * 取得指定 Deck 上次停留的經文出處。
+ * @param {string} deckId
+ * @returns {string | null}
+ */
+export function getDeckLastCard(deckId) {
+  if (!deckId) return null;
+  const map = readJson(KEYS.lastCards, {});
+  const ref = map?.[deckId];
+  return typeof ref === 'string' && ref ? ref : null;
+}
+
+/**
+ * 記錄指定 Deck 目前停留的經文出處。
+ * @param {string} deckId
+ * @param {string} canonicalRef
+ */
+export function saveDeckLastCard(deckId, canonicalRef) {
+  if (!deckId || !canonicalRef) return;
+  const map = readJson(KEYS.lastCards, {});
+  const safeMap = map && typeof map === 'object' && !Array.isArray(map) ? map : {};
+  safeMap[deckId] = canonicalRef;
+  writeJson(KEYS.lastCards, safeMap);
 }

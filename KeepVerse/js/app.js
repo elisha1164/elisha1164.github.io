@@ -1,12 +1,14 @@
-/* v1.0.0 - KeepVerse 主應用控制器：卡片翻閱、四程度測驗、洗牌與 Deck 管理 */
+/* v1.1.0 - KeepVerse 主應用控制器：雙語經文、續練操作與卡片／難度記憶 */
 
 import {
   formatRef,
   getBooks,
   getChapters,
   getPassageText,
+  getRefLang,
   getVerses,
   loadBible,
+  translateBookName,
 } from './bible.js';
 import {
   createShuffledOrder,
@@ -15,15 +17,19 @@ import {
   serializeDeck,
   validateDeckJson,
 } from './decks.js';
-import { compareVerse, generateRandomBlanks } from './diff.js';
+import { compareVerse, generateRandomBlanks, toEnglishInitials } from './diff.js';
 import {
   formatRelativeMastery,
+  getCardLevel,
+  getDeckLastCard,
   getMastery,
   loadCustomDecks,
   loadMasteryMap,
   loadPrefs,
   recordMastery,
+  saveCardLevel,
   saveCustomDecks,
+  saveDeckLastCard,
   savePrefs,
 } from './storage.js';
 import { toZhuyinInitials } from './zhuyin.js';
@@ -48,6 +54,8 @@ const SVG = {
   up: '<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="18 15 12 9 6 15"/></svg>',
   down: '<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>',
   remove: '<svg viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+  retry: '<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>',
+  nextLevel: '<svg viewBox="0 0 24 24" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>',
 };
 
 const state = {
@@ -64,11 +72,14 @@ const state = {
   editor: {
     editingDeckId: null,
     cards: [],
+    pickerLang: 'zh',
   },
 };
 
 const el = {
   levelBtns: Array.from(document.querySelectorAll('.level-btn')),
+  level3Btn: document.getElementById('level3Btn'),
+  level3Glyph: document.getElementById('level3Glyph'),
   menuBtn: document.getElementById('menuBtn'),
   shuffleDot: document.getElementById('shuffleDot'),
   cardRef: document.getElementById('cardRef'),
@@ -79,6 +90,7 @@ const el = {
   recallInput: document.getElementById('recallInput'),
   submitBtn: document.getElementById('submitBtn'),
   checkResult: document.getElementById('checkResult'),
+  postCheckActions: document.getElementById('postCheckActions'),
   cardMastery: document.getElementById('cardMastery'),
   prevBtn: document.getElementById('prevBtn'),
   nextBtn: document.getElementById('nextBtn'),
@@ -104,6 +116,8 @@ const el = {
   editorBackBtn: document.getElementById('editorBackBtn'),
   editorTitle: document.getElementById('editorTitle'),
   editorNameInput: document.getElementById('editorNameInput'),
+  pickLangZh: document.getElementById('pickLangZh'),
+  pickLangEn: document.getElementById('pickLangEn'),
   pickBook: document.getElementById('pickBook'),
   pickChapter: document.getElementById('pickChapter'),
   pickStartVerse: document.getElementById('pickStartVerse'),
@@ -168,6 +182,17 @@ function clearRecallSession() {
   el.recallInput.value = '';
   el.checkResult.innerHTML = '';
   el.checkResult.hidden = true;
+  el.postCheckActions.innerHTML = '';
+  el.postCheckActions.hidden = true;
+}
+
+function restoreCardContext() {
+  const deck = getActiveDeck();
+  const ref = getCurrentRef();
+  state.level = ref ? getCardLevel(ref) : 1;
+  if (deck && ref) {
+    saveDeckLastCard(deck.id, ref);
+  }
 }
 
 function resetDisplayOrder(deck) {
@@ -183,7 +208,10 @@ function selectDeck(deckId, { closeDrawerAfter = false } = {}) {
   if (!deck) return;
   state.activeDeckId = deck.id;
   resetDisplayOrder(deck);
-  state.level = 1;
+  const lastRef = getDeckLastCard(deck.id);
+  const savedIdx = lastRef ? deck.cards.indexOf(lastRef) : -1;
+  state.orderPos = savedIdx >= 0 ? savedIdx : 0;
+  restoreCardContext();
   clearRecallSession();
   savePrefs({ activeDeckId: deck.id, theme: state.theme });
   renderAll();
@@ -214,17 +242,34 @@ function renderCard() {
     el.verseFull.hidden = false;
     el.quizArea.hidden = true;
     el.cardMastery.textContent = '上次背熟：尚未背熟';
+    el.level3Glyph.textContent = 'ㄅ';
+    el.level3Btn.setAttribute('aria-label', '剩注音聲母');
+    el.level3Btn.setAttribute('title', '剩注音聲母');
+    el.verseFull.classList.remove('is-english');
+    el.hintText.classList.remove('is-english');
+    el.checkResult.classList.remove('is-english');
     return;
   }
 
+  const lang = getRefLang(ref);
+  const isEn = lang === 'en';
   const text = getPassageText(ref);
+
+  el.level3Glyph.textContent = isEn ? 'A' : 'ㄅ';
+  const level3Label = isEn ? '剩單字首字母' : '剩注音聲母';
+  el.level3Btn.setAttribute('aria-label', level3Label);
+  el.level3Btn.setAttribute('title', level3Label);
+  el.verseFull.classList.toggle('is-english', isEn);
+  el.hintText.classList.toggle('is-english', isEn);
+  el.checkResult.classList.toggle('is-english', isEn);
+
   el.cardRef.textContent = ref;
   el.cardCounter.textContent = `${state.orderPos + 1}/${total}`;
   el.cardMastery.textContent = `上次背熟：${formatRelativeMastery(getMastery(ref))}`;
 
   if (state.level === 1) {
     el.verseFull.textContent = text;
-    el.verseFull.classList.toggle('is-long', text.length > 75);
+    el.verseFull.classList.toggle('is-long', isEn ? text.length > 180 : text.length > 75);
     el.verseFull.hidden = false;
     el.quizArea.hidden = true;
     return;
@@ -235,12 +280,12 @@ function renderCard() {
 
   if (state.level === 2) {
     if (!state.blankCache.has(state.orderPos)) {
-      state.blankCache.set(state.orderPos, generateRandomBlanks(text));
+      state.blankCache.set(state.orderPos, generateRandomBlanks(text, lang));
     }
     el.hintText.textContent = state.blankCache.get(state.orderPos);
     el.hintText.hidden = false;
   } else if (state.level === 3) {
-    el.hintText.textContent = toZhuyinInitials(text);
+    el.hintText.textContent = isEn ? toEnglishInitials(text) : toZhuyinInitials(text);
     el.hintText.hidden = false;
   } else {
     el.hintText.textContent = '';
@@ -274,7 +319,7 @@ function renderCardList() {
         state.blankCache.clear();
       }
       state.orderPos = pos;
-      state.level = 1;
+      restoreCardContext();
       clearRecallSession();
       renderAll();
       closeDrawer();
@@ -359,6 +404,7 @@ function renderAll() {
 function setLevel(newLevel) {
   if (state.level === newLevel) return;
   state.level = newLevel;
+  saveCardLevel(getCurrentRef(), newLevel);
   clearRecallSession();
   renderCard();
 }
@@ -367,18 +413,64 @@ function stepCard(delta) {
   const total = state.displayOrder.length;
   if (total === 0) return;
   state.orderPos = (state.orderPos + delta + total) % total;
-  state.level = 1;
   state.blankCache.clear();
+  restoreCardContext();
   clearRecallSession();
   renderAll();
+}
+
+function createPostCheckBtn(svgHtml, label, primary, onClick) {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = primary ? 'pill-btn primary-pill' : 'pill-btn';
+  btn.innerHTML = `${svgHtml}<span>${label}</span>`;
+  btn.addEventListener('click', onClick);
+  return btn;
+}
+
+function renderPostCheckActions(isSuccess) {
+  el.postCheckActions.innerHTML = '';
+  if (isSuccess) {
+    if (state.level !== 2 && state.level !== 3) {
+      el.postCheckActions.hidden = true;
+      return;
+    }
+    el.postCheckActions.appendChild(
+      createPostCheckBtn(SVG.retry, '再練一次', false, () => {
+        clearRecallSession();
+        if (state.level === 2) {
+          state.blankCache.delete(state.orderPos);
+          renderCard();
+        }
+        el.recallInput.focus();
+      })
+    );
+    el.postCheckActions.appendChild(
+      createPostCheckBtn(SVG.nextLevel, '下個難度', true, () => {
+        setLevel(state.level + 1);
+        el.recallInput.focus();
+      })
+    );
+    el.postCheckActions.hidden = false;
+    return;
+  }
+
+  el.postCheckActions.appendChild(
+    createPostCheckBtn(SVG.retry, '再練一次', false, () => {
+      clearRecallSession();
+      el.recallInput.focus();
+    })
+  );
+  el.postCheckActions.hidden = false;
 }
 
 function runCheck() {
   if (state.level === 1) return;
   const ref = getCurrentRef();
   if (!ref) return;
+  const lang = getRefLang(ref);
   const expected = getPassageText(ref);
-  const res = compareVerse(expected, el.recallInput.value);
+  const res = compareVerse(expected, el.recallInput.value, lang);
 
   el.checkResult.innerHTML = '';
   el.checkResult.hidden = false;
@@ -388,6 +480,7 @@ function runCheck() {
     msg.className = 'check-success';
     if (state.level === 4) {
       const iso = recordMastery(ref);
+      saveCardLevel(ref, 1);
       el.cardMastery.textContent = `上次背熟：${formatRelativeMastery(iso)}`;
       msg.textContent = '恭喜！完全正確，已更新上次背熟時間。';
       renderCardList();
@@ -395,6 +488,7 @@ function runCheck() {
       msg.textContent = '恭喜！經文背誦完全正確。';
     }
     el.checkResult.appendChild(msg);
+    renderPostCheckActions(true);
     return;
   }
 
@@ -418,6 +512,7 @@ function runCheck() {
     }
   });
   el.checkResult.appendChild(frag);
+  renderPostCheckActions(false);
 }
 
 /* 抽屜視圖切換 */
@@ -460,8 +555,8 @@ function shuffleCurrentDeck() {
   state.displayOrder = createShuffledOrder(deck.cards.length);
   state.isShuffled = true;
   state.orderPos = 0;
-  state.level = 1;
   state.blankCache.clear();
+  restoreCardContext();
   clearRecallSession();
   renderAll();
   showToast('已洗牌（不更動原 Deck 順序）');
@@ -471,7 +566,7 @@ function unshuffleCurrentDeck() {
   const deck = getActiveDeck();
   if (!deck) return;
   resetDisplayOrder(deck);
-  state.level = 1;
+  restoreCardContext();
   clearRecallSession();
   renderAll();
   showToast('已恢復原本順序');
@@ -524,6 +619,7 @@ function updatePickerPreview() {
     startVerse: Number(el.pickStartVerse.value),
     endVerse: Number(el.pickEndVerse.value),
   });
+  el.pickerPreview.classList.toggle('is-english', state.editor.pickerLang === 'en');
   el.pickerPreview.textContent = getPassageText(ref);
 }
 
@@ -541,33 +637,56 @@ function syncEndVerseOptions(preferredEnd = null) {
   updatePickerPreview();
 }
 
-function syncStartVerseOptions() {
+function syncStartVerseOptions(preferredStart = null, preferredEnd = null) {
   const book = el.pickBook.value;
   const chapter = Number(el.pickChapter.value);
   const verses = getVerses(book, chapter);
   fillSelect(el.pickStartVerse, verses, '節');
-  syncEndVerseOptions();
+  if (preferredStart && verses.includes(preferredStart)) {
+    el.pickStartVerse.value = String(preferredStart);
+  }
+  syncEndVerseOptions(preferredEnd);
 }
 
-function syncChapterOptions() {
+function syncChapterOptions(preferredChapter = null, preferredStart = null, preferredEnd = null) {
   const chapters = getChapters(el.pickBook.value);
   fillSelect(el.pickChapter, chapters, '章');
-  syncStartVerseOptions();
+  if (preferredChapter && chapters.includes(preferredChapter)) {
+    el.pickChapter.value = String(preferredChapter);
+  }
+  syncStartVerseOptions(preferredStart, preferredEnd);
+}
+
+function setPickerLang(lang) {
+  state.editor.pickerLang = lang;
+  const isEn = lang === 'en';
+  el.pickLangZh.classList.toggle('is-active', !isEn);
+  el.pickLangEn.classList.toggle('is-active', isEn);
+  el.pickLangZh.setAttribute('aria-pressed', String(!isEn));
+  el.pickLangEn.setAttribute('aria-pressed', String(isEn));
+
+  const prevBook = el.pickBook.value;
+  const prevChap = Number(el.pickChapter.value);
+  const prevStart = Number(el.pickStartVerse.value);
+  const prevEnd = Number(el.pickEndVerse.value);
+
+  const books = getBooks(lang);
+  fillSelect(el.pickBook, books);
+  const translated = translateBookName(prevBook, lang);
+  const fallback = isEn ? 'John' : '約翰福音';
+  el.pickBook.value = books.includes(translated) ? translated : (books.includes(fallback) ? fallback : books[0]);
+
+  syncChapterOptions(prevChap, prevStart, prevEnd);
 }
 
 function initPicker() {
-  const books = getBooks();
+  state.editor.pickerLang = 'zh';
+  const books = getBooks('zh');
   fillSelect(el.pickBook, books);
   if (books.includes('約翰福音')) {
     el.pickBook.value = '約翰福音';
   }
-  syncChapterOptions();
-  if (el.pickBook.value === '約翰福音' && getChapters('約翰福音').includes(3)) {
-    el.pickChapter.value = '3';
-    syncStartVerseOptions();
-    el.pickStartVerse.value = '16';
-    syncEndVerseOptions(16);
-  }
+  syncChapterOptions(3, 16, 16);
 }
 
 function renderEditorCards() {
@@ -747,8 +866,10 @@ function bindEvents() {
   el.editorBackBtn.addEventListener('click', () => showDrawerView('main'));
   el.ioBackBtn.addEventListener('click', () => showDrawerView('main'));
 
-  el.pickBook.addEventListener('change', syncChapterOptions);
-  el.pickChapter.addEventListener('change', syncStartVerseOptions);
+  el.pickLangZh.addEventListener('click', () => setPickerLang('zh'));
+  el.pickLangEn.addEventListener('click', () => setPickerLang('en'));
+  el.pickBook.addEventListener('change', () => syncChapterOptions());
+  el.pickChapter.addEventListener('change', () => syncStartVerseOptions());
   el.pickStartVerse.addEventListener('change', () => {
     syncEndVerseOptions(Number(el.pickStartVerse.value));
   });

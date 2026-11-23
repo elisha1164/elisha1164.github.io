@@ -1,6 +1,6 @@
-/* v1.0.0 - KeepVerse 離線 PWA Service Worker */
+/* v1.1.0 - KeepVerse 離線 PWA Service Worker（預快取上層中英文聖經 JSON） */
 
-const CACHE_NAME = 'keepverse-v1';
+const CACHE_NAME = 'keepverse-v2';
 const CORE_ASSETS = [
   './',
   './index.html',
@@ -18,7 +18,8 @@ const CORE_ASSETS = [
   './icons/icon-512.png',
   './icons/icon-maskable-512.png',
   './icons/apple-touch-icon.png',
-  './rcuv.json',
+  '../rcuv.json',
+  '../esv2016.json',
   './decks/index.json',
 ];
 
@@ -115,6 +116,7 @@ self.addEventListener('fetch', (event) => {
 
   if (
     url.pathname.endsWith('/rcuv.json') ||
+    url.pathname.endsWith('/esv2016.json') ||
     url.pathname.includes('/icons/') ||
     url.pathname.endsWith('/og-image.png')
   ) {
