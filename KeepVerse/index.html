@@ -1,4 +1,4 @@
-<!-- v1.2.1 - KeepVerse 主頁面、LINE 內建瀏覽器自動跳轉與 PWA 安裝引導 -->
+<!-- v1.2.3 - KeepVerse 主頁面、第 1 級下個難度鈕、LINE 跳轉與 PWA 安裝引導 -->
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
@@ -119,6 +119,15 @@
 
         <div id="cardBody" class="card-body">
           <p id="verseFull" class="verse-full"></p>
+          <div id="level1Actions" class="post-check-actions" hidden>
+            <button type="button" id="level1NextBtn" class="pill-btn primary-pill">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <line x1="5" y1="12" x2="19" y2="12" />
+                <polyline points="12 5 19 12 12 19" />
+              </svg>
+              <span>下個難度</span>
+            </button>
+          </div>
 
           <div id="quizArea" class="quiz-area" hidden>
             <p id="hintText" class="hint-text" hidden></p>

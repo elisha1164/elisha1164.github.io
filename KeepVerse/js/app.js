@@ -1,4 +1,4 @@
-/* v1.2.0 - KeepVerse 主應用控制器：PWA 安裝按鈕、iOS 引導與雙語背誦 */
+/* v1.2.3 - KeepVerse 主應用控制器：第 1 級下個難度按鈕、PWA 安裝引導與雙語背誦 */
 
 import {
   formatRef,
@@ -86,6 +86,8 @@ const el = {
   cardRef: document.getElementById('cardRef'),
   cardCounter: document.getElementById('cardCounter'),
   verseFull: document.getElementById('verseFull'),
+  level1Actions: document.getElementById('level1Actions'),
+  level1NextBtn: document.getElementById('level1NextBtn'),
   quizArea: document.getElementById('quizArea'),
   hintText: document.getElementById('hintText'),
   recallInput: document.getElementById('recallInput'),
@@ -246,6 +248,7 @@ function renderCard() {
     el.cardCounter.textContent = '0/0';
     el.verseFull.textContent = '';
     el.verseFull.hidden = false;
+    el.level1Actions.hidden = true;
     el.quizArea.hidden = true;
     el.cardMastery.textContent = '上次背熟：尚未背熟';
     el.level3Glyph.textContent = 'ㄅ';
@@ -277,11 +280,13 @@ function renderCard() {
     el.verseFull.textContent = text;
     el.verseFull.classList.toggle('is-long', isEn ? text.length > 180 : text.length > 75);
     el.verseFull.hidden = false;
+    el.level1Actions.hidden = false;
     el.quizArea.hidden = true;
     return;
   }
 
   el.verseFull.hidden = true;
+  el.level1Actions.hidden = true;
   el.quizArea.hidden = false;
 
   if (state.level === 2) {
@@ -881,6 +886,10 @@ function bindEvents() {
 
   el.prevBtn.addEventListener('click', () => stepCard(-1));
   el.nextBtn.addEventListener('click', () => stepCard(1));
+  el.level1NextBtn.addEventListener('click', () => {
+    setLevel(2);
+    el.recallInput.focus();
+  });
 
   el.recallInput.addEventListener('compositionstart', () => {
     state.isComposing = true;
