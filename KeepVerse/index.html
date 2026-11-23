@@ -1,4 +1,4 @@
-<!-- v1.1.0 - KeepVerse 主頁面、雙語測驗控制項與語言選取器 -->
+<!-- v1.2.0 - KeepVerse 主頁面、PWA 安裝按鈕與 iOS 安裝引導視窗 -->
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
@@ -75,14 +75,23 @@
         </button>
       </div>
 
-      <button type="button" id="menuBtn" class="icon-btn menu-btn" aria-label="Deck 與功能選單" title="Deck 與功能選單">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <polygon points="12 3 3 8 12 13 21 8 12 3" />
-          <polyline points="3 12.5 12 17.5 21 12.5" />
-          <polyline points="3 17 12 22 21 17" />
-        </svg>
-        <span id="shuffleDot" class="shuffle-dot" hidden></span>
-      </button>
+      <div class="top-actions">
+        <button type="button" id="installBtn" class="icon-btn" aria-label="安裝 App" title="安裝到主畫面" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+        </button>
+        <button type="button" id="menuBtn" class="icon-btn menu-btn" aria-label="Deck 與功能選單" title="Deck 與功能選單">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <polygon points="12 3 3 8 12 13 21 8 12 3" />
+            <polyline points="3 12.5 12 17.5 21 12.5" />
+            <polyline points="3 17 12 22 21 17" />
+          </svg>
+          <span id="shuffleDot" class="shuffle-dot" hidden></span>
+        </button>
+      </div>
     </header>
 
     <!-- 主經文卡片區 -->
@@ -311,10 +320,43 @@
     </div>
   </aside>
 
+  <!-- iOS 手動安裝引導視窗 -->
+  <div id="iosInstallBackdrop" class="modal-backdrop" hidden></div>
+  <section id="iosInstallModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="iosInstallTitle" hidden>
+    <div class="modal-header">
+      <h2 id="iosInstallTitle" class="modal-title">安裝 KeepVerse 到主畫面</h2>
+      <button type="button" id="closeIosInstallBtn" class="icon-btn" aria-label="關閉視窗" title="關閉">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <line x1="18" y1="6" x2="6" y2="18" />
+          <line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      </button>
+    </div>
+    <p class="modal-note">若目前使用 LINE 等 App 內建瀏覽器，請先改以 Safari 開啟。</p>
+    <ol class="install-steps">
+      <li>
+        點擊 Safari 工具列的 <strong>分享</strong> 圖示
+        <svg class="inline-share-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+          <polyline points="16 6 12 2 8 6" />
+          <line x1="12" y1="2" x2="12" y2="15" />
+        </svg>
+      </li>
+      <li>向下滑動選單，點選 <strong>「加入主畫面」</strong>。</li>
+      <li>點擊右上角 <strong>「新增」</strong>，即可從桌面開啟並離線使用。</li>
+    </ol>
+    <button type="button" id="confirmIosInstallBtn" class="pill-btn primary-pill full-btn">我知道了</button>
+  </section>
+
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
   <script type="module" src="./js/app.js"></script>
   <script>
+    window.__kvDeferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      window.__kvDeferredPrompt = e;
+    });
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js').catch(() => {});

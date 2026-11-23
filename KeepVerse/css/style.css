@@ -1,4 +1,4 @@
-/* v1.1.0 - KeepVerse 極簡紙感樣式、雙語排版與練習操作列 */
+/* v1.2.0 - KeepVerse 極簡紙感樣式、雙語排版與 PWA 安裝引導視窗 */
 
 :root {
   --bg: #FAF8F3;
@@ -113,6 +113,12 @@ svg {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.top-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .icon-btn {
@@ -795,6 +801,72 @@ svg {
   margin: 0;
   font-size: 0.82rem;
   color: var(--diff-extra);
+}
+
+/* iOS 安裝引導視窗 */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 18, 16, 0.48);
+  z-index: 60;
+}
+
+.modal {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(calc(100vw - 32px), 380px);
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+  padding: 18px 20px 20px;
+  z-index: 70;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.modal-title {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 1.02rem;
+  font-weight: 600;
+}
+
+.modal-note {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.install-steps {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 0.9rem;
+  line-height: 1.65;
+}
+
+.inline-share-icon {
+  display: inline-block;
+  vertical-align: -3px;
+  width: 16px;
+  height: 16px;
+  color: var(--accent);
 }
 
 /* 輕量提示 Toast */

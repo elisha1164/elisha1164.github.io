@@ -1,4 +1,4 @@
-/* v1.1.0 - KeepVerse 主應用控制器：雙語經文、續練操作與卡片／難度記憶 */
+/* v1.2.0 - KeepVerse 主應用控制器：PWA 安裝按鈕、iOS 引導與雙語背誦 */
 
 import {
   formatRef,
@@ -80,6 +80,7 @@ const el = {
   levelBtns: Array.from(document.querySelectorAll('.level-btn')),
   level3Btn: document.getElementById('level3Btn'),
   level3Glyph: document.getElementById('level3Glyph'),
+  installBtn: document.getElementById('installBtn'),
   menuBtn: document.getElementById('menuBtn'),
   shuffleDot: document.getElementById('shuffleDot'),
   cardRef: document.getElementById('cardRef'),
@@ -140,11 +141,16 @@ const el = {
   importTextarea: document.getElementById('importTextarea'),
   importError: document.getElementById('importError'),
   confirmImportBtn: document.getElementById('confirmImportBtn'),
+  iosInstallBackdrop: document.getElementById('iosInstallBackdrop'),
+  iosInstallModal: document.getElementById('iosInstallModal'),
+  closeIosInstallBtn: document.getElementById('closeIosInstallBtn'),
+  confirmIosInstallBtn: document.getElementById('confirmIosInstallBtn'),
   toast: document.getElementById('toast'),
 };
 
 let toastTimer = null;
 let exportingDeckName = 'deck';
+let deferredInstallPrompt = window.__kvDeferredPrompt || null;
 
 function showToast(msg) {
   el.toast.textContent = msg;
@@ -819,6 +825,55 @@ function handleConfirmImport() {
   showToast(`已匯入「${newDeck.name}」`);
 }
 
+function isStandaloneMode() {
+  return (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    window.navigator.standalone === true ||
+    document.referrer.startsWith('android-app://')
+  );
+}
+
+function isIosDevice() {
+  const ua = navigator.userAgent || '';
+  return (
+    /iPad|iPhone|iPod/i.test(ua) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  );
+}
+
+function updateInstallBtnVisibility() {
+  el.installBtn.hidden = isStandaloneMode() || (!deferredInstallPrompt && !isIosDevice());
+}
+
+function openIosInstallModal() {
+  el.iosInstallBackdrop.hidden = false;
+  el.iosInstallModal.hidden = false;
+}
+
+function closeIosInstallModal() {
+  el.iosInstallBackdrop.hidden = true;
+  el.iosInstallModal.hidden = true;
+}
+
+async function handleInstallClick() {
+  if (deferredInstallPrompt) {
+    const promptEvent = deferredInstallPrompt;
+    deferredInstallPrompt = null;
+    window.__kvDeferredPrompt = null;
+    updateInstallBtnVisibility();
+    await promptEvent.prompt();
+    try {
+      await promptEvent.userChoice;
+    } catch {
+      // Ignore canceled prompt error
+    }
+    return;
+  }
+  if (isIosDevice()) {
+    openIosInstallModal();
+  }
+}
+
 function bindEvents() {
   el.levelBtns.forEach((btn) => {
     btn.addEventListener('click', () => setLevel(Number(btn.dataset.level)));
@@ -841,11 +896,37 @@ function bindEvents() {
   });
   el.submitBtn.addEventListener('click', runCheck);
 
+  el.installBtn.addEventListener('click', handleInstallClick);
+  el.closeIosInstallBtn.addEventListener('click', closeIosInstallModal);
+  el.confirmIosInstallBtn.addEventListener('click', closeIosInstallModal);
+  el.iosInstallBackdrop.addEventListener('click', closeIosInstallModal);
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    window.__kvDeferredPrompt = e;
+    updateInstallBtnVisibility();
+  });
+
+  window.addEventListener('appinstalled', () => {
+    deferredInstallPrompt = null;
+    window.__kvDeferredPrompt = null;
+    updateInstallBtnVisibility();
+    showToast('已安裝 KeepVerse');
+  });
+
+  window.matchMedia('(display-mode: standalone)').addEventListener?.('change', updateInstallBtnVisibility);
+
   el.menuBtn.addEventListener('click', openDrawer);
   el.closeDrawerBtn.addEventListener('click', closeDrawer);
   el.drawerBackdrop.addEventListener('click', closeDrawer);
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !el.drawer.hidden) closeDrawer();
+    if (e.key !== 'Escape') return;
+    if (!el.iosInstallModal.hidden) {
+      closeIosInstallModal();
+      return;
+    }
+    if (!el.drawer.hidden) closeDrawer();
   });
 
   el.shuffleBtn.addEventListener('click', shuffleCurrentDeck);
@@ -924,6 +1005,7 @@ function bindEvents() {
 async function init() {
   const prefs = loadPrefs();
   applyTheme(prefs.theme);
+  updateInstallBtnVisibility();
   bindEvents();
 
   try {

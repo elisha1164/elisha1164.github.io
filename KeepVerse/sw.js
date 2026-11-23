@@ -1,6 +1,6 @@
-/* v1.1.0 - KeepVerse 離線 PWA Service Worker（預快取上層中英文聖經 JSON） */
+/* v1.2.0 - KeepVerse 離線 PWA Service Worker */
 
-const CACHE_NAME = 'keepverse-v2';
+const CACHE_NAME = 'keepverse-v3';
 const CORE_ASSETS = [
   './',
   './index.html',
