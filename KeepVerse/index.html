@@ -1,4 +1,4 @@
-<!-- v1.2.0 - KeepVerse 主頁面、PWA 安裝按鈕與 iOS 安裝引導視窗 -->
+<!-- v1.2.1 - KeepVerse 主頁面、LINE 內建瀏覽器自動跳轉與 PWA 安裝引導 -->
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
@@ -41,6 +41,21 @@
   <meta name="twitter:description" content="極簡手機聖經金句背誦工具，支援離線 PWA、四階段記憶測驗（全顯示、隨機挖空、注音聲母、全空白）、打字即時批改與自建匯入匯出 Deck。">
   <meta name="twitter:image" content="https://elisha1164.github.io/KeepVerse/og-image.png">
 
+  <script>
+    (function () {
+      try {
+        var url = new URL(window.location.href);
+        var isLine = /\bLine\//i.test(navigator.userAgent || '');
+        if (isLine && url.searchParams.get('openExternalBrowser') !== '1') {
+          url.searchParams.set('openExternalBrowser', '1');
+          window.location.replace(url.toString());
+        } else if (!isLine && url.searchParams.has('openExternalBrowser')) {
+          url.searchParams.delete('openExternalBrowser');
+          window.history.replaceState(null, '', url.toString());
+        }
+      } catch (e) {}
+    })();
+  </script>
   <link rel="stylesheet" href="./css/style.css">
 </head>
 <body>
