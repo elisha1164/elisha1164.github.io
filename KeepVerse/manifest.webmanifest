@@ -2,7 +2,7 @@
   "id": "./",
   "name": "KeepVerse — 聖經金句背誦",
   "short_name": "KeepVerse",
-  "description": "極簡手機聖經金句背誦工具，支援離線 PWA、四階段記憶測驗與自建卡組。",
+  "description": "極簡手機聖經金句背誦工具，可一鍵安裝到主畫面離線使用，提供四階段記憶測驗與自建卡組。",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
