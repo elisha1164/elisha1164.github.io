@@ -1,4 +1,4 @@
-/* v1.2.4 - KeepVerse 主應用控制器：介面用語統一為「卡組」與雙語背誦 */
+/* v1.2.6 - KeepVerse 主應用控制器：提交批改後隱藏輸入框、重練再顯示 */
 
 import {
   formatRef,
@@ -90,6 +90,7 @@ const el = {
   level1NextBtn: document.getElementById('level1NextBtn'),
   quizArea: document.getElementById('quizArea'),
   hintText: document.getElementById('hintText'),
+  inputWrap: document.getElementById('inputWrap'),
   recallInput: document.getElementById('recallInput'),
   submitBtn: document.getElementById('submitBtn'),
   checkResult: document.getElementById('checkResult'),
@@ -187,6 +188,7 @@ function getCurrentRef() {
 }
 
 function clearRecallSession() {
+  el.inputWrap.hidden = false;
   el.recallInput.value = '';
   el.checkResult.innerHTML = '';
   el.checkResult.hidden = true;
@@ -483,6 +485,8 @@ function runCheck() {
   const expected = getPassageText(ref);
   const res = compareVerse(expected, el.recallInput.value, lang);
 
+  el.recallInput.blur();
+  el.inputWrap.hidden = true;
   el.checkResult.innerHTML = '';
   el.checkResult.hidden = false;
 
