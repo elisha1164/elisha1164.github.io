@@ -1,4 +1,4 @@
-/* v1.1.0 - 中英文經文隨機挖空、首字母提示與保留原標點之嚴格 LCS 差異批改 */
+/* v1.2.8 - 中英文經文隨機挖空、首字母提示與加權編輯距離區塊差異批改 */
 
 const PUNCT_SPACE_RE = /[\p{P}\p{S}\s]+/gu;
 const SINGLE_PUNCT_SPACE_RE = /^[\p{P}\p{S}\s]$/u;
@@ -17,43 +17,76 @@ export function stripForCheck(text) {
   return String(text || '').replace(PUNCT_SPACE_RE, '');
 }
 
-function computeLcsOps(a, b, isEqual) {
+function computeDiffOps(a, b, isEqual) {
   const m = a.length;
   const n = b.length;
   const cols = n + 1;
+  const insDelCost = Math.min(m, n) + 1;
+  const subCost = 2 * insDelCost - 1;
   const dp = new Int32Array((m + 1) * cols);
+
+  for (let i = 1; i <= m; i += 1) {
+    dp[i * cols] = i * insDelCost;
+  }
+  for (let j = 1; j <= n; j += 1) {
+    dp[j] = j * insDelCost;
+  }
 
   for (let i = 1; i <= m; i += 1) {
     const rowOff = i * cols;
     const prevOff = (i - 1) * cols;
     for (let j = 1; j <= n; j += 1) {
-      if (isEqual(a[i - 1], b[j - 1])) {
-        dp[rowOff + j] = dp[prevOff + j - 1] + 1;
-      } else {
-        const up = dp[prevOff + j];
-        const left = dp[rowOff + j - 1];
-        dp[rowOff + j] = up >= left ? up : left;
-      }
+      const diag = dp[prevOff + (j - 1)] + (isEqual(a[i - 1], b[j - 1]) ? 0 : subCost);
+      const up = dp[prevOff + j] + insDelCost;
+      const left = dp[rowOff + (j - 1)] + insDelCost;
+      let best = diag;
+      if (up < best) best = up;
+      if (left < best) best = left;
+      dp[rowOff + j] = best;
     }
   }
 
   const revOps = [];
+  const gapExtras = [];
+  const gapMissings = [];
+
+  const flushGap = () => {
+    // revOps 會於結尾 reverse，因此先推 missing 再推 extra，
+    // 反轉後即呈現同一錯誤區塊內「先紅（extra）後藍（missing）」且維持由左至右順序。
+    for (let k = 0; k < gapMissings.length; k += 1) {
+      revOps.push(gapMissings[k]);
+    }
+    for (let k = 0; k < gapExtras.length; k += 1) {
+      revOps.push(gapExtras[k]);
+    }
+    gapMissings.length = 0;
+    gapExtras.length = 0;
+  };
+
   let i = m;
   let j = n;
   while (i > 0 || j > 0) {
-    if (i > 0 && j > 0 && isEqual(a[i - 1], b[j - 1])) {
+    const cur = dp[i * cols + j];
+    if (i > 0 && j > 0 && isEqual(a[i - 1], b[j - 1]) && cur === dp[(i - 1) * cols + (j - 1)]) {
+      flushGap();
       revOps.push({ type: 'equal', actIdx: i - 1, expIdx: j - 1 });
       i -= 1;
       j -= 1;
-    } else if (j > 0 && (i === 0 || dp[i * cols + (j - 1)] >= dp[(i - 1) * cols + j])) {
-      revOps.push({ type: 'missing', actIdx: null, expIdx: j - 1 });
+    } else if (i > 0 && j > 0 && cur === dp[(i - 1) * cols + (j - 1)] + subCost) {
+      gapExtras.push({ type: 'extra', actIdx: i - 1, expIdx: null });
+      gapMissings.push({ type: 'missing', actIdx: null, expIdx: j - 1 });
+      i -= 1;
+      j -= 1;
+    } else if (j > 0 && cur === dp[i * cols + (j - 1)] + insDelCost) {
+      gapMissings.push({ type: 'missing', actIdx: null, expIdx: j - 1 });
       j -= 1;
     } else {
-      revOps.push({ type: 'extra', actIdx: i - 1, expIdx: null });
+      gapExtras.push({ type: 'extra', actIdx: i - 1, expIdx: null });
       i -= 1;
     }
   }
 
+  flushGap();
   return revOps.reverse();
 }
 
@@ -92,7 +125,7 @@ function compareChineseVerse(expectedRaw, inputRaw) {
     return { ok: true, segments: [] };
   }
 
-  const ops = computeLcsOps(a, b, (x, y) => x === y);
+  const ops = computeDiffOps(a, b, (x, y) => x === y);
   const acc = createSegmentAccumulator();
   acc.push('equal', punctSlots[0]);
 
@@ -136,7 +169,7 @@ function compareEnglishVerse(expectedRaw, inputRaw) {
     return { ok: true, segments: [] };
   }
 
-  const ops = computeLcsOps(a, b, (x, y) => x.norm === y.norm);
+  const ops = computeDiffOps(a, b, (x, y) => x.norm === y.norm);
   const acc = createSegmentAccumulator();
   acc.push('equal', punctSlots[0]);
 
