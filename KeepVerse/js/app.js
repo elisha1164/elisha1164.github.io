@@ -1,4 +1,4 @@
-/* v1.2.6 - KeepVerse 主應用控制器：提交批改後隱藏輸入框、重練再顯示 */
+/* v1.2.7 - KeepVerse 主應用控制器：第四關通過新增下一張卡片按鈕 */
 
 import {
   formatRef,
@@ -444,6 +444,15 @@ function createPostCheckBtn(svgHtml, label, primary, onClick) {
 function renderPostCheckActions(isSuccess) {
   el.postCheckActions.innerHTML = '';
   if (isSuccess) {
+    if (state.level === 4) {
+      el.postCheckActions.appendChild(
+        createPostCheckBtn(SVG.nextLevel, '下一張卡片', true, () => {
+          stepCard(1);
+        })
+      );
+      el.postCheckActions.hidden = false;
+      return;
+    }
     if (state.level !== 2 && state.level !== 3) {
       el.postCheckActions.hidden = true;
       return;
