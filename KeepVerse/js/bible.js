@@ -1,4 +1,4 @@
-/* v1.2.2 - 中英文聖經資料庫讀取、註釋清理、詩篇第一節標題濾除與雙語出處解析 */
+/* v1.2.10 - 中英文聖經資料庫讀取、註釋清理、詩篇第一節標題濾除、中文書卷別名與雙語出處解析 */
 
 const ESV_PSALM_HEADING_RE = /^(?:[^a-z]*?(?:[.?!]"|[.:])\s*)+/;
 const RCUV_PSALM_VOL_RE = /^第[一二三四五]卷（[^）]*）/;
@@ -83,6 +83,12 @@ EN_NORM_TO_PAIR.set('psalms', { zh: '詩篇', en: 'Psalm' });
 EN_NORM_TO_PAIR.set('song of songs', { zh: '雅歌', en: 'Song of Solomon' });
 EN_NORM_TO_PAIR.set('revelations', { zh: '啟示錄', en: 'Revelation' });
 
+const ZH_BOOK_ALIASES = new Map([
+  ['約翰壹書', '約翰一書'],
+  ['約翰貳書', '約翰二書'],
+  ['約翰參書', '約翰三書'],
+]);
+
 let biblePromise = null;
 let rcuvData = null;
 let esvData = null;
@@ -93,6 +99,8 @@ function normEnglishBook(name) {
 
 function resolveZhBook(book) {
   if (rcuvData?.[book]) return book;
+  const aliased = ZH_BOOK_ALIASES.get(book);
+  if (aliased && rcuvData?.[aliased]) return aliased;
   return EN_NORM_TO_PAIR.get(normEnglishBook(book))?.zh || '';
 }
 
@@ -240,6 +248,12 @@ export function parseRef(refStr) {
     zhBook = pair.zh;
     dataset = esvData;
     lang = 'en';
+  } else {
+    const canonicalZh = ZH_BOOK_ALIASES.get(rawBook);
+    if (canonicalZh) {
+      book = canonicalZh;
+      zhBook = canonicalZh;
+    }
   }
 
   const chapObj = dataset[zhBook]?.[String(chapter)];
