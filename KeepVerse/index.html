@@ -1,4 +1,4 @@
-<!-- v1.3.0 - KeepVerse 主頁面、分區標題顯示與卡組功能 -->
+<!-- v1.3.2 - KeepVerse 主頁面、UI 文案整頓與分區標題範例 -->
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
@@ -61,8 +61,8 @@
 <body>
   <div class="app-shell">
     <!-- 頁頂單列工具列：左四程度圖示 + 右 Deck 選單圖示 -->
-    <header class="top-bar" aria-label="背誦程度與功能列">
-      <div class="level-group" role="tablist" aria-label="背誦程度">
+    <header class="top-bar" aria-label="背誦難度與功能列">
+      <div class="level-group" role="tablist" aria-label="背誦難度">
         <button type="button" class="icon-btn level-btn is-active" data-level="1" role="tab" aria-selected="true" aria-label="全顯示" title="全顯示">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <line x1="4" y1="6" x2="20" y2="6" />
@@ -91,7 +91,7 @@
       </div>
 
       <div class="top-actions">
-        <button type="button" id="installBtn" class="icon-btn" aria-label="安裝 App" title="安裝到主畫面" hidden>
+        <button type="button" id="installBtn" class="icon-btn" aria-label="安裝到主畫面" title="安裝到主畫面" hidden>
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
             <polyline points="7 10 12 15 17 10" />
@@ -145,7 +145,7 @@
                 autocorrect="off"
                 autocapitalize="off"
                 spellcheck="false"
-                placeholder="輸入完整經文，按 Enter 檢查…"
+                placeholder="輸入完整經文（標點不計），按 Enter 檢查…"
                 aria-label="經文輸入框"
               ></textarea>
               <button type="button" id="submitBtn" class="submit-icon-btn" aria-label="檢查經文" title="檢查經文">
@@ -190,7 +190,7 @@
         <span id="drawerShuffleBadge" class="shuffle-badge" hidden>已洗牌</span>
       </div>
       <div class="drawer-actions">
-        <button type="button" id="shuffleBtn" class="icon-btn" aria-label="洗牌" title="洗牌（不更動原 JSON）">
+        <button type="button" id="shuffleBtn" class="icon-btn" aria-label="洗牌" title="洗牌（不更動原卡組順序）">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <polyline points="16 3 21 3 21 8" />
             <line x1="4" y1="20" x2="21" y2="3" />
@@ -243,7 +243,7 @@
               <polyline points="7 10 12 15 17 10" />
               <line x1="12" y1="15" x2="12" y2="3" />
             </svg>
-            <span>匯入 JSON</span>
+            <span>匯入卡組</span>
           </button>
         </div>
         <ul id="deckList" class="item-list"></ul>
@@ -262,7 +262,7 @@
       </div>
 
       <div class="subview-body">
-        <p id="editorSectionNotice" class="io-hint" hidden>此卡組原含分區標題，於此處儲存將轉為一般順序（保留全部卡片）；若需保留分區請改用 JSON 匯出／匯入。</p>
+        <p id="editorSectionNotice" class="io-hint" hidden>此處儲存會移除分區標題（保留全部卡片）；如需保留分區，請改用匯出／匯入。</p>
         <label class="field-label" for="editorNameInput">卡組名稱</label>
         <input id="editorNameInput" class="text-input" type="text" maxlength="40" placeholder="例如：每日禱告金句">
 
@@ -279,7 +279,7 @@
             <select id="pickEndVerse" class="select-input" aria-label="迄節"></select>
           </div>
           <p id="pickerPreview" class="picker-preview"></p>
-          <button type="button" id="addCardBtn" class="pill-btn full-btn">加入此經文卡片</button>
+          <button type="button" id="addCardBtn" class="pill-btn full-btn">加入卡片</button>
         </div>
 
         <div class="field-label">卡片順序（<span id="editorCardCount">0</span> 張）</div>
@@ -304,7 +304,7 @@
       </div>
 
       <div id="exportPane" class="subview-body" hidden>
-        <p class="io-hint">匯出格式皆保留卡組原始順序，不受暫時洗牌影響。</p>
+        <p class="io-hint">匯出內容保留原順序與分區，不受暫時洗牌影響。</p>
         <textarea id="exportTextarea" class="json-textarea" readonly aria-label="匯出 JSON 內容"></textarea>
         <div class="io-actions">
           <button type="button" id="copyJsonBtn" class="pill-btn">
@@ -336,14 +336,14 @@
         </label>
         <input id="importFileInput" type="file" accept=".json,application/json" hidden>
 
-        <label class="field-label" for="importTextarea">或直接貼上卡組 JSON</label>
+        <label class="field-label" for="importTextarea">或直接貼上卡組 JSON（支援 cards 或 sections）</label>
         <textarea
           id="importTextarea"
           class="json-textarea"
-          placeholder='{&#10;  "name": "我的金句",&#10;  "cards": [&#10;    "約翰福音 3:16",&#10;    "John 3:16"&#10;  ]&#10;}'
+          placeholder='{&#10;  "name": "我的金句",&#10;  "sections": [&#10;    {&#10;      "title": "福音核心",&#10;      "cards": ["約翰福音 3:16", "John 3:16"]&#10;    }&#10;  ]&#10;}'
         ></textarea>
         <p id="importError" class="form-error" hidden></p>
-        <button type="button" id="confirmImportBtn" class="pill-btn primary-pill full-btn">驗證並匯入卡組</button>
+        <button type="button" id="confirmImportBtn" class="pill-btn primary-pill full-btn">匯入卡組</button>
       </div>
     </div>
   </aside>

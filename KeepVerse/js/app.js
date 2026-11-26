@@ -1,4 +1,4 @@
-/* v1.3.0 - KeepVerse 主應用控制器：輕量分區標題顯示、匯入匯出支援與卡片測驗控制 */
+/* v1.3.2 - KeepVerse 主應用控制器：UI 文案統一與精簡 */
 
 import {
   formatRef,
@@ -398,7 +398,7 @@ function renderDeckList() {
 
     const sub = document.createElement('span');
     sub.className = 'row-sub';
-    sub.textContent = `${deck.cards.length} 張卡片 · ${deck.builtin ? '內建' : '自建'}`;
+    sub.textContent = `${deck.cards.length} 張卡片`;
 
     main.append(title, sub);
 
@@ -407,17 +407,17 @@ function renderDeckList() {
 
     if (deck.builtin) {
       actions.appendChild(
-        createIconActionButton(SVG.copy, '複製成自建卡組', () => copyDeckToCustom(deck))
+        createIconActionButton(SVG.copy, '複製卡組', () => copyDeckToCustom(deck))
       );
       actions.appendChild(
-        createIconActionButton(SVG.export, '匯出 JSON', () => openExportView(deck))
+        createIconActionButton(SVG.export, '匯出卡組', () => openExportView(deck))
       );
     } else {
       actions.appendChild(
         createIconActionButton(SVG.edit, '編輯卡組', () => openEditorView(deck))
       );
       actions.appendChild(
-        createIconActionButton(SVG.export, '匯出 JSON', () => openExportView(deck))
+        createIconActionButton(SVG.export, '匯出卡組', () => openExportView(deck))
       );
       actions.appendChild(
         createIconActionButton(SVG.trash, '刪除卡組', () => deleteCustomDeck(deck))
@@ -618,7 +618,7 @@ function unshuffleCurrentDeck() {
   restoreCardContext();
   clearRecallSession();
   renderAll();
-  showToast('已恢復原本順序');
+  showToast('已恢復原順序');
 }
 
 /* 複製／刪除自建卡組 */
@@ -637,7 +637,7 @@ function copyDeckToCustom(deck) {
   state.decks = getAllDecks(state.builtinDecks);
   selectDeck(newDeck.id);
   setDrawerTab('decks');
-  showToast('已複製為自建卡組');
+  showToast('已複製卡組');
 }
 
 function deleteCustomDeck(deck) {
@@ -1026,11 +1026,11 @@ function bindEvents() {
   el.copyJsonBtn.addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText(el.exportTextarea.value);
-      showToast('已複製 JSON 到剪貼簿');
+      showToast('已複製到剪貼簿');
     } catch {
       el.exportTextarea.select();
       document.execCommand('copy');
-      showToast('已複製 JSON');
+      showToast('已複製到剪貼簿');
     }
   });
 
