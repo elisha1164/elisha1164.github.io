@@ -1,4 +1,4 @@
-/* v1.4.1 - KeepVerse 主應用控制器：頂部功能列、洗牌切換與三模式卡片篩選 */
+/* v1.4.3 - KeepVerse 主應用控制器：頂部功能列、三模式卡片篩選與卡組上下排序 */
 
 import {
   formatRef,
@@ -25,12 +25,14 @@ import {
   getMastery,
   getMasteryDaysAgo,
   loadCustomDecks,
+  loadDeckOrder,
   loadMasteryMap,
   loadPrefs,
   recordMastery,
   saveCardLevel,
   saveCustomDecks,
   saveDeckLastCard,
+  saveDeckOrder,
   savePrefs,
 } from './storage.js';
 import { toZhuyinInitials } from './zhuyin.js';
@@ -498,25 +500,38 @@ function renderCardList() {
   });
 }
 
-function createIconActionButton(svgHtml, label, onClick) {
+function createIconActionButton(svgHtml, label, onClick, { disabled = false } = {}) {
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'icon-btn';
+  if (disabled) {
+    btn.classList.add('is-disabled');
+    btn.setAttribute('aria-disabled', 'true');
+  }
   btn.setAttribute('aria-label', label);
   btn.setAttribute('title', label);
   btn.innerHTML = svgHtml;
   btn.addEventListener('click', (e) => {
     e.stopPropagation();
+    if (disabled) return;
     onClick();
   });
   return btn;
+}
+
+function moveDeck(idx, delta) {
+  const targetIdx = idx + delta;
+  if (targetIdx < 0 || targetIdx >= state.decks.length) return;
+  [state.decks[idx], state.decks[targetIdx]] = [state.decks[targetIdx], state.decks[idx]];
+  saveDeckOrder(state.decks.map((d) => d.id));
+  renderDeckList();
 }
 
 function renderDeckList() {
   el.deckList.innerHTML = '';
   const activeDeck = getActiveDeck();
 
-  state.decks.forEach((deck) => {
+  state.decks.forEach((deck, idx) => {
     const li = document.createElement('li');
     li.className = 'list-row';
     if (activeDeck && deck.id === activeDeck.id) li.classList.add('is-active');
@@ -536,6 +551,17 @@ function renderDeckList() {
 
     const actions = document.createElement('div');
     actions.className = 'row-actions';
+
+    actions.appendChild(
+      createIconActionButton(SVG.up, '上移', () => moveDeck(idx, -1), {
+        disabled: idx === 0,
+      })
+    );
+    actions.appendChild(
+      createIconActionButton(SVG.down, '下移', () => moveDeck(idx, 1), {
+        disabled: idx === state.decks.length - 1,
+      })
+    );
 
     if (deck.builtin) {
       actions.appendChild(
@@ -794,6 +820,9 @@ function deleteCustomDeck(deck) {
   const custom = loadCustomDecks().filter((d) => d.id !== deck.id);
   saveCustomDecks(custom);
   state.decks = getAllDecks(state.builtinDecks);
+  if (loadDeckOrder().length > 0) {
+    saveDeckOrder(state.decks.map((d) => d.id));
+  }
   if (state.activeDeckId === deck.id) {
     selectDeck(state.decks[0]?.id || null);
   } else {

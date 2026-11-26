@@ -1,7 +1,8 @@
-/* v1.4.1 - 本機 localStorage 持久化：自建卡組、背熟天數計算與三模式篩選偏好 */
+/* v1.4.3 - 本機 localStorage 持久化：自建卡組、卡組排序、背熟天數計算與三模式篩選偏好 */
 
 const KEYS = {
   customDecks: 'keepverse_custom_decks_v1',
+  deckOrder: 'keepverse_deck_order_v1',
   mastery: 'keepverse_mastery_v1',
   prefs: 'keepverse_prefs_v1',
   cardLevels: 'keepverse_card_levels_v1',
@@ -45,6 +46,24 @@ export function loadCustomDecks() {
  */
 export function saveCustomDecks(decks) {
   writeJson(KEYS.customDecks, decks);
+}
+
+/**
+ * 讀取使用者自訂的卡組排序 ID 清單。
+ * @returns {string[]}
+ */
+export function loadDeckOrder() {
+  const list = readJson(KEYS.deckOrder, []);
+  if (!Array.isArray(list)) return [];
+  return list.filter((id) => typeof id === 'string' && id.length > 0);
+}
+
+/**
+ * 儲存卡組排序 ID 清單。
+ * @param {string[]} deckIds
+ */
+export function saveDeckOrder(deckIds) {
+  writeJson(KEYS.deckOrder, deckIds);
 }
 
 /**

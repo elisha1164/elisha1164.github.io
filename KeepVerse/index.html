@@ -1,4 +1,4 @@
-<!-- v1.4.1 - KeepVerse 主頁面、頂部功能列與三模式卡片篩選視窗 -->
+<!-- v1.4.2 - KeepVerse 主頁面、右側安裝按鈕新圖示與金屬光澤提醒 -->
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
@@ -91,13 +91,6 @@
       </div>
 
       <div class="top-actions">
-        <button type="button" id="installBtn" class="icon-btn" aria-label="安裝到主畫面" title="安裝到主畫面" hidden>
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-            <polyline points="7 10 12 15 17 10" />
-            <line x1="12" y1="15" x2="12" y2="3" />
-          </svg>
-        </button>
         <button type="button" id="themeBtn" class="icon-btn theme-btn" aria-label="切換深淺色模式" title="深淺色：跟隨系統">
           <svg id="themeIcon" viewBox="0 0 24 24" aria-hidden="true"></svg>
         </button>
@@ -121,6 +114,14 @@
             <polygon points="12 3 3 8 12 13 21 8 12 3" />
             <polyline points="3 12.5 12 17.5 21 12.5" />
             <polyline points="3 17 12 22 21 17" />
+          </svg>
+        </button>
+        <button type="button" id="installBtn" class="icon-btn install-btn" aria-label="安裝到主畫面" title="安裝到主畫面" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M16 14v5a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3" />
+            <line x1="10" y1="18" x2="12" y2="18" />
+            <line x1="16" y1="3" x2="16" y2="10" />
+            <polyline points="13.5 7.5 16 10 18.5 7.5" />
           </svg>
         </button>
       </div>

@@ -1,4 +1,4 @@
-/* v1.4.1 - KeepVerse 極簡紙感樣式、頁頂功能列調整、三模式篩選視窗與分區標題 */
+/* v1.4.3 - KeepVerse 極簡紙感樣式、頁頂安裝按鈕、卡組排序列與三模式篩選視窗 */
 
 :root {
   --bg: #FAF8F3;
@@ -158,6 +158,148 @@ svg {
   color: var(--accent);
   border-color: var(--border);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.install-btn {
+  overflow: hidden;
+  color: var(--accent);
+  border-color: rgba(122, 92, 62, 0.32);
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.92) 0%,
+    rgba(241, 232, 217, 0.94) 52%,
+    rgba(227, 212, 189, 0.92) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    0 1px 4px rgba(122, 92, 62, 0.14);
+}
+
+.install-btn svg {
+  position: relative;
+  z-index: 1;
+}
+
+.install-btn:hover {
+  color: var(--accent);
+  border-color: rgba(122, 92, 62, 0.48);
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.98) 0%,
+    rgba(238, 226, 206, 0.96) 52%,
+    rgba(222, 205, 179, 0.94) 100%
+  );
+}
+
+.install-btn::before {
+  content: '';
+  position: absolute;
+  top: -15%;
+  left: -95%;
+  width: 65%;
+  height: 130%;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 252, 245, 0.72) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  transform: skewX(-24deg);
+  pointer-events: none;
+  z-index: 2;
+  animation: installSheen 4.8s ease-in-out 0.6s infinite;
+}
+
+@keyframes installSheen {
+  0%,
+  100% {
+    left: -95%;
+    opacity: 0;
+  }
+  4% {
+    opacity: 1;
+  }
+  24% {
+    left: 145%;
+    opacity: 1;
+  }
+  28%,
+  99% {
+    left: 145%;
+    opacity: 0;
+  }
+}
+
+:root[data-theme="dark"] .install-btn {
+  border-color: rgba(199, 167, 128, 0.34);
+  background: linear-gradient(
+    145deg,
+    rgba(56, 49, 41, 0.95) 0%,
+    rgba(43, 38, 32, 0.96) 55%,
+    rgba(35, 31, 26, 0.96) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 244, 224, 0.14),
+    0 1px 6px rgba(0, 0, 0, 0.28);
+}
+
+:root[data-theme="dark"] .install-btn:hover {
+  border-color: rgba(199, 167, 128, 0.5);
+  background: linear-gradient(
+    145deg,
+    rgba(66, 58, 48, 0.96) 0%,
+    rgba(49, 43, 36, 0.98) 55%,
+    rgba(39, 34, 29, 0.98) 100%
+  );
+}
+
+:root[data-theme="dark"] .install-btn::before {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 245, 225, 0) 0%,
+    rgba(255, 245, 225, 0.24) 50%,
+    rgba(255, 245, 225, 0) 100%
+  );
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .install-btn {
+    border-color: rgba(199, 167, 128, 0.34);
+    background: linear-gradient(
+      145deg,
+      rgba(56, 49, 41, 0.95) 0%,
+      rgba(43, 38, 32, 0.96) 55%,
+      rgba(35, 31, 26, 0.96) 100%
+    );
+    box-shadow:
+      inset 0 1px 0 rgba(255, 244, 224, 0.14),
+      0 1px 6px rgba(0, 0, 0, 0.28);
+  }
+
+  :root:not([data-theme="light"]) .install-btn:hover {
+    border-color: rgba(199, 167, 128, 0.5);
+    background: linear-gradient(
+      145deg,
+      rgba(66, 58, 48, 0.96) 0%,
+      rgba(49, 43, 36, 0.98) 55%,
+      rgba(39, 34, 29, 0.98) 100%
+    );
+  }
+
+  :root:not([data-theme="light"]) .install-btn::before {
+    background: linear-gradient(
+      90deg,
+      rgba(255, 245, 225, 0) 0%,
+      rgba(255, 245, 225, 0.24) 50%,
+      rgba(255, 245, 225, 0) 100%
+    );
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .install-btn::before {
+    animation: none;
+  }
 }
 
 .glyph-icon {
@@ -728,6 +870,40 @@ svg {
 .row-actions .icon-btn svg {
   width: 16px;
   height: 16px;
+}
+
+.row-actions .icon-btn.is-disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+.row-actions .icon-btn.is-disabled:hover {
+  background: transparent;
+  color: var(--muted);
+}
+
+.row-actions .icon-btn.is-disabled:active {
+  transform: none;
+}
+
+#deckList .list-row {
+  gap: 8px;
+  padding: 10px 10px 10px 12px;
+}
+
+#deckList .row-actions {
+  gap: 1px;
+}
+
+#deckList .row-actions .icon-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+}
+
+#deckList .row-actions .icon-btn svg {
+  width: 15px;
+  height: 15px;
 }
 
 /* 子視圖（編輯器與匯入匯出） */

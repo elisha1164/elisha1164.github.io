@@ -1,7 +1,7 @@
-/* v1.3.0 - 內建與自建卡組載入、分區標題 (sections) 支援、JSON 驗證匯入匯出與非破壞性洗牌 */
+/* v1.4.3 - 內建與自建卡組載入、自訂排序、分區標題 (sections) 支援與 JSON 匯入匯出 */
 
 import { formatRef, parseRef } from './bible.js';
-import { loadCustomDecks } from './storage.js';
+import { loadCustomDecks, loadDeckOrder } from './storage.js';
 
 function normalizeCardList(rawCards) {
   const validCards = [];
@@ -94,7 +94,7 @@ export async function loadBuiltinDecks() {
 }
 
 /**
- * 合併內建卡組與使用者自建卡組清單。
+ * 合併內建卡組與使用者自建卡組清單，並套用已儲存的自訂排序。
  * @param {Array} builtinDecks
  * @returns {Array}
  */
@@ -107,7 +107,23 @@ export function getAllDecks(builtinDecks) {
       builtin: false,
     };
   });
-  return [...builtinDecks, ...custom];
+  const all = [...builtinDecks, ...custom];
+  const savedOrder = loadDeckOrder();
+  if (savedOrder.length === 0) return all;
+
+  const deckMap = new Map(all.map((d) => [d.id, d]));
+  const ordered = [];
+  for (const id of savedOrder) {
+    const deck = deckMap.get(id);
+    if (deck) {
+      ordered.push(deck);
+      deckMap.delete(id);
+    }
+  }
+  for (const deck of deckMap.values()) {
+    ordered.push(deck);
+  }
+  return ordered;
 }
 
 /**
