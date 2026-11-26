@@ -1,4 +1,4 @@
-/* v1.3.2 - KeepVerse 主應用控制器：UI 文案統一與精簡 */
+/* v1.3.4 - KeepVerse 主應用控制器：統一背熟狀態整句顯示 */
 
 import {
   formatRef,
@@ -263,7 +263,7 @@ function renderCard() {
     el.verseFull.hidden = false;
     el.level1Actions.hidden = true;
     el.quizArea.hidden = true;
-    el.cardMastery.textContent = '上次背熟：尚未背熟';
+    el.cardMastery.textContent = '還沒背熟';
     el.level3Glyph.textContent = 'ㄅ';
     el.level3Btn.setAttribute('aria-label', '剩注音聲母');
     el.level3Btn.setAttribute('title', '剩注音聲母');
@@ -290,7 +290,7 @@ function renderCard() {
   el.cardSection.hidden = !section;
   el.cardRef.textContent = ref;
   el.cardCounter.textContent = `${state.orderPos + 1}/${total}`;
-  el.cardMastery.textContent = `上次背熟：${formatRelativeMastery(getMastery(ref))}`;
+  el.cardMastery.textContent = formatRelativeMastery(getMastery(ref));
 
   if (state.level === 1) {
     el.verseFull.textContent = text;
@@ -530,7 +530,7 @@ function runCheck() {
     if (state.level === 4) {
       const iso = recordMastery(ref);
       saveCardLevel(ref, 1);
-      el.cardMastery.textContent = `上次背熟：${formatRelativeMastery(iso)}`;
+      el.cardMastery.textContent = formatRelativeMastery(iso);
       msg.textContent = '恭喜！完全正確，已更新上次背熟時間。';
       renderCardList();
     } else {

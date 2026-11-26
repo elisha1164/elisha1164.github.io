@@ -1,4 +1,4 @@
-/* v1.1.0 - 本機 localStorage 持久化：自建 Deck、背熟時間、最後卡片與各卡難度記憶 */
+/* v1.3.4 - 本機 localStorage 持久化：自建卡組、背熟狀態（還沒背熟／今天剛背熟／N 天前背熟）、最後卡片與各卡難度記憶 */
 
 const KEYS = {
   customDecks: 'keepverse_custom_decks_v1',
@@ -85,23 +85,15 @@ export function getMastery(canonicalRef) {
  * @returns {string}
  */
 export function formatRelativeMastery(isoStr) {
-  if (!isoStr) return '尚未背熟';
+  if (!isoStr) return '還沒背熟';
   const date = new Date(isoStr);
-  const ts = date.getTime();
-  if (Number.isNaN(ts)) return '尚未背熟';
+  if (Number.isNaN(date.getTime())) return '還沒背熟';
 
-  const diffMs = Math.max(0, Date.now() - ts);
-  const mins = Math.floor(diffMs / 60000);
-  if (mins < 1) return '剛剛';
-  if (mins < 60) return `${mins} 分鐘前`;
-
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours} 小時前`;
-
-  const days = Math.floor(hours / 24);
-  const mm = String(date.getMonth() + 1).padStart(2, '0');
-  const dd = String(date.getDate()).padStart(2, '0');
-  return `${days} 天前（${mm}/${dd}）`;
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const targetStart = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  const days = Math.max(0, Math.round((todayStart - targetStart) / 86400000));
+  return days === 0 ? '今天剛背熟' : `${days} 天前背熟`;
 }
 
 /**
