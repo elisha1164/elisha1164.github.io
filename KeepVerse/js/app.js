@@ -1,4 +1,4 @@
-/* v1.2.7 - KeepVerse 主應用控制器：第四關通過新增下一張卡片按鈕 */
+/* v1.3.0 - KeepVerse 主應用控制器：輕量分區標題顯示、匯入匯出支援與卡片測驗控制 */
 
 import {
   formatRef,
@@ -83,6 +83,7 @@ const el = {
   installBtn: document.getElementById('installBtn'),
   menuBtn: document.getElementById('menuBtn'),
   shuffleDot: document.getElementById('shuffleDot'),
+  cardSection: document.getElementById('cardSection'),
   cardRef: document.getElementById('cardRef'),
   cardCounter: document.getElementById('cardCounter'),
   verseFull: document.getElementById('verseFull'),
@@ -119,6 +120,7 @@ const el = {
   editorView: document.getElementById('editorView'),
   editorBackBtn: document.getElementById('editorBackBtn'),
   editorTitle: document.getElementById('editorTitle'),
+  editorSectionNotice: document.getElementById('editorSectionNotice'),
   editorNameInput: document.getElementById('editorNameInput'),
   pickLangZh: document.getElementById('pickLangZh'),
   pickLangEn: document.getElementById('pickLangEn'),
@@ -187,6 +189,13 @@ function getCurrentRef() {
   return deck.cards[cardIdx] || '';
 }
 
+function getCurrentSection() {
+  const deck = getActiveDeck();
+  if (!deck || state.displayOrder.length === 0) return '';
+  const cardIdx = state.displayOrder[state.orderPos];
+  return deck.cardSections?.[cardIdx] || '';
+}
+
 function clearRecallSession() {
   el.inputWrap.hidden = false;
   el.recallInput.value = '';
@@ -246,6 +255,8 @@ function renderCard() {
   });
 
   if (!deck || total === 0 || !ref) {
+    el.cardSection.textContent = '';
+    el.cardSection.hidden = true;
     el.cardRef.textContent = '尚無經文';
     el.cardCounter.textContent = '0/0';
     el.verseFull.textContent = '';
@@ -274,6 +285,9 @@ function renderCard() {
   el.hintText.classList.toggle('is-english', isEn);
   el.checkResult.classList.toggle('is-english', isEn);
 
+  const section = getCurrentSection();
+  el.cardSection.textContent = section;
+  el.cardSection.hidden = !section;
   el.cardRef.textContent = ref;
   el.cardCounter.textContent = `${state.orderPos + 1}/${total}`;
   el.cardMastery.textContent = `上次背熟：${formatRelativeMastery(getMastery(ref))}`;
@@ -312,8 +326,19 @@ function renderCardList() {
   if (!deck) return;
 
   const masteryMap = loadMasteryMap();
+  let lastSection = '';
   state.displayOrder.forEach((cardIdx, pos) => {
     const ref = deck.cards[cardIdx];
+    if (!state.isShuffled) {
+      const secTitle = deck.cardSections?.[cardIdx] || '';
+      if (secTitle && secTitle !== lastSection) {
+        const headerLi = document.createElement('li');
+        headerLi.className = 'list-section-header';
+        headerLi.textContent = secTitle;
+        el.cardList.appendChild(headerLi);
+        lastSection = secTitle;
+      }
+    }
     const li = document.createElement('li');
     li.className = 'list-row';
     if (pos === state.orderPos) li.classList.add('is-active');
@@ -603,6 +628,9 @@ function copyDeckToCustom(deck) {
     id: `custom:${Date.now()}`,
     name: `${deck.name}（副本）`,
     cards: [...deck.cards],
+    ...(deck.sections?.length
+      ? { sections: deck.sections.map((s) => ({ title: s.title, cards: [...s.cards] })) }
+      : {}),
   };
   custom.push(newDeck);
   saveCustomDecks(custom);
@@ -762,6 +790,7 @@ function openEditorView(deck = null) {
   state.editor.editingDeckId = deck ? deck.id : null;
   state.editor.cards = deck ? [...deck.cards] : [];
   el.editorTitle.textContent = deck ? '編輯卡組' : '自建卡組';
+  el.editorSectionNotice.hidden = !(deck?.sections?.length > 0);
   el.editorNameInput.value = deck ? deck.name : '';
   el.editorError.hidden = true;
   renderEditorCards();
@@ -835,6 +864,7 @@ function handleConfirmImport() {
     id: `custom:${Date.now()}`,
     name: result.deck.name,
     cards: result.deck.cards,
+    ...(result.deck.sections?.length ? { sections: result.deck.sections } : {}),
   };
   custom.push(newDeck);
   saveCustomDecks(custom);

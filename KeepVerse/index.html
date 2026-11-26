@@ -1,4 +1,4 @@
-<!-- v1.2.10 - KeepVerse 主頁面、提交後隱藏輸入框防作弊與卡組功能 -->
+<!-- v1.3.0 - KeepVerse 主頁面、分區標題顯示與卡組功能 -->
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
@@ -112,9 +112,12 @@
     <!-- 主經文卡片區 -->
     <main class="stage">
       <article class="card" aria-live="polite">
-        <div class="card-header">
-          <h1 id="cardRef" class="card-ref">載入中…</h1>
-          <span id="cardCounter" class="card-counter">-/-</span>
+        <div class="card-head">
+          <p id="cardSection" class="card-section" hidden></p>
+          <div class="card-header">
+            <h1 id="cardRef" class="card-ref">載入中…</h1>
+            <span id="cardCounter" class="card-counter">-/-</span>
+          </div>
         </div>
 
         <div id="cardBody" class="card-body">
@@ -259,6 +262,7 @@
       </div>
 
       <div class="subview-body">
+        <p id="editorSectionNotice" class="io-hint" hidden>此卡組原含分區標題，於此處儲存將轉為一般順序（保留全部卡片）；若需保留分區請改用 JSON 匯出／匯入。</p>
         <label class="field-label" for="editorNameInput">卡組名稱</label>
         <input id="editorNameInput" class="text-input" type="text" maxlength="40" placeholder="例如：每日禱告金句">
 

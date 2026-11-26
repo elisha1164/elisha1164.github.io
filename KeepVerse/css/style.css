@@ -1,4 +1,4 @@
-/* v1.2.0 - KeepVerse 極簡紙感樣式、雙語排版與 PWA 安裝引導視窗 */
+/* v1.3.0 - KeepVerse 極簡紙感樣式、雙語排版、分區標題與 PWA 安裝引導視窗 */
 
 :root {
   --bg: #FAF8F3;
@@ -193,8 +193,23 @@ svg {
   overflow: hidden;
 }
 
-.card-header {
+.card-head {
   flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.card-section {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 500;
+  line-height: 1.45;
+  color: var(--muted);
+  word-break: break-word;
+}
+
+.card-header {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
@@ -580,6 +595,20 @@ svg {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.list-section-header {
+  padding: 8px 4px 2px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--accent);
+  letter-spacing: 0.02em;
+  word-break: break-word;
+}
+
+.list-section-header:first-child {
+  padding-top: 2px;
 }
 
 .list-row {

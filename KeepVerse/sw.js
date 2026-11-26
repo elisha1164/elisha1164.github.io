@@ -1,6 +1,6 @@
-/* v1.2.10 - KeepVerse 離線 PWA Service Worker */
+/* v1.3.0 - KeepVerse 離線 PWA Service Worker */
 
-const CACHE_NAME = 'keepverse-v13';
+const CACHE_NAME = 'keepverse-v14';
 const CORE_ASSETS = [
   './',
   './index.html',
