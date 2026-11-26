@@ -1,4 +1,4 @@
-/* v1.4.3 - 本機 localStorage 持久化：自建卡組、卡組排序、背熟天數計算與三模式篩選偏好 */
+/* v1.5.1 - 本機 localStorage 持久化：分譯本背熟與難度記錄、舊版資料遷移、卡組與篩選偏好 */
 
 const KEYS = {
   customDecks: 'keepverse_custom_decks_v1',
@@ -66,36 +66,162 @@ export function saveDeckOrder(deckIds) {
   writeJson(KEYS.deckOrder, deckIds);
 }
 
-/**
- * 讀取全部經文卡的「全空白」最近一次無失誤時間對照表。
- * @returns {Record<string, string>}
- */
-export function loadMasteryMap() {
-  const map = readJson(KEYS.mastery, {});
-  return map && typeof map === 'object' && !Array.isArray(map) ? map : {};
+function makeScopedKey(translationId, canonicalRef) {
+  return `${translationId}|${canonicalRef}`;
+}
+
+function pickNewerIso(a, b) {
+  const ta = Date.parse(a);
+  const tb = Date.parse(b);
+  if (Number.isNaN(ta)) return b;
+  if (Number.isNaN(tb)) return a;
+  return tb >= ta ? b : a;
 }
 
 /**
- * 記錄指定經文在「全空白」模式無失誤通過的時間。
+ * 將 v1.4.x 舊版未分譯本的背熟記錄與難度遷移至 `${translationId}|${canonicalRef}`，並正規化最後停留經文與自建卡組出處。
+ * @param {(ref: string) => string | null} canonicalizeFn
+ * @param {string} [defaultZhId]
+ * @param {string} [defaultEnId]
+ */
+export function migrateLegacyStorage(canonicalizeFn, defaultZhId = 'rcuv', defaultEnId = 'esv') {
+  if (typeof canonicalizeFn !== 'function') return;
+
+  const rawMastery = readJson(KEYS.mastery, {});
+  if (rawMastery && typeof rawMastery === 'object' && !Array.isArray(rawMastery)) {
+    const nextMastery = {};
+    let masteryChanged = false;
+    for (const [key, iso] of Object.entries(rawMastery)) {
+      if (typeof iso !== 'string') {
+        masteryChanged = true;
+        continue;
+      }
+      if (key.includes('|')) {
+        nextMastery[key] = nextMastery[key] ? pickNewerIso(nextMastery[key], iso) : iso;
+      } else {
+        const isEn = /[A-Za-z]/.test(key);
+        const canon = canonicalizeFn(key) || key;
+        const scoped = makeScopedKey(isEn ? defaultEnId : defaultZhId, canon);
+        nextMastery[scoped] = nextMastery[scoped] ? pickNewerIso(nextMastery[scoped], iso) : iso;
+        masteryChanged = true;
+      }
+    }
+    if (masteryChanged) {
+      writeJson(KEYS.mastery, nextMastery);
+    }
+  }
+
+  const rawLevels = readJson(KEYS.cardLevels, {});
+  if (rawLevels && typeof rawLevels === 'object' && !Array.isArray(rawLevels)) {
+    const nextLevels = {};
+    let levelsChanged = false;
+    for (const [key, lv] of Object.entries(rawLevels)) {
+      if (key.includes('|')) {
+        nextLevels[key] = lv;
+      } else {
+        const isEn = /[A-Za-z]/.test(key);
+        const canon = canonicalizeFn(key) || key;
+        const scoped = makeScopedKey(isEn ? defaultEnId : defaultZhId, canon);
+        if (!(scoped in nextLevels)) {
+          nextLevels[scoped] = lv;
+        }
+        levelsChanged = true;
+      }
+    }
+    if (levelsChanged) {
+      writeJson(KEYS.cardLevels, nextLevels);
+    }
+  }
+
+  const rawLastCards = readJson(KEYS.lastCards, {});
+  if (rawLastCards && typeof rawLastCards === 'object' && !Array.isArray(rawLastCards)) {
+    let lastChanged = false;
+    const nextLast = {};
+    for (const [deckId, ref] of Object.entries(rawLastCards)) {
+      if (typeof ref === 'string' && ref) {
+        const canon = canonicalizeFn(ref) || ref;
+        if (canon !== ref) lastChanged = true;
+        nextLast[deckId] = canon;
+      }
+    }
+    if (lastChanged) {
+      writeJson(KEYS.lastCards, nextLast);
+    }
+  }
+
+  const customDecks = loadCustomDecks();
+  if (customDecks.length > 0) {
+    let decksChanged = false;
+    const nextDecks = customDecks.map((d) => {
+      const nextCards = d.cards.map((r) => {
+        const c = canonicalizeFn(r) || r;
+        if (c !== r) decksChanged = true;
+        return c;
+      });
+      if (!Array.isArray(d.sections) || d.sections.length === 0) {
+        return { ...d, cards: nextCards };
+      }
+      const nextSections = d.sections.map((s) => ({
+        ...s,
+        cards: Array.isArray(s.cards)
+          ? s.cards.map((r) => {
+              const c = canonicalizeFn(r) || r;
+              if (c !== r) decksChanged = true;
+              return c;
+            })
+          : [],
+      }));
+      return { ...d, cards: nextCards, sections: nextSections };
+    });
+    if (decksChanged) {
+      saveCustomDecks(nextDecks);
+    }
+  }
+}
+
+/**
+ * 讀取指定譯本全部經文卡的「全空白」最近一次無失誤時間對照表。
+ * @param {string} [translationId]
+ * @returns {Record<string, string>}
+ */
+export function loadMasteryMap(translationId = 'rcuv') {
+  const map = readJson(KEYS.mastery, {});
+  if (!map || typeof map !== 'object' || Array.isArray(map)) return {};
+  const prefix = `${translationId}|`;
+  const scoped = {};
+  for (const [key, val] of Object.entries(map)) {
+    if (key.startsWith(prefix) && typeof val === 'string') {
+      scoped[key.slice(prefix.length)] = val;
+    }
+  }
+  return scoped;
+}
+
+/**
+ * 記錄指定譯本與經文在「全空白」模式無失誤通過的時間。
  * @param {string} canonicalRef
+ * @param {string} [translationId]
  * @returns {string} ISO 時間字串
  */
-export function recordMastery(canonicalRef) {
-  const map = loadMasteryMap();
+export function recordMastery(canonicalRef, translationId = 'rcuv') {
+  const raw = readJson(KEYS.mastery, {});
+  const safeMap = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
   const nowIso = new Date().toISOString();
-  map[canonicalRef] = nowIso;
-  writeJson(KEYS.mastery, map);
+  safeMap[makeScopedKey(translationId, canonicalRef)] = nowIso;
+  writeJson(KEYS.mastery, safeMap);
   return nowIso;
 }
 
 /**
- * 取得指定經文的最近背熟 ISO 時間字串。
+ * 取得指定譯本與經文的最近背熟 ISO 時間字串。
  * @param {string} canonicalRef
+ * @param {string} [translationId]
  * @returns {string | null}
  */
-export function getMastery(canonicalRef) {
-  const map = loadMasteryMap();
-  return typeof map[canonicalRef] === 'string' ? map[canonicalRef] : null;
+export function getMastery(canonicalRef, translationId = 'rcuv') {
+  const raw = readJson(KEYS.mastery, {});
+  const val = raw?.[makeScopedKey(translationId, canonicalRef)];
+  return typeof val === 'string' ? val : null;
 }
 
 /**
@@ -126,11 +252,15 @@ export function formatRelativeMastery(isoStr) {
 }
 
 /**
- * 讀取介面偏好設定（目前選擇的卡組、主題與卡片篩選模式／天數）。
- * @returns {{ activeDeckId: string | null, theme: 'system' | 'light' | 'dark', filterMode: 'all' | 'unmastered' | 'stale', filterDays: number }}
+ * 讀取介面偏好設定（目前選擇的譯本、卡組、主題與卡片篩選模式／天數）。
+ * @returns {{ translation: string | null, activeDeckId: string | null, theme: 'system' | 'light' | 'dark', filterMode: 'all' | 'unmastered' | 'stale', filterDays: number }}
  */
 export function loadPrefs() {
   const prefs = readJson(KEYS.prefs, {});
+  const translation =
+    typeof prefs?.translation === 'string' && prefs.translation.trim()
+      ? prefs.translation.trim()
+      : null;
   const theme = prefs?.theme === 'light' || prefs?.theme === 'dark' ? prefs.theme : 'system';
   const activeDeckId = typeof prefs?.activeDeckId === 'string' ? prefs.activeDeckId : null;
   const rawFilter = Number(prefs?.filterDays);
@@ -142,39 +272,41 @@ export function loadPrefs() {
     prefs?.filterMode === 'stale'
       ? prefs.filterMode
       : (hasValidDays ? 'stale' : 'all');
-  return { activeDeckId, theme, filterMode, filterDays };
+  return { translation, activeDeckId, theme, filterMode, filterDays };
 }
 
 /**
  * 儲存介面偏好設定。
- * @param {{ activeDeckId: string | null, theme: 'system' | 'light' | 'dark', filterMode?: 'all' | 'unmastered' | 'stale', filterDays?: number }} prefs
+ * @param {{ translation?: string | null, activeDeckId: string | null, theme: 'system' | 'light' | 'dark', filterMode?: 'all' | 'unmastered' | 'stale', filterDays?: number }} prefs
  */
 export function savePrefs(prefs) {
   writeJson(KEYS.prefs, prefs);
 }
 
 /**
- * 取得指定經文卡片上次停留的難度（1–4，預設為 1）。
+ * 取得指定譯本與經文卡片上次停留的難度（1–4，預設為 1）。
  * @param {string} canonicalRef
+ * @param {string} [translationId]
  * @returns {1 | 2 | 3 | 4}
  */
-export function getCardLevel(canonicalRef) {
+export function getCardLevel(canonicalRef, translationId = 'rcuv') {
   if (!canonicalRef) return 1;
   const map = readJson(KEYS.cardLevels, {});
-  const lv = map?.[canonicalRef];
+  const lv = map?.[makeScopedKey(translationId, canonicalRef)];
   return lv === 1 || lv === 2 || lv === 3 || lv === 4 ? lv : 1;
 }
 
 /**
- * 記錄指定經文卡片的目前難度（1–4）。
+ * 記錄指定譯本與經文卡片的目前難度（1–4）。
  * @param {string} canonicalRef
  * @param {1 | 2 | 3 | 4} level
+ * @param {string} [translationId]
  */
-export function saveCardLevel(canonicalRef, level) {
+export function saveCardLevel(canonicalRef, level, translationId = 'rcuv') {
   if (!canonicalRef) return;
   const map = readJson(KEYS.cardLevels, {});
   const safeMap = map && typeof map === 'object' && !Array.isArray(map) ? map : {};
-  safeMap[canonicalRef] = level;
+  safeMap[makeScopedKey(translationId, canonicalRef)] = level;
   writeJson(KEYS.cardLevels, safeMap);
 }
 

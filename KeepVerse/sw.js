@@ -1,11 +1,13 @@
-/* v1.4.3 - KeepVerse 離線 PWA Service Worker */
+/* v1.5.3 - KeepVerse 離線 PWA Service Worker（預設譯本預快取＋更新譯本快取版號） */
 
-const CACHE_NAME = 'keepverse-v23';
+const CACHE_NAME = 'keepverse-v27';
+const BIBLE_CACHE_NAME = 'keepverse-bibles-v2';
 const CORE_ASSETS = [
   './',
   './index.html',
   './manifest.webmanifest',
   './og-image.png',
+  './translations.json',
   './css/style.css',
   './js/app.js',
   './js/bible.js',
@@ -18,8 +20,6 @@ const CORE_ASSETS = [
   './icons/icon-512.png',
   './icons/icon-maskable-512.png',
   './icons/apple-touch-icon.png',
-  '../rcuv.json',
-  '../esv2016.json',
   './decks/index.json',
 ];
 
@@ -39,6 +39,19 @@ self.addEventListener('install', (event) => {
       } catch {
         // Ignore if index fetch fails during offline install retry
       }
+      try {
+        const trRes = await fetch('./translations.json');
+        if (trRes.ok) {
+          const translations = await trRes.json();
+          const defaultPath = Array.isArray(translations) ? translations[0]?.path : '';
+          if (typeof defaultPath === 'string' && defaultPath) {
+            const bibleCache = await caches.open(BIBLE_CACHE_NAME);
+            await bibleCache.add(defaultPath);
+          }
+        }
+      } catch {
+        // Ignore if default translation prefetch fails
+      }
       await self.skipWaiting();
     })()
   );
@@ -48,7 +61,9 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     (async () => {
       const keys = await caches.keys();
-      await Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)));
+      await Promise.all(
+        keys.filter((k) => k !== CACHE_NAME && k !== BIBLE_CACHE_NAME).map((k) => caches.delete(k))
+      );
       await self.clients.claim();
     })()
   );
@@ -69,8 +84,8 @@ async function networkFirst(request) {
   }
 }
 
-async function cacheFirst(request) {
-  const cache = await caches.open(CACHE_NAME);
+async function cacheFirstIn(cacheName, request) {
+  const cache = await caches.open(cacheName);
   const cached = await cache.match(request);
   if (cached) return cached;
   const fresh = await fetch(request);
@@ -78,6 +93,14 @@ async function cacheFirst(request) {
     cache.put(request, fresh.clone());
   }
   return fresh;
+}
+
+function cacheFirst(request) {
+  return cacheFirstIn(CACHE_NAME, request);
+}
+
+function bibleCacheFirst(request) {
+  return cacheFirstIn(BIBLE_CACHE_NAME, request);
 }
 
 async function staleWhileRevalidate(request) {
@@ -109,14 +132,17 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  if (url.pathname.includes('/decks/')) {
+  if (url.pathname.includes('/decks/') || url.pathname.endsWith('/translations.json')) {
     event.respondWith(networkFirst(request));
     return;
   }
 
+  if (url.pathname.endsWith('.json')) {
+    event.respondWith(bibleCacheFirst(request));
+    return;
+  }
+
   if (
-    url.pathname.endsWith('/rcuv.json') ||
-    url.pathname.endsWith('/esv2016.json') ||
     url.pathname.includes('/icons/') ||
     url.pathname.endsWith('/og-image.png')
   ) {

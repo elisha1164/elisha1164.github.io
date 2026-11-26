@@ -1,4 +1,4 @@
-<!-- v1.4.2 - KeepVerse 主頁面、右側安裝按鈕新圖示與金屬光澤提醒 -->
+<!-- v1.5.0 - KeepVerse 主頁面、譯本選擇彈窗與卡片底列難度切換 -->
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
@@ -60,35 +60,14 @@
 </head>
 <body>
   <div class="app-shell">
-    <!-- 頁頂單列工具列：左四程度圖示 + 右 Deck 選單圖示 -->
-    <header class="top-bar" aria-label="背誦難度與功能列">
-      <div class="level-group" role="tablist" aria-label="背誦難度">
-        <button type="button" class="icon-btn level-btn is-active" data-level="1" role="tab" aria-selected="true" aria-label="全顯示" title="全顯示">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <line x1="4" y1="6" x2="20" y2="6" />
-            <line x1="4" y1="12" x2="20" y2="12" />
-            <line x1="4" y1="18" x2="15" y2="18" />
-          </svg>
-        </button>
-        <button type="button" class="icon-btn level-btn" data-level="2" role="tab" aria-selected="false" aria-label="隨機挖空" title="隨機挖空">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <line x1="4" y1="6" x2="9" y2="6" />
-            <line x1="12" y1="6" x2="20" y2="6" stroke-dasharray="2.5 2.5" />
-            <line x1="4" y1="12" x2="13" y2="12" stroke-dasharray="2.5 2.5" />
-            <line x1="16" y1="12" x2="20" y2="12" />
-            <line x1="4" y1="18" x2="10" y2="18" />
-            <line x1="13" y1="18" x2="18" y2="18" stroke-dasharray="2.5 2.5" />
-          </svg>
-        </button>
-        <button type="button" id="level3Btn" class="icon-btn level-btn" data-level="3" role="tab" aria-selected="false" aria-label="剩注音聲母" title="剩注音聲母">
-          <span id="level3Glyph" class="glyph-icon" aria-hidden="true">ㄅ</span>
-        </button>
-        <button type="button" class="icon-btn level-btn" data-level="4" role="tab" aria-selected="false" aria-label="全空白" title="全空白">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <rect x="4" y="5" width="16" height="14" rx="3" stroke-dasharray="3.2 2.8" />
-          </svg>
-        </button>
-      </div>
+    <!-- 頁頂單列工具列：左譯本切換鈕 + 右功能圖示 -->
+    <header class="top-bar" aria-label="譯本與功能列">
+      <button type="button" id="translationBtn" class="translation-btn" aria-label="切換聖經譯本" title="切換聖經譯本">
+        <span id="translationLabel">RCUV</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
 
       <div class="top-actions">
         <button type="button" id="themeBtn" class="icon-btn theme-btn" aria-label="切換深淺色模式" title="深淺色：跟隨系統">
@@ -184,6 +163,33 @@
 
         <footer class="card-footer">
           <span id="cardMastery" class="card-mastery">還沒背熟</span>
+          <div id="levelGroup" class="level-group" role="tablist" aria-label="背誦難度">
+            <button type="button" class="icon-btn level-btn is-active" data-level="1" role="tab" aria-selected="true" aria-label="全顯示" title="全顯示">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <line x1="4" y1="6" x2="20" y2="6" />
+                <line x1="4" y1="12" x2="20" y2="12" />
+                <line x1="4" y1="18" x2="15" y2="18" />
+              </svg>
+            </button>
+            <button type="button" class="icon-btn level-btn" data-level="2" role="tab" aria-selected="false" aria-label="隨機挖空" title="隨機挖空">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <line x1="4" y1="6" x2="9" y2="6" />
+                <line x1="12" y1="6" x2="20" y2="6" stroke-dasharray="2.5 2.5" />
+                <line x1="4" y1="12" x2="13" y2="12" stroke-dasharray="2.5 2.5" />
+                <line x1="16" y1="12" x2="20" y2="12" />
+                <line x1="4" y1="18" x2="10" y2="18" />
+                <line x1="13" y1="18" x2="18" y2="18" stroke-dasharray="2.5 2.5" />
+              </svg>
+            </button>
+            <button type="button" id="level3Btn" class="icon-btn level-btn" data-level="3" role="tab" aria-selected="false" aria-label="剩注音聲母" title="剩注音聲母">
+              <span id="level3Glyph" class="glyph-icon" aria-hidden="true">ㄅ</span>
+            </button>
+            <button type="button" class="icon-btn level-btn" data-level="4" role="tab" aria-selected="false" aria-label="全空白" title="全空白">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="4" y="5" width="16" height="14" rx="3" stroke-dasharray="3.2 2.8" />
+              </svg>
+            </button>
+          </div>
         </footer>
       </article>
     </main>
@@ -273,10 +279,6 @@
 
         <div class="picker-box">
           <div class="field-label">新增經文（限同章起迄）</div>
-          <div class="lang-switch" role="group" aria-label="經文語言">
-            <button type="button" id="pickLangZh" class="lang-btn is-active" aria-pressed="true">中文 RCUV</button>
-            <button type="button" id="pickLangEn" class="lang-btn" aria-pressed="false">英文 ESV</button>
-          </div>
           <div class="picker-grid">
             <select id="pickBook" class="select-input" aria-label="書卷"></select>
             <select id="pickChapter" class="select-input" aria-label="章"></select>
@@ -345,7 +347,7 @@
         <textarea
           id="importTextarea"
           class="json-textarea"
-          placeholder='{&#10;  "name": "我的金句",&#10;  "sections": [&#10;    {&#10;      "title": "福音核心",&#10;      "cards": ["約翰福音 3:16", "John 3:16"]&#10;    }&#10;  ]&#10;}'
+          placeholder='{&#10;  "name": "我的金句",&#10;  "sections": [&#10;    {&#10;      "title": "福音核心",&#10;      "cards": ["約翰福音 3:16", "羅馬書 8:28"]&#10;    }&#10;  ]&#10;}'
         ></textarea>
         <p id="importError" class="form-error" hidden></p>
         <button type="button" id="confirmImportBtn" class="pill-btn primary-pill full-btn">匯入卡組</button>
@@ -436,6 +438,22 @@
     </div>
     <p id="filterPreview" class="filter-preview"></p>
     <button type="button" id="applyFilterBtn" class="pill-btn primary-pill full-btn">套用</button>
+  </section>
+
+  <!-- 譯本選擇視窗 -->
+  <div id="translationBackdrop" class="modal-backdrop" hidden></div>
+  <section id="translationModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="translationModalTitle" hidden>
+    <div class="modal-header">
+      <h2 id="translationModalTitle" class="modal-title">選擇聖經譯本</h2>
+      <button type="button" id="closeTranslationBtn" class="icon-btn" aria-label="關閉視窗" title="關閉">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <line x1="18" y1="6" x2="6" y2="18" />
+          <line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      </button>
+    </div>
+    <div id="translationList" class="filter-options" role="radiogroup" aria-label="聖經譯本"></div>
+    <p id="translationError" class="form-error" hidden></p>
   </section>
 
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>

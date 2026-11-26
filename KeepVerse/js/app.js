@@ -1,13 +1,20 @@
-/* v1.4.3 - KeepVerse 主應用控制器：頂部功能列、三模式卡片篩選與卡組上下排序 */
+/* v1.5.2 - KeepVerse 主應用控制器：外掛譯本按需切換、分譯本記憶進度與併節提示優化 */
 
 import {
+  canonicalizeRef,
+  formatDisplayRef,
   formatRef,
+  getActiveTranslation,
   getBooks,
   getChapters,
+  getDefaultTranslationId,
   getPassageText,
-  getRefLang,
+  getTranslations,
   getVerses,
-  loadBible,
+  hasOfflineTranslation,
+  isTranslationLoaded,
+  loadTranslation,
+  loadTranslationsCatalog,
   translateBookName,
 } from './bible.js';
 import {
@@ -28,6 +35,7 @@ import {
   loadDeckOrder,
   loadMasteryMap,
   loadPrefs,
+  migrateLegacyStorage,
   recordMastery,
   saveCardLevel,
   saveCustomDecks,
@@ -62,6 +70,8 @@ const SVG = {
 };
 
 const state = {
+  translationId: null,
+  isSwitchingTranslation: false,
   builtinDecks: [],
   decks: [],
   activeDeckId: null,
@@ -81,11 +91,13 @@ const state = {
   editor: {
     editingDeckId: null,
     cards: [],
-    pickerLang: 'zh',
   },
 };
 
 const el = {
+  translationBtn: document.getElementById('translationBtn'),
+  translationLabel: document.getElementById('translationLabel'),
+  levelGroup: document.getElementById('levelGroup'),
   levelBtns: Array.from(document.querySelectorAll('.level-btn')),
   level3Btn: document.getElementById('level3Btn'),
   level3Glyph: document.getElementById('level3Glyph'),
@@ -135,8 +147,6 @@ const el = {
   editorTitle: document.getElementById('editorTitle'),
   editorSectionNotice: document.getElementById('editorSectionNotice'),
   editorNameInput: document.getElementById('editorNameInput'),
-  pickLangZh: document.getElementById('pickLangZh'),
-  pickLangEn: document.getElementById('pickLangEn'),
   pickBook: document.getElementById('pickBook'),
   pickChapter: document.getElementById('pickChapter'),
   pickStartVerse: document.getElementById('pickStartVerse'),
@@ -174,6 +184,11 @@ const el = {
   filterDaysInput: document.getElementById('filterDaysInput'),
   filterPreview: document.getElementById('filterPreview'),
   applyFilterBtn: document.getElementById('applyFilterBtn'),
+  translationBackdrop: document.getElementById('translationBackdrop'),
+  translationModal: document.getElementById('translationModal'),
+  closeTranslationBtn: document.getElementById('closeTranslationBtn'),
+  translationList: document.getElementById('translationList'),
+  translationError: document.getElementById('translationError'),
   toast: document.getElementById('toast'),
 };
 
@@ -232,7 +247,7 @@ function clearRecallSession() {
 function restoreCardContext() {
   const deck = getActiveDeck();
   const ref = getCurrentRef();
-  state.level = ref ? getCardLevel(ref) : 1;
+  state.level = ref ? getCardLevel(ref, state.translationId) : 1;
   if (deck && ref) {
     saveDeckLastCard(deck.id, ref);
   }
@@ -240,6 +255,7 @@ function restoreCardContext() {
 
 function persistPrefs() {
   savePrefs({
+    translation: state.translationId,
     activeDeckId: state.activeDeckId,
     theme: state.theme,
     filterMode: state.filterMode,
@@ -259,7 +275,7 @@ function getFilteredIndices(deck, mode = state.filterMode, minDays = state.filte
   if (mode === 'all') {
     return Array.from({ length: deck.cards.length }, (_, idx) => idx);
   }
-  const masteryMap = loadMasteryMap();
+  const masteryMap = loadMasteryMap(state.translationId);
   const indices = [];
   for (let i = 0; i < deck.cards.length; i += 1) {
     if (cardMatchesFilter(deck.cards[i], mode, minDays, masteryMap)) {
@@ -295,7 +311,12 @@ function pruneCurrentIfFilteredOut() {
   const currentRef = getCurrentRef();
   if (
     !currentRef ||
-    cardMatchesFilter(currentRef, state.filterMode, state.filterDays, loadMasteryMap())
+    cardMatchesFilter(
+      currentRef,
+      state.filterMode,
+      state.filterDays,
+      loadMasteryMap(state.translationId)
+    )
   ) {
     return false;
   }
@@ -320,6 +341,13 @@ function selectDeck(deckId, { closeDrawerAfter = false } = {}) {
 }
 
 function renderToolbarIndicators() {
+  const activeTr = getActiveTranslation();
+  if (activeTr) {
+    el.translationLabel.textContent = activeTr.shortLabel;
+    el.translationBtn.setAttribute('title', `聖經譯本：${activeTr.name}（點擊切換）`);
+    el.translationBtn.setAttribute('aria-label', `目前譯本：${activeTr.name}，點擊切換`);
+  }
+
   el.shuffleBtn.classList.toggle('is-active', state.isShuffled);
   el.shuffleBtn.setAttribute('aria-pressed', String(state.isShuffled));
   el.shuffleBtn.setAttribute(
@@ -382,6 +410,7 @@ function renderCard() {
     el.level1Actions.hidden = true;
     el.filterEmptyActions.hidden = !filteredEmpty;
     el.quizArea.hidden = true;
+    el.levelGroup.hidden = true;
     el.cardMastery.textContent = filteredEmpty ? '' : '還沒背熟';
     el.level3Glyph.textContent = 'ㄅ';
     el.level3Btn.setAttribute('aria-label', '剩注音聲母');
@@ -392,9 +421,10 @@ function renderCard() {
     return;
   }
 
-  const lang = getRefLang(ref);
+  const activeTr = getActiveTranslation();
+  const lang = activeTr?.lang || 'zh';
   const isEn = lang === 'en';
-  const text = getPassageText(ref);
+  const text = getPassageText(ref, state.translationId);
 
   el.level3Glyph.textContent = isEn ? 'A' : 'ㄅ';
   const level3Label = isEn ? '剩單字首字母' : '剩注音聲母';
@@ -407,10 +437,22 @@ function renderCard() {
   const section = getCurrentSection();
   el.cardSection.textContent = section;
   el.cardSection.hidden = !section;
-  el.cardRef.textContent = ref;
+  el.cardRef.textContent = formatDisplayRef(ref, lang);
   el.cardCounter.textContent = `${state.orderPos + 1}/${total}`;
-  el.cardMastery.textContent = formatRelativeMastery(getMastery(ref));
+  el.cardMastery.textContent = formatRelativeMastery(getMastery(ref, state.translationId));
   el.filterEmptyActions.hidden = true;
+
+  if (!text) {
+    el.levelGroup.hidden = true;
+    el.verseFull.textContent = '此節併於上節或目前譯本未收錄';
+    el.verseFull.classList.add('is-long');
+    el.verseFull.hidden = false;
+    el.level1Actions.hidden = true;
+    el.quizArea.hidden = true;
+    return;
+  }
+
+  el.levelGroup.hidden = false;
 
   if (state.level === 1) {
     el.verseFull.textContent = text;
@@ -456,7 +498,8 @@ function renderCardList() {
     return;
   }
 
-  const masteryMap = loadMasteryMap();
+  const lang = getActiveTranslation()?.lang || 'zh';
+  const masteryMap = loadMasteryMap(state.translationId);
   let lastSection = '';
   state.displayOrder.forEach((cardIdx, pos) => {
     const ref = deck.cards[cardIdx];
@@ -476,7 +519,7 @@ function renderCardList() {
 
     const title = document.createElement('span');
     title.className = 'row-title';
-    title.textContent = `${pos + 1}. ${ref}`;
+    title.textContent = `${pos + 1}. ${formatDisplayRef(ref, lang)}`;
 
     const meta = document.createElement('span');
     meta.className = 'row-meta';
@@ -600,7 +643,7 @@ function renderAll() {
 function setLevel(newLevel) {
   if (state.level === newLevel) return;
   state.level = newLevel;
-  saveCardLevel(getCurrentRef(), newLevel);
+  saveCardLevel(getCurrentRef(), newLevel, state.translationId);
   clearRecallSession();
   renderCard();
 }
@@ -684,8 +727,12 @@ function runCheck() {
   if (state.level === 1) return;
   const ref = getCurrentRef();
   if (!ref) return;
-  const lang = getRefLang(ref);
-  const expected = getPassageText(ref);
+  const lang = getActiveTranslation()?.lang || 'zh';
+  const expected = getPassageText(ref, state.translationId);
+  if (!expected) {
+    showToast('此節併於上節或目前譯本未收錄');
+    return;
+  }
   const res = compareVerse(expected, el.recallInput.value, lang);
 
   el.recallInput.blur();
@@ -697,8 +744,8 @@ function runCheck() {
     const msg = document.createElement('div');
     msg.className = 'check-success';
     if (state.level === 4) {
-      const iso = recordMastery(ref);
-      saveCardLevel(ref, 1);
+      const iso = recordMastery(ref, state.translationId);
+      saveCardLevel(ref, 1, state.translationId);
       el.cardMastery.textContent = formatRelativeMastery(iso);
       msg.textContent = '恭喜！完全正確，已更新上次背熟時間。';
       renderCardList();
@@ -843,14 +890,19 @@ function fillSelect(selectEl, items, suffix = '') {
 }
 
 function updatePickerPreview() {
-  const ref = formatRef({
-    book: el.pickBook.value,
-    chapter: Number(el.pickChapter.value),
-    startVerse: Number(el.pickStartVerse.value),
-    endVerse: Number(el.pickEndVerse.value),
-  });
-  el.pickerPreview.classList.toggle('is-english', state.editor.pickerLang === 'en');
-  el.pickerPreview.textContent = getPassageText(ref);
+  const lang = getActiveTranslation()?.lang || 'zh';
+  const ref = formatRef(
+    {
+      book: el.pickBook.value,
+      chapter: Number(el.pickChapter.value),
+      startVerse: Number(el.pickStartVerse.value),
+      endVerse: Number(el.pickEndVerse.value),
+    },
+    'zh'
+  );
+  el.pickerPreview.classList.toggle('is-english', lang === 'en');
+  el.pickerPreview.textContent =
+    getPassageText(ref, state.translationId) || '（此節併於上節或目前譯本未收錄）';
 }
 
 function syncEndVerseOptions(preferredEnd = null) {
@@ -887,14 +939,8 @@ function syncChapterOptions(preferredChapter = null, preferredStart = null, pref
   syncStartVerseOptions(preferredStart, preferredEnd);
 }
 
-function setPickerLang(lang) {
-  state.editor.pickerLang = lang;
-  const isEn = lang === 'en';
-  el.pickLangZh.classList.toggle('is-active', !isEn);
-  el.pickLangEn.classList.toggle('is-active', isEn);
-  el.pickLangZh.setAttribute('aria-pressed', String(!isEn));
-  el.pickLangEn.setAttribute('aria-pressed', String(isEn));
-
+function syncPickerToTranslation() {
+  const lang = getActiveTranslation()?.lang || 'zh';
   const prevBook = el.pickBook.value;
   const prevChap = Number(el.pickChapter.value);
   const prevStart = Number(el.pickStartVerse.value);
@@ -903,18 +949,23 @@ function setPickerLang(lang) {
   const books = getBooks(lang);
   fillSelect(el.pickBook, books);
   const translated = translateBookName(prevBook, lang);
-  const fallback = isEn ? 'John' : '約翰福音';
-  el.pickBook.value = books.includes(translated) ? translated : (books.includes(fallback) ? fallback : books[0]);
+  const fallback = lang === 'en' ? 'John' : '約翰福音';
+  el.pickBook.value = books.includes(translated)
+    ? translated
+    : (books.includes(fallback) ? fallback : (books[0] || ''));
 
-  syncChapterOptions(prevChap, prevStart, prevEnd);
+  if (el.pickBook.value) {
+    syncChapterOptions(prevChap, prevStart, prevEnd);
+  }
 }
 
 function initPicker() {
-  state.editor.pickerLang = 'zh';
-  const books = getBooks('zh');
+  const lang = getActiveTranslation()?.lang || 'zh';
+  const books = getBooks(lang);
   fillSelect(el.pickBook, books);
-  if (books.includes('約翰福音')) {
-    el.pickBook.value = '約翰福音';
+  const defaultBook = lang === 'en' ? 'John' : '約翰福音';
+  if (books.includes(defaultBook)) {
+    el.pickBook.value = defaultBook;
   }
   syncChapterOptions(3, 16, 16);
 }
@@ -922,6 +973,7 @@ function initPicker() {
 function renderEditorCards() {
   el.editorCardCount.textContent = String(state.editor.cards.length);
   el.editorCardList.innerHTML = '';
+  const lang = getActiveTranslation()?.lang || 'zh';
 
   state.editor.cards.forEach((ref, idx) => {
     const li = document.createElement('li');
@@ -929,7 +981,7 @@ function renderEditorCards() {
 
     const title = document.createElement('span');
     title.className = 'row-title';
-    title.textContent = `${idx + 1}. ${ref}`;
+    title.textContent = `${idx + 1}. ${formatDisplayRef(ref, lang)}`;
 
     const actions = document.createElement('div');
     actions.className = 'row-actions';
@@ -1147,6 +1199,103 @@ function applyFilter(mode, days) {
   }
 }
 
+async function renderTranslationModal(loadingId = null) {
+  const list = getTranslations();
+  const offlineStatuses = await Promise.all(list.map((t) => hasOfflineTranslation(t.id)));
+  el.translationList.innerHTML = '';
+
+  list.forEach((entry, idx) => {
+    const isActive = entry.id === state.translationId;
+    const isLoading = loadingId === entry.id;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'filter-option';
+    if (isActive) btn.classList.add('is-active');
+    btn.setAttribute('role', 'radio');
+    btn.setAttribute('aria-checked', String(isActive));
+    btn.disabled = Boolean(loadingId);
+
+    const radio = document.createElement('span');
+    radio.className = 'filter-radio';
+    radio.setAttribute('aria-hidden', 'true');
+
+    const body = document.createElement('span');
+    body.className = 'filter-option-body';
+
+    const title = document.createElement('span');
+    title.className = 'filter-option-title';
+    title.textContent =
+      entry.shortLabel && entry.shortLabel !== entry.name
+        ? `${entry.shortLabel} · ${entry.name}`
+        : entry.name;
+
+    const desc = document.createElement('span');
+    desc.className = 'filter-option-desc';
+    if (isLoading) {
+      desc.textContent = '載入中…';
+    } else if (isActive) {
+      desc.textContent = '目前使用';
+    } else if (isTranslationLoaded(entry.id) || offlineStatuses[idx]) {
+      desc.textContent = '可用';
+    } else {
+      desc.textContent = '可下載';
+    }
+
+    body.append(title, desc);
+    btn.append(radio, body);
+    btn.addEventListener('click', () => switchTranslation(entry.id));
+    el.translationList.appendChild(btn);
+  });
+}
+
+function openTranslationModal() {
+  el.translationError.hidden = true;
+  el.translationBackdrop.hidden = false;
+  el.translationModal.hidden = false;
+  renderTranslationModal();
+}
+
+function closeTranslationModal() {
+  if (state.isSwitchingTranslation) return;
+  el.translationBackdrop.hidden = true;
+  el.translationModal.hidden = true;
+}
+
+async function switchTranslation(targetId) {
+  if (state.isSwitchingTranslation) return;
+  if (targetId === state.translationId) {
+    closeTranslationModal();
+    return;
+  }
+
+  const targetEntry = getTranslations().find((t) => t.id === targetId);
+  if (!targetEntry) return;
+
+  state.isSwitchingTranslation = true;
+  el.translationError.hidden = true;
+  await renderTranslationModal(targetId);
+
+  try {
+    const keepRef = getCurrentRef();
+    const entry = await loadTranslation(targetId);
+    state.translationId = entry.id;
+    persistPrefs();
+    rebuildDisplayOrder({ keepRef, preserveShuffle: state.isShuffled });
+    restoreCardContext();
+    clearRecallSession();
+    syncPickerToTranslation();
+    renderAll();
+    state.isSwitchingTranslation = false;
+    closeTranslationModal();
+    showToast(`已切換至 ${entry.shortLabel}`);
+  } catch {
+    state.isSwitchingTranslation = false;
+    el.translationError.textContent = `無法載入「${targetEntry.name}」，請確認網路連線後重試。`;
+    el.translationError.hidden = false;
+    await renderTranslationModal();
+  }
+}
+
 async function handleInstallClick() {
   if (deferredInstallPrompt) {
     const promptEvent = deferredInstallPrompt;
@@ -1218,6 +1367,10 @@ function bindEvents() {
   el.drawerBackdrop.addEventListener('click', closeDrawer);
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
+    if (!el.translationModal.hidden) {
+      closeTranslationModal();
+      return;
+    }
     if (!el.filterModal.hidden) {
       closeFilterModal();
       return;
@@ -1228,6 +1381,10 @@ function bindEvents() {
     }
     if (!el.drawer.hidden) closeDrawer();
   });
+
+  el.translationBtn.addEventListener('click', openTranslationModal);
+  el.closeTranslationBtn.addEventListener('click', closeTranslationModal);
+  el.translationBackdrop.addEventListener('click', closeTranslationModal);
 
   el.shuffleBtn.addEventListener('click', toggleShuffle);
   el.themeBtn.addEventListener('click', () => {
@@ -1274,8 +1431,6 @@ function bindEvents() {
   el.editorBackBtn.addEventListener('click', () => showDrawerView('main'));
   el.ioBackBtn.addEventListener('click', () => showDrawerView('main'));
 
-  el.pickLangZh.addEventListener('click', () => setPickerLang('zh'));
-  el.pickLangEn.addEventListener('click', () => setPickerLang('en'));
   el.pickBook.addEventListener('change', () => syncChapterOptions());
   el.pickChapter.addEventListener('change', () => syncStartVerseOptions());
   el.pickStartVerse.addEventListener('change', () => {
@@ -1284,17 +1439,21 @@ function bindEvents() {
   el.pickEndVerse.addEventListener('change', updatePickerPreview);
 
   el.addCardBtn.addEventListener('click', () => {
-    const ref = formatRef({
-      book: el.pickBook.value,
-      chapter: Number(el.pickChapter.value),
-      startVerse: Number(el.pickStartVerse.value),
-      endVerse: Number(el.pickEndVerse.value),
-    });
+    const lang = getActiveTranslation()?.lang || 'zh';
+    const ref = formatRef(
+      {
+        book: el.pickBook.value,
+        chapter: Number(el.pickChapter.value),
+        startVerse: Number(el.pickStartVerse.value),
+        endVerse: Number(el.pickEndVerse.value),
+      },
+      'zh'
+    );
     if (!ref) return;
     state.editor.cards.push(ref);
     el.editorError.hidden = true;
     renderEditorCards();
-    showToast(`已加入 ${ref}`);
+    showToast(`已加入 ${formatDisplayRef(ref, lang)}`);
   });
   el.saveDeckBtn.addEventListener('click', saveEditorDeck);
 
@@ -1340,7 +1499,22 @@ async function init() {
   bindEvents();
 
   try {
-    await loadBible();
+    await loadTranslationsCatalog();
+    const defaultId = getDefaultTranslationId();
+    migrateLegacyStorage(canonicalizeRef, defaultId, 'esv');
+
+    const preferredId = prefs.translation || defaultId;
+    try {
+      await loadTranslation(preferredId);
+    } catch (err) {
+      if (preferredId !== defaultId) {
+        await loadTranslation(defaultId);
+      } else {
+        throw err;
+      }
+    }
+    state.translationId = getActiveTranslation()?.id || defaultId;
+
     initPicker();
     state.builtinDecks = await loadBuiltinDecks();
     state.decks = getAllDecks(state.builtinDecks);

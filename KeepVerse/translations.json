@@ -1,0 +1,23 @@
+[
+  {
+    "id": "rcuv",
+    "shortLabel": "RCUV",
+    "name": "和合本修訂版",
+    "lang": "zh",
+    "path": "../rcuv.json"
+  },
+  {
+    "id": "csbt",
+    "shortLabel": "CSBT",
+    "name": "中文標準譯本",
+    "lang": "zh",
+    "path": "../csbt2026.json"
+  },
+  {
+    "id": "esv",
+    "shortLabel": "ESV",
+    "name": "English Standard Version",
+    "lang": "en",
+    "path": "../esv2016.json"
+  }
+]

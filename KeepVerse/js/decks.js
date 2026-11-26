@@ -1,9 +1,9 @@
-/* v1.4.3 - 內建與自建卡組載入、自訂排序、分區標題 (sections) 支援與 JSON 匯入匯出 */
+/* v1.5.0 - 內建與自建卡組載入（出處不綁定譯本）、自訂排序、分區標題 (sections) 與 JSON 匯入匯出 */
 
-import { formatRef, parseRef } from './bible.js';
+import { canonicalizeRef, formatRef, parseRef } from './bible.js';
 import { loadCustomDecks, loadDeckOrder } from './storage.js';
 
-function normalizeCardList(rawCards) {
+function normalizeCardList(rawCards, { checkDataset = true } = {}) {
   const validCards = [];
   const invalidRefs = [];
   for (const item of rawCards) {
@@ -11,9 +11,14 @@ function normalizeCardList(rawCards) {
       invalidRefs.push(String(item));
       continue;
     }
-    const parsed = parseRef(item);
-    if (parsed) {
-      validCards.push(formatRef(parsed));
+    const normalized = checkDataset
+      ? (() => {
+          const parsed = parseRef(item);
+          return parsed ? formatRef(parsed, 'zh') : null;
+        })()
+      : canonicalizeRef(item);
+    if (normalized) {
+      validCards.push(normalized);
     } else {
       invalidRefs.push(item);
     }
@@ -42,7 +47,7 @@ function normalizeDeckContent(rawObj) {
     for (const sec of rawObj.sections) {
       const title = typeof sec?.title === 'string' ? sec.title.trim() : '';
       const rawCards = Array.isArray(sec?.cards) ? sec.cards : [];
-      const { validCards } = normalizeCardList(rawCards);
+      const { validCards } = normalizeCardList(rawCards, { checkDataset: false });
       if (validCards.length > 0) {
         validSections.push({ title, cards: validCards });
         flatCards.push(...validCards);
@@ -55,7 +60,7 @@ function normalizeDeckContent(rawObj) {
   }
 
   const rawCards = Array.isArray(rawObj?.cards) ? rawObj.cards : [];
-  const { validCards } = normalizeCardList(rawCards);
+  const { validCards } = normalizeCardList(rawCards, { checkDataset: false });
   return { cards: validCards, sections: undefined, cardSections: [] };
 }
 
@@ -100,10 +105,19 @@ export async function loadBuiltinDecks() {
  */
 export function getAllDecks(builtinDecks) {
   const custom = loadCustomDecks().map((d) => {
+    const cards = d.cards.map((r) => canonicalizeRef(r) || r);
     const hasSections = Array.isArray(d.sections) && d.sections.length > 0;
+    const sections = hasSections
+      ? d.sections.map((s) => ({
+          ...s,
+          cards: Array.isArray(s.cards) ? s.cards.map((r) => canonicalizeRef(r) || r) : [],
+        }))
+      : undefined;
     return {
       ...d,
-      cardSections: hasSections ? buildCardSections(d.sections) : [],
+      cards,
+      ...(sections ? { sections } : {}),
+      cardSections: hasSections ? buildCardSections(sections) : [],
       builtin: false,
     };
   });

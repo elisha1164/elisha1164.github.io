@@ -1,4 +1,4 @@
-/* v1.4.3 - KeepVerse 極簡紙感樣式、頁頂安裝按鈕、卡組排序列與三模式篩選視窗 */
+/* v1.5.0 - KeepVerse 極簡紙感樣式、頁頂譯本切換鈕、放大頂列與卡片底列難度切換 */
 
 :root {
   --bg: #FAF8F3;
@@ -119,7 +119,47 @@ svg {
 .top-actions {
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
+}
+
+.translation-btn {
+  flex: 0 0 auto;
+  height: 42px;
+  max-width: 128px;
+  padding: 0 10px 0 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--accent);
+  font-size: 0.84rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: background-color 0.16s ease, border-color 0.16s ease, transform 0.1s ease;
+}
+
+.translation-btn span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.translation-btn svg {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+}
+
+.translation-btn:hover {
+  background: var(--surface-alt);
+}
+
+.translation-btn:active {
+  transform: scale(0.97);
 }
 
 .icon-btn {
@@ -138,9 +178,9 @@ svg {
 }
 
 .top-bar .icon-btn {
-  width: 38px;
-  height: 38px;
-  border-radius: 11px;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
 }
 
 .icon-btn:hover {
@@ -339,30 +379,11 @@ svg {
 @media (max-width: 420px) {
   .top-bar {
     padding: 12px 12px 8px;
-    gap: 4px;
-  }
-
-  .level-group {
-    gap: 3px;
+    gap: 6px;
   }
 
   .top-actions {
-    gap: 2px;
-  }
-
-  .top-bar .icon-btn {
-    width: 34px;
-    height: 36px;
-    border-radius: 10px;
-  }
-
-  .top-bar svg {
-    width: 18px;
-    height: 18px;
-  }
-
-  .top-bar .glyph-icon {
-    font-size: 15px;
+    gap: 3px;
   }
 }
 
@@ -576,16 +597,57 @@ svg {
 
 .card-footer {
   flex: 0 0 auto;
-  padding-top: 8px;
+  padding-top: 10px;
   border-top: 1px solid var(--border);
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
+  min-height: 48px;
 }
 
 .card-mastery {
+  min-width: 0;
   font-size: 0.78rem;
   color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card-footer .level-group {
+  flex: 0 0 auto;
+  gap: 4px;
+}
+
+.card-footer .level-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+}
+
+.card-footer .level-btn svg {
+  width: 19px;
+  height: 19px;
+}
+
+.card-footer .level-btn .glyph-icon {
+  font-size: 15px;
+}
+
+.card-footer .level-btn.is-active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent);
+  box-shadow: none;
+}
+
+@media (max-width: 400px) {
+  .card-footer .level-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+  }
 }
 
 /* 頁底 nav plane：僅左右兩鍵 */
@@ -976,34 +1038,6 @@ svg {
   display: flex;
   flex-direction: column;
   gap: 10px;
-}
-
-.lang-switch {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-  padding: 3px;
-  border-radius: 10px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-}
-
-.lang-btn {
-  border: none;
-  background: transparent;
-  color: var(--muted);
-  border-radius: 7px;
-  padding: 6px 8px;
-  font-size: 0.82rem;
-  font-weight: 500;
-  cursor: pointer;
-}
-
-.lang-btn.is-active {
-  background: var(--surface);
-  color: var(--accent);
-  font-weight: 600;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
 .picker-grid {
