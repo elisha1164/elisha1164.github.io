@@ -1,4 +1,4 @@
-/* v1.3.0 - KeepVerse 極簡紙感樣式、雙語排版、分區標題與 PWA 安裝引導視窗 */
+/* v1.3.1 - KeepVerse 極簡紙感樣式、雙語排版、分區標題分隔線與 PWA 安裝引導視窗 */
 
 :root {
   --bg: #FAF8F3;
@@ -197,11 +197,13 @@ svg {
   flex: 0 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 10px;
 }
 
 .card-section {
   margin: 0;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
   font-size: 0.8rem;
   font-weight: 500;
   line-height: 1.45;
