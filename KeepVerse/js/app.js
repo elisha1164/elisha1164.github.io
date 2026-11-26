@@ -1,4 +1,4 @@
-/* v1.5.2 - KeepVerse 主應用控制器：外掛譯本按需切換、分譯本記憶進度與併節提示優化 */
+/* v1.5.4 - KeepVerse 主應用控制器：更新背熟祝賀文案與左下背熟標籤回饋強調 */
 
 import {
   canonicalizeRef,
@@ -386,6 +386,8 @@ function renderCard() {
   const total = state.displayOrder.length;
   const ref = getCurrentRef();
 
+  el.cardMastery.classList.remove('is-just-mastered');
+
   el.levelBtns.forEach((btn) => {
     const active = Number(btn.dataset.level) === state.level;
     btn.classList.toggle('is-active', active);
@@ -723,6 +725,12 @@ function renderPostCheckActions(isSuccess) {
   el.postCheckActions.hidden = false;
 }
 
+function flashCardMastery() {
+  el.cardMastery.classList.remove('is-just-mastered');
+  void el.cardMastery.offsetWidth;
+  el.cardMastery.classList.add('is-just-mastered');
+}
+
 function runCheck() {
   if (state.level === 1) return;
   const ref = getCurrentRef();
@@ -747,7 +755,8 @@ function runCheck() {
       const iso = recordMastery(ref, state.translationId);
       saveCardLevel(ref, 1, state.translationId);
       el.cardMastery.textContent = formatRelativeMastery(iso);
-      msg.textContent = '恭喜！完全正確，已更新上次背熟時間。';
+      flashCardMastery();
+      msg.textContent = '恭喜你，這句背熟了！';
       renderCardList();
     } else {
       msg.textContent = '恭喜！經文背誦完全正確。';

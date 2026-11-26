@@ -1,6 +1,6 @@
-/* v1.5.3 - KeepVerse 離線 PWA Service Worker（預設譯本預快取＋更新譯本快取版號） */
+/* v1.5.5 - KeepVerse 離線 PWA Service Worker（更新快取版號至 keepverse-v29） */
 
-const CACHE_NAME = 'keepverse-v27';
+const CACHE_NAME = 'keepverse-v29';
 const BIBLE_CACHE_NAME = 'keepverse-bibles-v2';
 const CORE_ASSETS = [
   './',

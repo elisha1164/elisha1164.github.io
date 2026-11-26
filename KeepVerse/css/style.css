@@ -1,4 +1,4 @@
-/* v1.5.0 - KeepVerse 極簡紙感樣式、頁頂譯本切換鈕、放大頂列與卡片底列難度切換 */
+/* v1.5.5 - KeepVerse 極簡紙感樣式、頁頂譯本切換鈕、卡片底列難度切換與純文字背熟刷新強調 */
 
 :root {
   --bg: #FAF8F3;
@@ -337,7 +337,9 @@ svg {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .install-btn::before {
+  .install-btn::before,
+  .card-mastery.is-just-mastered,
+  .card-mastery.is-just-mastered::before {
     animation: none;
   }
 }
@@ -607,12 +609,60 @@ svg {
 }
 
 .card-mastery {
+  display: inline-block;
   min-width: 0;
+  padding: 2px 0;
   font-size: 0.78rem;
   color: var(--muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  transform-origin: left center;
+  transition: color 0.25s ease;
+}
+
+.card-mastery.is-just-mastered {
+  color: var(--accent);
+  font-weight: 600;
+  animation: masteryRefresh 0.52s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.card-mastery.is-just-mastered::before {
+  content: '✓';
+  display: inline-block;
+  margin-right: 4px;
+  font-weight: 700;
+  animation: masteryCheckPop 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes masteryRefresh {
+  0% {
+    opacity: 0;
+    transform: translateY(5px) scale(0.98);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(-1px) scale(1.03);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes masteryCheckPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  65% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .card-footer .level-group {
