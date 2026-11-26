@@ -1,4 +1,4 @@
-/* v1.3.5 - KeepVerse 主應用控制器：修正 Android 外部 App 跳轉誤判為已安裝 PWA */
+/* v1.4.1 - KeepVerse 主應用控制器：頂部功能列、洗牌切換與三模式卡片篩選 */
 
 import {
   formatRef,
@@ -23,6 +23,7 @@ import {
   getCardLevel,
   getDeckLastCard,
   getMastery,
+  getMasteryDaysAgo,
   loadCustomDecks,
   loadMasteryMap,
   loadPrefs,
@@ -68,6 +69,12 @@ const state = {
   level: 1,
   blankCache: new Map(),
   theme: 'system',
+  filterMode: 'all',
+  filterDays: 3,
+  filterDraft: {
+    mode: 'all',
+    days: 3,
+  },
   isComposing: false,
   editor: {
     editingDeckId: null,
@@ -81,14 +88,21 @@ const el = {
   level3Btn: document.getElementById('level3Btn'),
   level3Glyph: document.getElementById('level3Glyph'),
   installBtn: document.getElementById('installBtn'),
+  themeBtn: document.getElementById('themeBtn'),
+  themeIcon: document.getElementById('themeIcon'),
+  shuffleBtn: document.getElementById('shuffleBtn'),
+  filterBtn: document.getElementById('filterBtn'),
+  filterBadge: document.getElementById('filterBadge'),
   menuBtn: document.getElementById('menuBtn'),
-  shuffleDot: document.getElementById('shuffleDot'),
   cardSection: document.getElementById('cardSection'),
   cardRef: document.getElementById('cardRef'),
   cardCounter: document.getElementById('cardCounter'),
   verseFull: document.getElementById('verseFull'),
   level1Actions: document.getElementById('level1Actions'),
   level1NextBtn: document.getElementById('level1NextBtn'),
+  filterEmptyActions: document.getElementById('filterEmptyActions'),
+  openFilterFromEmptyBtn: document.getElementById('openFilterFromEmptyBtn'),
+  clearFilterBtn: document.getElementById('clearFilterBtn'),
   quizArea: document.getElementById('quizArea'),
   hintText: document.getElementById('hintText'),
   inputWrap: document.getElementById('inputWrap'),
@@ -103,10 +117,7 @@ const el = {
   drawer: document.getElementById('drawer'),
   drawerDeckName: document.getElementById('drawerDeckName'),
   drawerShuffleBadge: document.getElementById('drawerShuffleBadge'),
-  shuffleBtn: document.getElementById('shuffleBtn'),
-  unshuffleBtn: document.getElementById('unshuffleBtn'),
-  themeBtn: document.getElementById('themeBtn'),
-  themeIcon: document.getElementById('themeIcon'),
+  drawerFilterBadge: document.getElementById('drawerFilterBadge'),
   closeDrawerBtn: document.getElementById('closeDrawerBtn'),
   drawerMainView: document.getElementById('drawerMainView'),
   tabCards: document.getElementById('tabCards'),
@@ -150,6 +161,17 @@ const el = {
   iosInstallModal: document.getElementById('iosInstallModal'),
   closeIosInstallBtn: document.getElementById('closeIosInstallBtn'),
   confirmIosInstallBtn: document.getElementById('confirmIosInstallBtn'),
+  filterBackdrop: document.getElementById('filterBackdrop'),
+  filterModal: document.getElementById('filterModal'),
+  closeFilterBtn: document.getElementById('closeFilterBtn'),
+  filterOptionBtns: Array.from(document.querySelectorAll('.filter-option[data-filter-mode]')),
+  filterStaleCard: document.getElementById('filterStaleCard'),
+  filterStaleHintDays: document.getElementById('filterStaleHintDays'),
+  filterStaleControls: document.getElementById('filterStaleControls'),
+  filterChips: Array.from(document.querySelectorAll('.filter-chip')),
+  filterDaysInput: document.getElementById('filterDaysInput'),
+  filterPreview: document.getElementById('filterPreview'),
+  applyFilterBtn: document.getElementById('applyFilterBtn'),
   toast: document.getElementById('toast'),
 };
 
@@ -214,33 +236,119 @@ function restoreCardContext() {
   }
 }
 
-function resetDisplayOrder(deck) {
-  const count = deck ? deck.cards.length : 0;
-  state.displayOrder = Array.from({ length: count }, (_, idx) => idx);
-  state.isShuffled = false;
-  state.orderPos = 0;
+function persistPrefs() {
+  savePrefs({
+    activeDeckId: state.activeDeckId,
+    theme: state.theme,
+    filterMode: state.filterMode,
+    filterDays: state.filterDays,
+  });
+}
+
+function cardMatchesFilter(ref, mode, minDays, masteryMap) {
+  if (mode === 'all') return true;
+  const days = getMasteryDaysAgo(masteryMap[ref] || null);
+  if (mode === 'unmastered') return days === null;
+  return days === null || days >= minDays;
+}
+
+function getFilteredIndices(deck, mode = state.filterMode, minDays = state.filterDays) {
+  if (!deck || !Array.isArray(deck.cards)) return [];
+  if (mode === 'all') {
+    return Array.from({ length: deck.cards.length }, (_, idx) => idx);
+  }
+  const masteryMap = loadMasteryMap();
+  const indices = [];
+  for (let i = 0; i < deck.cards.length; i += 1) {
+    if (cardMatchesFilter(deck.cards[i], mode, minDays, masteryMap)) {
+      indices.push(i);
+    }
+  }
+  return indices;
+}
+
+function rebuildDisplayOrder({ keepRef = null, preserveShuffle = false } = {}) {
+  const deck = getActiveDeck();
+  const matching = getFilteredIndices(deck, state.filterMode, state.filterDays);
+  if (preserveShuffle && state.isShuffled && matching.length > 1) {
+    const perm = createShuffledOrder(matching.length);
+    state.displayOrder = perm.map((p) => matching[p]);
+  } else {
+    state.isShuffled = false;
+    state.displayOrder = matching;
+  }
+
+  let nextPos = 0;
+  if (keepRef && deck) {
+    const idx = state.displayOrder.findIndex((cardIdx) => deck.cards[cardIdx] === keepRef);
+    if (idx >= 0) nextPos = idx;
+  }
+  state.orderPos = nextPos;
   state.blankCache.clear();
+}
+
+function pruneCurrentIfFilteredOut() {
+  const deck = getActiveDeck();
+  if (!deck || state.filterMode === 'all' || state.displayOrder.length === 0) return false;
+  const currentRef = getCurrentRef();
+  if (
+    !currentRef ||
+    cardMatchesFilter(currentRef, state.filterMode, state.filterDays, loadMasteryMap())
+  ) {
+    return false;
+  }
+  state.displayOrder.splice(state.orderPos, 1);
+  if (state.displayOrder.length <= 1 && state.isShuffled) {
+    state.isShuffled = false;
+  }
+  return true;
 }
 
 function selectDeck(deckId, { closeDrawerAfter = false } = {}) {
   const deck = state.decks.find((d) => d.id === deckId) || state.decks[0];
   if (!deck) return;
   state.activeDeckId = deck.id;
-  resetDisplayOrder(deck);
-  const lastRef = getDeckLastCard(deck.id);
-  const savedIdx = lastRef ? deck.cards.indexOf(lastRef) : -1;
-  state.orderPos = savedIdx >= 0 ? savedIdx : 0;
+  state.isShuffled = false;
+  rebuildDisplayOrder({ keepRef: getDeckLastCard(deck.id), preserveShuffle: false });
   restoreCardContext();
   clearRecallSession();
-  savePrefs({ activeDeckId: deck.id, theme: state.theme });
+  persistPrefs();
   renderAll();
   if (closeDrawerAfter) closeDrawer();
 }
 
-function renderShuffleIndicators() {
-  el.shuffleDot.hidden = !state.isShuffled;
+function renderToolbarIndicators() {
+  el.shuffleBtn.classList.toggle('is-active', state.isShuffled);
+  el.shuffleBtn.setAttribute('aria-pressed', String(state.isShuffled));
+  el.shuffleBtn.setAttribute(
+    'title',
+    state.isShuffled ? '已洗牌（點擊恢復原順序）' : '洗牌（不更動原卡組順序）'
+  );
   el.drawerShuffleBadge.hidden = !state.isShuffled;
-  el.unshuffleBtn.hidden = !state.isShuffled;
+
+  const isFiltered = state.filterMode !== 'all';
+  el.filterBtn.classList.toggle('is-active', isFiltered);
+  el.filterBtn.setAttribute('aria-pressed', String(isFiltered));
+
+  if (state.filterMode === 'unmastered') {
+    el.filterBtn.setAttribute('title', '篩選中：只顯示還沒背熟（點擊調整）');
+    el.filterBadge.textContent = '未';
+    el.filterBadge.hidden = false;
+    el.drawerFilterBadge.textContent = '僅未背熟';
+    el.drawerFilterBadge.hidden = false;
+  } else if (state.filterMode === 'stale') {
+    el.filterBtn.setAttribute('title', `篩選中：還沒背熟與滿 ${state.filterDays} 天（點擊調整）`);
+    el.filterBadge.textContent = String(state.filterDays);
+    el.filterBadge.hidden = false;
+    el.drawerFilterBadge.textContent = `滿 ${state.filterDays} 天`;
+    el.drawerFilterBadge.hidden = false;
+  } else {
+    el.filterBtn.setAttribute('title', '篩選卡片');
+    el.filterBadge.textContent = '';
+    el.filterBadge.hidden = true;
+    el.drawerFilterBadge.textContent = '';
+    el.drawerFilterBadge.hidden = true;
+  }
 }
 
 function renderCard() {
@@ -255,15 +363,24 @@ function renderCard() {
   });
 
   if (!deck || total === 0 || !ref) {
+    const filteredEmpty = Boolean(deck && deck.cards.length > 0 && state.filterMode !== 'all');
     el.cardSection.textContent = '';
     el.cardSection.hidden = true;
-    el.cardRef.textContent = '尚無經文';
-    el.cardCounter.textContent = '0/0';
-    el.verseFull.textContent = '';
+    el.cardRef.textContent = !filteredEmpty
+      ? '尚無經文'
+      : (state.filterMode === 'unmastered' ? '這組卡片都背熟了' : '沒有符合篩選的卡片');
+    el.cardCounter.textContent = filteredEmpty ? `0/${deck.cards.length}` : '0/0';
+    el.verseFull.textContent = !filteredEmpty
+      ? ''
+      : (state.filterMode === 'unmastered'
+        ? `此卡組的 ${deck.cards.length} 張卡片都已背熟。`
+        : `此卡組的 ${deck.cards.length} 張卡片皆在 ${state.filterDays} 天內背熟了。`);
+    el.verseFull.classList.toggle('is-long', filteredEmpty);
     el.verseFull.hidden = false;
     el.level1Actions.hidden = true;
+    el.filterEmptyActions.hidden = !filteredEmpty;
     el.quizArea.hidden = true;
-    el.cardMastery.textContent = '還沒背熟';
+    el.cardMastery.textContent = filteredEmpty ? '' : '還沒背熟';
     el.level3Glyph.textContent = 'ㄅ';
     el.level3Btn.setAttribute('aria-label', '剩注音聲母');
     el.level3Btn.setAttribute('title', '剩注音聲母');
@@ -291,6 +408,7 @@ function renderCard() {
   el.cardRef.textContent = ref;
   el.cardCounter.textContent = `${state.orderPos + 1}/${total}`;
   el.cardMastery.textContent = formatRelativeMastery(getMastery(ref));
+  el.filterEmptyActions.hidden = true;
 
   if (state.level === 1) {
     el.verseFull.textContent = text;
@@ -325,6 +443,17 @@ function renderCardList() {
   el.cardList.innerHTML = '';
   if (!deck) return;
 
+  if (deck.cards.length > 0 && state.displayOrder.length === 0 && state.filterMode !== 'all') {
+    const emptyLi = document.createElement('li');
+    emptyLi.className = 'list-empty-note';
+    emptyLi.textContent =
+      state.filterMode === 'unmastered'
+        ? '目前此卡組所有卡片皆已背熟'
+        : `目前無符合篩選（滿 ${state.filterDays} 天）的卡片`;
+    el.cardList.appendChild(emptyLi);
+    return;
+  }
+
   const masteryMap = loadMasteryMap();
   let lastSection = '';
   state.displayOrder.forEach((cardIdx, pos) => {
@@ -353,10 +482,13 @@ function renderCardList() {
 
     li.append(title, meta);
     li.addEventListener('click', () => {
+      const targetCardIdx = state.displayOrder[pos];
       if (pos !== state.orderPos) {
         state.blankCache.clear();
+        pruneCurrentIfFilteredOut();
+        const nextPos = state.displayOrder.indexOf(targetCardIdx);
+        state.orderPos = nextPos >= 0 ? nextPos : 0;
       }
-      state.orderPos = pos;
       restoreCardContext();
       clearRecallSession();
       renderAll();
@@ -433,7 +565,7 @@ function renderDeckList() {
 function renderAll() {
   const deck = getActiveDeck();
   el.drawerDeckName.textContent = deck ? deck.name : 'KeepVerse';
-  renderShuffleIndicators();
+  renderToolbarIndicators();
   renderCard();
   renderCardList();
   renderDeckList();
@@ -448,9 +580,20 @@ function setLevel(newLevel) {
 }
 
 function stepCard(delta) {
-  const total = state.displayOrder.length;
-  if (total === 0) return;
-  state.orderPos = (state.orderPos + delta + total) % total;
+  const totalBefore = state.displayOrder.length;
+  if (totalBefore === 0) return;
+  const pruned = pruneCurrentIfFilteredOut();
+  const totalAfter = state.displayOrder.length;
+  if (totalAfter === 0) {
+    state.isShuffled = false;
+    state.orderPos = 0;
+  } else if (pruned) {
+    state.orderPos = delta >= 0
+      ? state.orderPos % totalAfter
+      : (state.orderPos - 1 + totalAfter) % totalAfter;
+  } else {
+    state.orderPos = (state.orderPos + delta + totalAfter) % totalAfter;
+  }
   state.blankCache.clear();
   restoreCardContext();
   clearRecallSession();
@@ -595,13 +738,18 @@ function closeDrawer() {
 }
 
 /* 洗牌（僅變動記憶體 displayOrder，不動 JSON） */
-function shuffleCurrentDeck() {
+function toggleShuffle() {
+  if (state.isShuffled) {
+    unshuffleCurrentDeck();
+    return;
+  }
   const deck = getActiveDeck();
-  if (!deck || deck.cards.length <= 1) {
+  if (!deck || state.displayOrder.length <= 1) {
     showToast('至少需要兩張卡片才可洗牌');
     return;
   }
-  state.displayOrder = createShuffledOrder(deck.cards.length);
+  const perm = createShuffledOrder(state.displayOrder.length);
+  state.displayOrder = perm.map((p) => state.displayOrder[p]);
   state.isShuffled = true;
   state.orderPos = 0;
   state.blankCache.clear();
@@ -614,7 +762,8 @@ function shuffleCurrentDeck() {
 function unshuffleCurrentDeck() {
   const deck = getActiveDeck();
   if (!deck) return;
-  resetDisplayOrder(deck);
+  state.isShuffled = false;
+  rebuildDisplayOrder({ keepRef: getCurrentRef(), preserveShuffle: false });
   restoreCardContext();
   clearRecallSession();
   renderAll();
@@ -902,6 +1051,73 @@ function closeIosInstallModal() {
   el.iosInstallModal.hidden = true;
 }
 
+function parseFilterInput(rawValue) {
+  const n = Number.parseInt(String(rawValue ?? '').trim(), 10);
+  if (Number.isNaN(n) || n < 1) return 1;
+  return Math.min(n, 999);
+}
+
+function syncFilterModalUI(mode, days, { syncInput = true } = {}) {
+  const safeDays = parseFilterInput(days);
+  state.filterDraft.mode = mode;
+  state.filterDraft.days = safeDays;
+
+  el.filterOptionBtns.forEach((btn) => {
+    const active = btn.dataset.filterMode === mode;
+    btn.classList.toggle('is-active', active);
+    btn.setAttribute('aria-checked', String(active));
+  });
+  el.filterStaleCard.classList.toggle('is-active', mode === 'stale');
+  el.filterStaleControls.hidden = mode !== 'stale';
+  el.filterStaleHintDays.textContent = String(safeDays);
+
+  if (syncInput) {
+    el.filterDaysInput.value = String(safeDays);
+  }
+  el.filterChips.forEach((chip) => {
+    chip.classList.toggle('is-active', Number(chip.dataset.filterDays) === safeDays);
+  });
+
+  const deck = getActiveDeck();
+  const total = deck ? deck.cards.length : 0;
+  const shown = deck ? getFilteredIndices(deck, mode, safeDays).length : 0;
+  el.filterPreview.textContent =
+    mode === 'all'
+      ? `此卡組將顯示全部 ${total} 張卡片`
+      : `此卡組將顯示 ${shown} / ${total} 張卡片`;
+}
+
+function openFilterModal() {
+  syncFilterModalUI(state.filterMode, state.filterDays, { syncInput: true });
+  el.filterBackdrop.hidden = false;
+  el.filterModal.hidden = false;
+}
+
+function closeFilterModal() {
+  el.filterBackdrop.hidden = true;
+  el.filterModal.hidden = true;
+}
+
+function applyFilter(mode, days) {
+  const safeDays = parseFilterInput(days);
+  const keepRef = getCurrentRef();
+  state.filterMode = mode;
+  state.filterDays = safeDays;
+  persistPrefs();
+  rebuildDisplayOrder({ keepRef, preserveShuffle: state.isShuffled });
+  restoreCardContext();
+  clearRecallSession();
+  renderAll();
+  closeFilterModal();
+  if (mode === 'all') {
+    showToast('已顯示所有卡片');
+  } else if (mode === 'unmastered') {
+    showToast('已篩選：只顯示還沒背熟');
+  } else {
+    showToast(`已篩選：還沒背熟與滿 ${safeDays} 天前背熟`);
+  }
+}
+
 async function handleInstallClick() {
   if (deferredInstallPrompt) {
     const promptEvent = deferredInstallPrompt;
@@ -973,6 +1189,10 @@ function bindEvents() {
   el.drawerBackdrop.addEventListener('click', closeDrawer);
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
+    if (!el.filterModal.hidden) {
+      closeFilterModal();
+      return;
+    }
     if (!el.iosInstallModal.hidden) {
       closeIosInstallModal();
       return;
@@ -980,15 +1200,42 @@ function bindEvents() {
     if (!el.drawer.hidden) closeDrawer();
   });
 
-  el.shuffleBtn.addEventListener('click', shuffleCurrentDeck);
-  el.unshuffleBtn.addEventListener('click', unshuffleCurrentDeck);
+  el.shuffleBtn.addEventListener('click', toggleShuffle);
   el.themeBtn.addEventListener('click', () => {
     const order = ['system', 'light', 'dark'];
     const next = order[(order.indexOf(state.theme) + 1) % order.length];
     applyTheme(next);
-    savePrefs({ activeDeckId: state.activeDeckId, theme: next });
+    persistPrefs();
     showToast(THEME_LABELS[next]);
   });
+
+  el.filterBtn.addEventListener('click', openFilterModal);
+  el.closeFilterBtn.addEventListener('click', closeFilterModal);
+  el.filterBackdrop.addEventListener('click', closeFilterModal);
+  el.filterOptionBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      syncFilterModalUI(btn.dataset.filterMode, state.filterDraft.days, { syncInput: true });
+    });
+  });
+  el.filterChips.forEach((chip) => {
+    chip.addEventListener('click', () => {
+      syncFilterModalUI('stale', Number(chip.dataset.filterDays), { syncInput: true });
+    });
+  });
+  el.filterDaysInput.addEventListener('input', () => {
+    syncFilterModalUI('stale', parseFilterInput(el.filterDaysInput.value), { syncInput: false });
+  });
+  el.filterDaysInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      applyFilter('stale', parseFilterInput(el.filterDaysInput.value));
+    }
+  });
+  el.applyFilterBtn.addEventListener('click', () => {
+    applyFilter(state.filterDraft.mode, state.filterDraft.days);
+  });
+  el.openFilterFromEmptyBtn.addEventListener('click', openFilterModal);
+  el.clearFilterBtn.addEventListener('click', () => applyFilter('all', state.filterDays));
 
   el.tabCards.addEventListener('click', () => setDrawerTab('cards'));
   el.tabDecks.addEventListener('click', () => setDrawerTab('decks'));
@@ -1055,6 +1302,10 @@ function bindEvents() {
 
 async function init() {
   const prefs = loadPrefs();
+  state.filterMode = prefs.filterMode;
+  state.filterDays = prefs.filterDays;
+  state.filterDraft.mode = prefs.filterMode;
+  state.filterDraft.days = prefs.filterDays;
   applyTheme(prefs.theme);
   updateInstallBtnVisibility();
   bindEvents();

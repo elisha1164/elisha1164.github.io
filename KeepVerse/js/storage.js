@@ -1,4 +1,4 @@
-/* v1.3.4 - 本機 localStorage 持久化：自建卡組、背熟狀態（還沒背熟／今天剛背熟／N 天前背熟）、最後卡片與各卡難度記憶 */
+/* v1.4.1 - 本機 localStorage 持久化：自建卡組、背熟天數計算與三模式篩選偏好 */
 
 const KEYS = {
   customDecks: 'keepverse_custom_decks_v1',
@@ -80,36 +80,55 @@ export function getMastery(canonicalRef) {
 }
 
 /**
+ * 計算指定經文距離本機今天零點的天數（未背熟或無效日期回傳 null）。
+ * @param {string | null} isoStr
+ * @returns {number | null}
+ */
+export function getMasteryDaysAgo(isoStr) {
+  if (!isoStr) return null;
+  const date = new Date(isoStr);
+  if (Number.isNaN(date.getTime())) return null;
+
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const targetStart = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  return Math.max(0, Math.round((todayStart - targetStart) / 86400000));
+}
+
+/**
  * 將 ISO 時間字串格式化為易於判斷是否需複習的相對時間文字。
  * @param {string | null} isoStr
  * @returns {string}
  */
 export function formatRelativeMastery(isoStr) {
-  if (!isoStr) return '還沒背熟';
-  const date = new Date(isoStr);
-  if (Number.isNaN(date.getTime())) return '還沒背熟';
-
-  const now = new Date();
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const targetStart = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
-  const days = Math.max(0, Math.round((todayStart - targetStart) / 86400000));
+  const days = getMasteryDaysAgo(isoStr);
+  if (days === null) return '還沒背熟';
   return days === 0 ? '今天剛背熟' : `${days} 天前背熟`;
 }
 
 /**
- * 讀取介面偏好設定（目前選擇的 Deck 與主題）。
- * @returns {{ activeDeckId: string | null, theme: 'system' | 'light' | 'dark' }}
+ * 讀取介面偏好設定（目前選擇的卡組、主題與卡片篩選模式／天數）。
+ * @returns {{ activeDeckId: string | null, theme: 'system' | 'light' | 'dark', filterMode: 'all' | 'unmastered' | 'stale', filterDays: number }}
  */
 export function loadPrefs() {
   const prefs = readJson(KEYS.prefs, {});
   const theme = prefs?.theme === 'light' || prefs?.theme === 'dark' ? prefs.theme : 'system';
   const activeDeckId = typeof prefs?.activeDeckId === 'string' ? prefs.activeDeckId : null;
-  return { activeDeckId, theme };
+  const rawFilter = Number(prefs?.filterDays);
+  const hasValidDays = Number.isInteger(rawFilter) && rawFilter >= 1;
+  const filterDays = hasValidDays ? Math.min(rawFilter, 999) : 3;
+  const filterMode =
+    prefs?.filterMode === 'all' ||
+    prefs?.filterMode === 'unmastered' ||
+    prefs?.filterMode === 'stale'
+      ? prefs.filterMode
+      : (hasValidDays ? 'stale' : 'all');
+  return { activeDeckId, theme, filterMode, filterDays };
 }
 
 /**
  * 儲存介面偏好設定。
- * @param {{ activeDeckId: string | null, theme: 'system' | 'light' | 'dark' }} prefs
+ * @param {{ activeDeckId: string | null, theme: 'system' | 'light' | 'dark', filterMode?: 'all' | 'unmastered' | 'stale', filterDays?: number }} prefs
  */
 export function savePrefs(prefs) {
   writeJson(KEYS.prefs, prefs);
