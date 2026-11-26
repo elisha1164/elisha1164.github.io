@@ -1,4 +1,4 @@
-/* v1.3.4 - KeepVerse 主應用控制器：統一背熟狀態整句顯示 */
+/* v1.3.5 - KeepVerse 主應用控制器：修正 Android 外部 App 跳轉誤判為已安裝 PWA */
 
 import {
   formatRef,
@@ -876,8 +876,7 @@ function handleConfirmImport() {
 function isStandaloneMode() {
   return (
     window.matchMedia('(display-mode: standalone)').matches ||
-    window.navigator.standalone === true ||
-    document.referrer.startsWith('android-app://')
+    window.navigator.standalone === true
   );
 }
 
